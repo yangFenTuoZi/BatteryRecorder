@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/navigation_start_server"
+        android:title="@string/start_server"/>
+
+    <item
+        android:id="@+id/navigation_stop_server"
+        android:title="@string/stop_server"/>
+
+    <item
+        android:id="@+id/navigation_settings"
+        android:title="@string/settings"/>
+
+</menu>
