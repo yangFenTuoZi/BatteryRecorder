@@ -113,14 +113,17 @@ public class Server extends IService.Stub {
         startMonitoring();
 
         new Thread(() -> {
-            Scanner scanner = new Scanner(System.in);
-            String line;
-            while ((line = scanner.nextLine()) != null) {
-                if (line.trim().equals("exit")) {
-                    stopService();
+            try {
+                Scanner scanner = new Scanner(System.in);
+                String line;
+                while ((line = scanner.nextLine()) != null) {
+                    if (line.trim().equals("exit")) {
+                        stopService();
+                    }
                 }
+                scanner.close();
+            } catch (Throwable ignored) {
             }
-            scanner.close();
         }, "InputHandler").start();
     }
 
@@ -203,7 +206,7 @@ public class Server extends IService.Stub {
 
     @Override
     public void stopService() {
-        mMainHandler.postDelayed(this::stopServiceImmediately, 100);
+        mMainHandler.postDelayed(() -> System.exit(0), 100);
     }
 
     @Override
@@ -234,8 +237,6 @@ public class Server extends IService.Stub {
         } catch (RemoteException e) {
             Log.e(TAG, "Failed to unregister task stack listener", e);
         }
-
-        System.exit(0);
     }
 
     private void sendBinder() {
