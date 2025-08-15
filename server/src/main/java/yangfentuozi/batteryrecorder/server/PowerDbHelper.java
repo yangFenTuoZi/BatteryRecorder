@@ -19,6 +19,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.List;
 
 public class PowerDbHelper {
     public static final File POWER_FILE = new File(APP_DATA + "/power.txt");
@@ -54,9 +55,10 @@ public class PowerDbHelper {
         outputStream = new FileOutputStream(POWER_FILE, true);
     }
 
-    public void insertRecord(PowerRecord record) throws IOException {
-        outputStream.write(record.toString().getBytes());
-        outputStream.write("\n".getBytes());
+    public void insertRecords(List<PowerRecord> records) throws IOException {
+        for (PowerRecord record : records) {
+            outputStream.write((record.toString() + "\n").getBytes());
+        }
         outputStream.flush();
     }
 

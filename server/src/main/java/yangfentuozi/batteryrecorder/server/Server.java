@@ -21,6 +21,8 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 import java.util.Scanner;
 
@@ -45,9 +47,12 @@ public class Server extends IService.Stub {
     private HandlerThread mMonitorThread;
     private Handler mMonitorHandler;
     private long mIntervalMillis = 900;
+    private int mBatchSize = 20;
 
     private PowerDbHelper dbHelper;
     private String currForegroundApp = null;
+
+    private final List<PowerDbHelper.PowerRecord> mBatchRecords = new ArrayList<>(1000);
 
     Server() {
         if (Looper.getMainLooper() == null) {
@@ -109,7 +114,11 @@ public class Server extends IService.Stub {
             public void run() {
                 try {
                     long timestamp = System.currentTimeMillis();
-                    dbHelper.insertRecord(new PowerDbHelper.PowerRecord(timestamp, PowerUtil.getCurrent(), PowerUtil.getVoltage(), currForegroundApp, PowerUtil.getCapacity()));
+                    mBatchRecords.add(new PowerDbHelper.PowerRecord(timestamp, PowerUtil.getCurrent(), PowerUtil.getVoltage(), currForegroundApp, PowerUtil.getCapacity()));
+                    if (mBatchRecords.size() >= mBatchSize) {
+                        dbHelper.insertRecords(mBatchRecords);
+                        mBatchRecords.clear();
+                    }
                 } catch (IOException e) {
                     Log.e(TAG, "Error reading power data", e);
                 } finally {
@@ -143,6 +152,10 @@ public class Server extends IService.Stub {
         }
 
         mIntervalMillis = parseInt(prop.getProperty("interval"), 900);
+        if (mIntervalMillis < 0) mIntervalMillis = 0;
+        mBatchSize = parseInt(prop.getProperty("batchSize"), 20);
+        if (mBatchSize < 0) mBatchSize = 0;
+        else if (mBatchSize > 1000) mBatchSize = 1000;
     }
 
     public static boolean parseBool(String value, boolean defaultValue) {
@@ -180,10 +193,33 @@ public class Server extends IService.Stub {
         mMainHandler.postDelayed(this::stopServiceImmediately, 100);
     }
 
+    @Override
+    public void writeToDatabaseImmediately() throws RemoteException {
+        if (mBatchRecords.isEmpty()) {
+            Log.w(TAG, "No records to write to database");
+            return;
+        }
+        try {
+            dbHelper.insertRecords(mBatchRecords);
+            mBatchRecords.clear();
+        } catch (IOException e) {
+            throw new RemoteException(Log.getStackTraceString(e));
+        }
+    }
+
     private void stopServiceImmediately() {
         if (mMonitorThread != null) {
             mMonitorThread.quitSafely();
             mMonitorThread.interrupt();
+        }
+
+        if (!mBatchRecords.isEmpty()) {
+            try {
+                dbHelper.insertRecords(mBatchRecords);
+                mBatchRecords.clear();
+            } catch (IOException e) {
+                Log.e(TAG, Log.getStackTraceString(e));
+            }
         }
 
         dbHelper.close();
@@ -197,20 +233,13 @@ public class Server extends IService.Stub {
         System.exit(0);
     }
 
-    @SuppressLint("SoonBlockedPrivateApi")
     private void sendBinder() {
+        Bundle data = new Bundle();
+        data.putBinder("binder", this);
 
-        try {
-            Bundle data = new Bundle();
-            data.putBinder("binder", this);
+        Intent intent = new Intent(SEND_BINDER_ACTION);
+        intent.putExtra("data", data);
 
-            Intent intent = new Intent(SEND_BINDER_ACTION);
-            intent.putExtra("data", data);
-
-            mContext.sendBroadcast(intent);
-
-        } catch (Throwable e) {
-            e.printStackTrace();
-        }
+        mContext.sendBroadcast(intent);
     }
 }
