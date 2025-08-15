@@ -9,20 +9,24 @@ import android.app.TaskStackListener;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.IPackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.RemoteException;
 import android.os.ServiceManager;
+import android.system.ErrnoException;
+import android.system.Os;
 import android.util.Log;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Properties;
 import java.util.Scanner;
 
@@ -47,12 +51,9 @@ public class Server extends IService.Stub {
     private HandlerThread mMonitorThread;
     private Handler mMonitorHandler;
     private long mIntervalMillis = 900;
-    private int mBatchSize = 20;
 
-    private PowerDbHelper dbHelper;
+    private PowerDataStorage storage;
     private String currForegroundApp = null;
-
-    private final List<PowerDbHelper.PowerRecord> mBatchRecords = new ArrayList<>(1000);
 
     Server() {
         if (Looper.getMainLooper() == null) {
@@ -70,10 +71,25 @@ public class Server extends IService.Stub {
 
     private void startService() {
         try {
+            IPackageManager iPackageManager = IPackageManager.Stub.asInterface(ServiceManager.getService("package"));
+            ApplicationInfo appInfo;
+            if (Build.VERSION.SDK_INT >= 33) {
+                appInfo = iPackageManager.getApplicationInfo(APP_PACKAGE, 0L, Os.getuid());
+            } else {
+                appInfo = iPackageManager.getApplicationInfo(APP_PACKAGE, 0, Os.getuid());
+            }
+            if (appInfo == null) {
+                throw new RuntimeException("Failed to get application info for package: " + APP_PACKAGE);
+            }
+            app_uid = appInfo.uid;
+        } catch (RemoteException e) {
+            throw new RuntimeException("Failed to get application info for package: " + APP_PACKAGE, e);
+        }
+
+        try {
             iActivityTaskManager.registerTaskStackListener(taskStackListener);
         } catch (RemoteException e) {
-            Log.e(TAG, "Failed to register task stack listener", e);
-            throw new RuntimeException(e);
+            throw new RuntimeException("Failed to register task stack listener", e);
         }
 
         try {
@@ -84,7 +100,7 @@ public class Server extends IService.Stub {
         }
 
         try {
-            dbHelper = new PowerDbHelper();
+            storage = new PowerDataStorage();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -114,11 +130,7 @@ public class Server extends IService.Stub {
             public void run() {
                 try {
                     long timestamp = System.currentTimeMillis();
-                    mBatchRecords.add(new PowerDbHelper.PowerRecord(timestamp, PowerUtil.getCurrent(), PowerUtil.getVoltage(), currForegroundApp, PowerUtil.getCapacity()));
-                    if (mBatchRecords.size() >= mBatchSize) {
-                        dbHelper.insertRecords(mBatchRecords);
-                        mBatchRecords.clear();
-                    }
+                    storage.insertRecord(new PowerDataStorage.PowerRecord(timestamp, PowerUtil.getCurrent(), PowerUtil.getVoltage(), currForegroundApp, PowerUtil.getCapacity()));
                 } catch (IOException e) {
                     Log.e(TAG, "Error reading power data", e);
                 } finally {
@@ -153,9 +165,10 @@ public class Server extends IService.Stub {
 
         mIntervalMillis = parseInt(prop.getProperty("interval"), 900);
         if (mIntervalMillis < 0) mIntervalMillis = 0;
-        mBatchSize = parseInt(prop.getProperty("batchSize"), 20);
-        if (mBatchSize < 0) mBatchSize = 0;
-        else if (mBatchSize > 1000) mBatchSize = 1000;
+        int batchSize = parseInt(prop.getProperty("batchSize"), 20);
+        if (batchSize < 0) batchSize = 0;
+        else if (batchSize > 1000) batchSize = 1000;
+        storage.setBatchSize(batchSize);
     }
 
     public static boolean parseBool(String value, boolean defaultValue) {
@@ -195,13 +208,8 @@ public class Server extends IService.Stub {
 
     @Override
     public void writeToDatabaseImmediately() throws RemoteException {
-        if (mBatchRecords.isEmpty()) {
-            Log.w(TAG, "No records to write to database");
-            return;
-        }
         try {
-            dbHelper.insertRecords(mBatchRecords);
-            mBatchRecords.clear();
+            storage.flushBuffer();
         } catch (IOException e) {
             throw new RemoteException(Log.getStackTraceString(e));
         }
@@ -213,16 +221,13 @@ public class Server extends IService.Stub {
             mMonitorThread.interrupt();
         }
 
-        if (!mBatchRecords.isEmpty()) {
-            try {
-                dbHelper.insertRecords(mBatchRecords);
-                mBatchRecords.clear();
-            } catch (IOException e) {
-                Log.e(TAG, Log.getStackTraceString(e));
-            }
+        try {
+            storage.flushBuffer();
+        } catch (IOException e) {
+            Log.e(TAG, Log.getStackTraceString(e));
         }
 
-        dbHelper.close();
+        storage.close();
 
         try {
             iActivityTaskManager.unregisterTaskStackListener(taskStackListener);
@@ -241,5 +246,27 @@ public class Server extends IService.Stub {
         intent.putExtra("data", data);
 
         mContext.sendBroadcast(intent);
+    }
+
+    public static int app_uid;
+
+    public static void chown(File file) {
+        try {
+            Os.chown(file.getAbsolutePath(), app_uid, app_uid);
+        } catch (ErrnoException e) {
+            throw new RuntimeException("Failed to set file owner or group", e);
+        }
+    }
+
+    public static void chownR(File file) {
+        chown(file);
+        if (file.isDirectory()) {
+            File[] files = file.listFiles();
+            if (files != null) {
+                for (File child : files) {
+                    chownR(child);
+                }
+            }
+        }
     }
 }
