@@ -1,11 +1,11 @@
-package yangfentuozi.batteryrecorder.ui.home.viewholder
+package yangfentuozi.batteryrecorder.ui.main.viewholder
 
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import rikka.recyclerview.BaseViewHolder
 
-class SettingsViewHolder(itemView: View) : BaseViewHolder<Any?>(itemView) {
+class StopServerViewHolder(itemView: View) : BaseViewHolder<Any?>(itemView) {
 
     companion object {
         val CREATOR: Creator<Any?> =
