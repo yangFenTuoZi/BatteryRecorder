@@ -36,7 +36,7 @@ public class Server extends IService.Stub {
     @SuppressLint("SdCardPath")
     public static final String APP_DATA = "/data/user/0/" + APP_PACKAGE;
     public static final String CONFIG = APP_DATA + "/config.prop";
-    private static final String SEND_BINDER_ACTION = "yangfentuozi.batteryrecorder.intent.action.SEND_BINDER";
+    private static final String ACTION_BINDER = "yangfentuozi.batteryrecorder.intent.action.BINDER";
 
     private final Context mContext;
     private final IActivityTaskManager iActivityTaskManager;
@@ -243,7 +243,7 @@ public class Server extends IService.Stub {
         Bundle data = new Bundle();
         data.putBinder("binder", this);
 
-        Intent intent = new Intent(SEND_BINDER_ACTION);
+        Intent intent = new Intent(ACTION_BINDER);
         intent.putExtra("data", data);
 
         mContext.sendBroadcast(intent);
