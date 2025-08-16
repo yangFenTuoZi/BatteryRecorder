@@ -1,20 +1,19 @@
-package yangfentuozi.batteryrecorder.ui
+package yangfentuozi.batteryrecorder.ui.home
 
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
-import android.view.Menu
-import android.view.MenuItem
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.color.DynamicColors
-import yangfentuozi.batteryrecorder.R
 import yangfentuozi.batteryrecorder.databinding.ActivityMainBinding
+import yangfentuozi.batteryrecorder.ui.home.adapter.HomeAdapter
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+    private lateinit var adapter: HomeAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -29,14 +28,10 @@ class MainActivity : AppCompatActivity() {
             statusBarStyle = SystemBarStyle.Companion.auto(Color.TRANSPARENT, Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.Companion.auto(Color.TRANSPARENT, Color.TRANSPARENT)
         )
-    }
 
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.menu_main, menu)
-        return true
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return super.onOptionsItemSelected(item)
+        adapter = HomeAdapter()
+        binding.recyclerView.apply {
+            adapter = this@MainActivity.adapter
+        }
     }
 }
