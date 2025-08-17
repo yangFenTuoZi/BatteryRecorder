@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory
+        android:title="校准">
+
+        <yangfentuozi.batteryrecorder.ui.preference.MaterialSwitchPreference
+            android:key="dual_cell"
+            android:title="双电芯"
+            android:summary="双电芯设备需开启此选项以显示正确的功耗信息"
+            android:defaultValue="false"/>
+
+        <yangfentuozi.batteryrecorder.ui.preference.CurrentUnitCalibrationPreference
+            android:key="current_unit_calibration"
+            android:title="电流单位校准"
+            android:summary="充电速度除以"
+            android:defaultValue="-1"/>
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="服务">
+
+        <androidx.preference.SeekBarPreferenceX
+            android:key="interval"
+            android:title="轮询间隔"
+            android:summary="轮询查询功耗的间隔，越短越精准但费电"
+            android:defaultValue="9"
+            android:max="100"
+            app:seekBarIncrement="1"
+            app:showSeekBarValue="true" />
+    </PreferenceCategory>
+</PreferenceScreen>

@@ -1,44 +1,32 @@
 package yangfentuozi.batteryrecorder.ui.main
 
 import android.content.Intent
-import android.graphics.Color
-import android.os.Build
 import android.os.Bundle
 import android.text.method.LinkMovementMethod
 import android.view.Menu
 import android.view.MenuItem
-import androidx.activity.SystemBarStyle
-import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.text.HtmlCompat
-import com.google.android.material.color.DynamicColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import yangfentuozi.batteryrecorder.BuildConfig
 import yangfentuozi.batteryrecorder.R
 import yangfentuozi.batteryrecorder.databinding.ActivityMainBinding
 import yangfentuozi.batteryrecorder.databinding.DialogAboutBinding
+import yangfentuozi.batteryrecorder.ui.BaseActivity
 import yangfentuozi.batteryrecorder.ui.main.adapter.HomeAdapter
 import yangfentuozi.batteryrecorder.ui.settings.SettingsActivity
 import java.util.Locale
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : BaseActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var adapter: HomeAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-            && DynamicColors.isDynamicColorAvailable())
-            DynamicColors.applyToActivityIfAvailable(this)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.Companion.auto(Color.TRANSPARENT, Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.Companion.auto(Color.TRANSPARENT, Color.TRANSPARENT)
-        )
 
 //        adapter = HomeAdapter()
 //        binding.recyclerView.apply {

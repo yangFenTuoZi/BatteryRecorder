@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="ThemeOverlay.Rikka.Material3.Preference" parent="">
+        <item name="android:textAppearanceListItem">
+            @style/TextAppearance.Rikka.PreferenceTitle.Material3
+        </item>
+        <item name="android:listPreferredItemPaddingStart">24dp</item>
+        <item name="android:listPreferredItemPaddingLeft">24dp</item>
+        <item name="android:listPreferredItemPaddingEnd">16dp</item>
+        <item name="android:listPreferredItemPaddingRight">16dp</item>
+        <item name="preferenceTheme">@style/PreferenceThemeOverlay.Rikka.Material3</item>
+        <item name="android:progressBarStyleHorizontal">
+            @style/Widget.Rikka.Preference.HorizontalProgressBar.Material3
+        </item>
+        <item name="colorBackgroundFloating">?colorSurface</item>
+    </style>
+
+    <style name="PreferenceThemeOverlay.Rikka.Material3" parent="@style/PreferenceThemeOverlay">
+        <item name="preferenceCategoryTitleTextAppearance">
+            @style/TextAppearance.Rikka.CategoryTitle.Material3
+        </item>
+        <item name="preferenceCategoryTitleTextColor">?colorPrimary</item>
+        <item name="preferenceCategoryStyle">@style/Preference.Category.Material</item>
+        <item name="preferenceStyle">@style/Preference.Material</item>
+        <item name="checkBoxPreferenceStyle">@style/Preference.CheckBoxPreference.Material
+        </item>
+        <item name="dialogPreferenceStyle">@style/Preference.Material</item>
+        <item name="editTextPreferenceStyle">@style/Preference.DialogPreference.EditTextPreference.Material
+        </item>
+        <item name="dropdownPreferenceStyle">@style/Preference.DropDown.Material
+        </item>
+        <item name="switchPreferenceStyle">@style/Preference.SwitchPreference.Material</item>
+        <item name="seekBarPreferenceStyle">@style/Preference.SeekBarPreference.Material
+        </item>
+    </style>
+
+    <style name="TextAppearance.Rikka.PreferenceTitle.Material3"
+        parent="@style/TextAppearance.AppCompat.Subhead">
+        <item name="android:textSize">16sp</item>
+    </style>
+
+    <style name="TextAppearance.Rikka.CategoryTitle.Material3"
+        parent="@style/TextAppearance.AppCompat.Medium">
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <style name="Widget.Rikka.Preference.HorizontalProgressBar.Material3"
+        parent="@style/Widget.AppCompat.ProgressBar.Horizontal">
+        <item name="android:scaleY">0.5</item>
+    </style>
+</resources>
