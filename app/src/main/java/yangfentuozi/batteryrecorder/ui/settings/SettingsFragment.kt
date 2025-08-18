@@ -73,11 +73,11 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
         findPreference<Preference>("interval")?.setOnPreferenceClickListener { preference ->
             val binding = DialogIntervalBinding.inflate(layoutInflater, null, false)
-            binding.slider.value = (preference.sharedPreferences?.getInt(preference.key, 900) ?: 900) / 100f
+            binding.slider.value = (preference.sharedPreferences?.getInt(preference.key, 900) ?: 900) / 1000f
 
             fun saveData() {
                 preference.sharedPreferences?.edit {
-                    putInt(preference.key, (binding.slider.value * 100).toInt())
+                    putInt(preference.key, (binding.slider.value * 1000).toInt())
                 }
                 Service.service?.refreshConfig()
             }
