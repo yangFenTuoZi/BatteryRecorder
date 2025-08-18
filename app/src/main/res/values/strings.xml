@@ -5,4 +5,16 @@
     <string name="settings">设置</string>
     <string name="about">关于</string>
     <string name="about_view_source_code"><![CDATA[在 %s 查看源码]]></string>
+    <string name="preference_dual_cell">双电芯</string>
+    <string name="preference_dual_cell_summary">双电芯设备需开启此选项以显示正确的功耗信息</string>
+    <string name="preference_current_unit_calibration">电流单位校准</string>
+    <string name="preference_current_unit_calibration_summary">同 Scene</string>
+    <string name="preference_interval">轮询间隔</string>
+    <string name="preference_interval_summary">轮询查询功耗的间隔，越短越精准但也越耗电</string>
+    <string name="preference_batch_size">缓存条数</string>
+    <string name="preference_batch_size_summary">储存够多条数据后才会写入数据库，过小会导致频繁耗电，过大则会占用更多运行内存</string>
+    <string name="preference_calibration">校准</string>
+    <string name="preference_server">服务</string>
+    <string name="preference_current_unit_calibration_dialog_message">当前充电速度，除以：</string>
+    <string name="reset">重置</string>
 </resources>

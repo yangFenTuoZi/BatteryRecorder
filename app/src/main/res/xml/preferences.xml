@@ -1,33 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
-<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <PreferenceCategory
-        android:title="校准">
+    <PreferenceCategory android:title="@string/preference_calibration">
 
         <yangfentuozi.batteryrecorder.ui.preference.MaterialSwitchPreference
+            android:defaultValue="false"
             android:key="dual_cell"
-            android:title="双电芯"
-            android:summary="双电芯设备需开启此选项以显示正确的功耗信息"
-            android:defaultValue="false"/>
+            android:summary="@string/preference_dual_cell_summary"
+            android:title="@string/preference_dual_cell" />
 
-        <yangfentuozi.batteryrecorder.ui.preference.CurrentUnitCalibrationPreference
+        <Preference
             android:key="current_unit_calibration"
-            android:title="电流单位校准"
-            android:summary="充电速度除以"
-            android:defaultValue="-1"/>
+            android:summary="@string/preference_current_unit_calibration_summary"
+            android:title="@string/preference_current_unit_calibration" />
     </PreferenceCategory>
 
-    <PreferenceCategory
-        android:title="服务">
+    <PreferenceCategory android:title="@string/preference_server">
 
-        <androidx.preference.SeekBarPreferenceX
+        <Preference
             android:key="interval"
-            android:title="轮询间隔"
-            android:summary="轮询查询功耗的间隔，越短越精准但费电"
-            android:defaultValue="9"
-            android:max="100"
-            app:seekBarIncrement="1"
-            app:showSeekBarValue="true" />
+            android:summary="@string/preference_interval_summary"
+            android:title="@string/preference_interval" />
+
+        <Preference
+            android:key="batch_size"
+            android:summary="@string/preference_batch_size_summary"
+            android:title="@string/preference_batch_size" />
     </PreferenceCategory>
 </PreferenceScreen>
