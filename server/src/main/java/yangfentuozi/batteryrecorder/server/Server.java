@@ -2,13 +2,15 @@ package yangfentuozi.batteryrecorder.server;
 
 import android.annotation.SuppressLint;
 import android.app.ActivityManager;
+import android.app.ContentProviderHolder;
+import android.app.IActivityManager;
 import android.app.IActivityTaskManager;
 import android.app.ITaskStackListener;
 import android.app.TaskInfo;
 import android.app.TaskStackListener;
+import android.content.AttributionSource;
 import android.content.ComponentName;
-import android.content.Context;
-import android.content.Intent;
+import android.content.IContentProvider;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.IPackageManager;
 import android.os.Build;
@@ -38,10 +40,9 @@ public class Server extends IService.Stub {
     @SuppressLint("SdCardPath")
     public static final String APP_DATA = "/data/user/0/" + APP_PACKAGE;
     public static final String CONFIG = APP_DATA + "/shared_prefs/" + APP_PACKAGE + "_preferences.xml";
-    private static final String ACTION_BINDER = "yangfentuozi.batteryrecorder.intent.action.BINDER";
 
-    private final Context mContext;
     private final IActivityTaskManager iActivityTaskManager;
+    private final IActivityManager iActivityManager;
     private final Handler mMainHandler;
     private final ITaskStackListener taskStackListener = new TaskStackListener() {
         @Override
@@ -63,9 +64,9 @@ public class Server extends IService.Stub {
         }
 
         Runtime.getRuntime().addShutdownHook(new Thread(this::stopServiceImmediately));
-        mContext = FakeContext.get();
         mMainHandler = new Handler(Looper.getMainLooper());
         iActivityTaskManager = IActivityTaskManager.Stub.asInterface(ServiceManager.getService("activity_task"));
+        iActivityManager = IActivityManager.Stub.asInterface(ServiceManager.getService("activity"));
 
         startService();
         Looper.loop();
@@ -267,13 +268,37 @@ public class Server extends IService.Stub {
     }
 
     private void sendBinder() {
-        Bundle data = new Bundle();
-        data.putBinder("binder", this);
+        IContentProvider provider = null;
+        String name = "yangfentuozi.batteryrecorder.binderProvider";
+        try {
+            ContentProviderHolder contentProviderHolder=
+                    iActivityManager.getContentProviderExternal(name, 0, null, name);
+            provider = contentProviderHolder != null ? contentProviderHolder.provider : null;
 
-        Intent intent = new Intent(ACTION_BINDER);
-        intent.putExtra("data", data);
+            if (provider == null) {
+                Log.e(TAG, "Provider is null");
+                return;
+            }
+            if (!provider.asBinder().pingBinder()) {
+                Log.e(TAG, "Provider is dead");
+            }
 
-        mContext.sendBroadcast(intent);
+            Bundle extras = new Bundle();
+            extras.putBinder("binder", this);
+
+            provider.call((new AttributionSource.Builder(Os.getuid())).setPackageName(null).build(), name, "setBinder", null, extras);
+            Log.i(TAG, "Send binder");
+        } catch (RemoteException e) {
+            Log.e(TAG, "Failed send binder", e);
+        } finally {
+            if (provider != null) {
+                try {
+                    iActivityManager.removeContentProviderExternal(name, null);
+                } catch (Throwable tr) {
+                    Log.w(TAG, "RemoveContentProviderExternal", tr);
+                }
+            }
+        }
     }
 
     public static int app_uid;

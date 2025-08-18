@@ -20,13 +20,11 @@
             android:name=".ui.settings.SettingsActivity"
             android:label="@string/settings"
             android:exported="true"/>
-        <receiver
-            android:name=".receiver.BinderReceiver"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="yangfentuozi.batteryrecorder.intent.action.BINDER" />
-            </intent-filter>
-        </receiver>
+        <provider
+            android:name=".provider.BinderProvider"
+            android:authorities="yangfentuozi.batteryrecorder.binderProvider"
+            android:exported="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL"/>
     </application>
 
 </manifest>
