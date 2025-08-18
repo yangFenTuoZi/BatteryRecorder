@@ -11,6 +11,7 @@ import androidx.preference.PreferenceScreen
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import yangfentuozi.batteryrecorder.R
+import yangfentuozi.batteryrecorder.Service
 import yangfentuozi.batteryrecorder.databinding.DialogBatchSizeBinding
 import yangfentuozi.batteryrecorder.databinding.DialogCurrentUnitCalibrationBinding
 import yangfentuozi.batteryrecorder.databinding.DialogIntervalBinding
@@ -78,6 +79,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 preference.sharedPreferences?.edit {
                     putInt(preference.key, (binding.slider.value * 100).toInt())
                 }
+                Service.service?.refreshConfig()
             }
 
             MaterialAlertDialogBuilder(requireContext())
@@ -103,6 +105,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 preference.sharedPreferences?.edit {
                     putInt(preference.key, binding.editText.text.toString().toInt())
                 }
+                Service.service?.refreshConfig()
             }
 
             MaterialAlertDialogBuilder(requireContext())

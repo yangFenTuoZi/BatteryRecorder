@@ -21,13 +21,15 @@ import android.os.ServiceManager;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.util.Log;
+import android.util.Xml;
+
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.Properties;
 import java.util.Scanner;
 
 public class Server extends IService.Stub {
@@ -35,7 +37,7 @@ public class Server extends IService.Stub {
     public static final String APP_PACKAGE = "yangfentuozi.batteryrecorder";
     @SuppressLint("SdCardPath")
     public static final String APP_DATA = "/data/user/0/" + APP_PACKAGE;
-    public static final String CONFIG = APP_DATA + "/config.prop";
+    public static final String CONFIG = APP_DATA + "/shared_prefs/" + APP_PACKAGE + "_preferences.xml";
     private static final String ACTION_BINDER = "yangfentuozi.batteryrecorder.intent.action.BINDER";
 
     private final Context mContext;
@@ -155,23 +157,48 @@ public class Server extends IService.Stub {
 
     @Override
     public void refreshConfig() {
-        Properties prop = new Properties();
-        try (InputStream in = new FileInputStream(CONFIG)) {
-            prop.load(in);
-        } catch (FileNotFoundException e) {
-            Log.e(TAG, "Config file not found", e);
-            return;
-        } catch (IOException e) {
-            Log.e(TAG, "Cannot load config", e);
+        var config = new File(CONFIG);
+        if (!config.exists()) {
+            Log.e(TAG, "Config file not found");
             return;
         }
 
-        mIntervalMillis = parseInt(prop.getProperty("interval"), 900);
-        if (mIntervalMillis < 0) mIntervalMillis = 0;
-        int batchSize = parseInt(prop.getProperty("batchSize"), 20);
-        if (batchSize < 0) batchSize = 0;
-        else if (batchSize > 1000) batchSize = 1000;
-        storage.setBatchSize(batchSize);
+        try (FileInputStream fis = new FileInputStream(config)) {
+            XmlPullParser parser = Xml.newPullParser();
+            parser.setInput(fis, "UTF-8");
+
+            int eventType = parser.getEventType();
+            mIntervalMillis = 900;
+            int batchSize = 20;
+
+            while (eventType != XmlPullParser.END_DOCUMENT) {
+                if (eventType == XmlPullParser.START_TAG) {
+                    String tagName = parser.getName();
+                    if ("int".equals(tagName)) {
+                        String nameAttr = parser.getAttributeValue(null, "name");
+                        String valueAttr = parser.getAttributeValue(null, "value");
+
+                        if ("interval".equals(nameAttr)) {
+                            mIntervalMillis = parseInt(valueAttr, 900);
+                        } else if ("batch_size".equals(nameAttr)) {
+                            batchSize = parseInt(valueAttr, 20);
+                        }
+                    }
+                }
+                eventType = parser.next();
+            }
+
+            if (mIntervalMillis < 0) mIntervalMillis = 0;
+            if (batchSize < 0) batchSize = 0;
+            else if (batchSize > 1000) batchSize = 1000;
+            storage.setBatchSize(batchSize);
+        } catch (FileNotFoundException e) {
+            Log.e(TAG, "Config file not found", e);
+        } catch (IOException e) {
+            Log.e(TAG, "Error reading config file", e);
+        } catch (XmlPullParserException e) {
+            Log.e(TAG, "Error parsing config file", e);
+        }
     }
 
     public static boolean parseBool(String value, boolean defaultValue) {
