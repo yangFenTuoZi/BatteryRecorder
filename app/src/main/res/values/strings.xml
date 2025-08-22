@@ -17,4 +17,5 @@
     <string name="preference_server">服务</string>
     <string name="preference_current_unit_calibration_dialog_message">当前充电速度，除以：</string>
     <string name="reset">重置</string>
+    <string name="confirm_stop_server">确认停止服务?</string>
 </resources>

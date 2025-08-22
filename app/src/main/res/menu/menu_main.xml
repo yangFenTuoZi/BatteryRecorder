@@ -3,14 +3,17 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item
-        android:id="@+id/menu_about"
-        android:icon="@drawable/ic_info_24"
-        android:title="@string/about"
-        app:showAsAction="ifRoom" />
-    <item
         android:id="@+id/menu_settings"
         android:icon="@drawable/ic_settings_24"
         android:title="@string/settings"
         app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/menu_stop_server"
+        android:title="@string/stop_server" />
+
+    <item
+        android:id="@+id/menu_about"
+        android:title="@string/about" />
 
 </menu>

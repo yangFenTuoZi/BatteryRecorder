@@ -9,6 +9,7 @@ import androidx.core.text.HtmlCompat
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import yangfentuozi.batteryrecorder.BuildConfig
 import yangfentuozi.batteryrecorder.R
+import yangfentuozi.batteryrecorder.Service
 import yangfentuozi.batteryrecorder.databinding.ActivityMainBinding
 import yangfentuozi.batteryrecorder.databinding.DialogAboutBinding
 import yangfentuozi.batteryrecorder.ui.BaseActivity
@@ -28,10 +29,10 @@ class MainActivity : BaseActivity() {
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
 
-//        adapter = HomeAdapter()
-//        binding.recyclerView.apply {
-//            adapter = this@MainActivity.adapter
-//        }
+        adapter = HomeAdapter()
+        binding.recyclerView.apply {
+            adapter = this@MainActivity.adapter
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -41,6 +42,19 @@ class MainActivity : BaseActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
+            R.id.menu_stop_server -> {
+                if (!(Service.binder?.pingBinder() ?: false)) return true
+                MaterialAlertDialogBuilder(this)
+                    .setMessage(R.string.confirm_stop_server)
+                    .setPositiveButton(android.R.string.ok) { _, _ ->
+                        Thread {
+                            Service.service?.stopService()
+                        }.start()
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
+                true
+            }
             R.id.menu_about -> {
                 val binding = DialogAboutBinding.inflate(layoutInflater, null, false)
                 binding.designAboutTitle.setText(R.string.app_name)
