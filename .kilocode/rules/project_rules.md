@@ -83,7 +83,6 @@
 3.  **服务停止 (`MainActivity.kt` -> `Server.java`)**:
     *   用户在 `app` 点击停止按钮。
     *   `app` 通过 AIDL 调用 `server` 的 `stopService()` 方法，`server` 进程退出。
-    *   **注意**: `server` 的启动由外部脚本控制，`app` 无法启动它。
 
 ---
 
