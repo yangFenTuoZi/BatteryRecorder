@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "hidden.api"
+    namespace = "yangfentuozi.hiddenapi.compat"
     compileSdk = 36
 
     defaultConfig {
@@ -15,18 +15,15 @@ android {
             isMinifyEnabled = false
         }
     }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-    }
-
-    buildFeatures {
-        aidl = true
     }
 }
 
 dependencies {
 
     implementation(libs.androidx.annotation)
+
+    compileOnly(project(":hiddenapi:stub"))
 }

@@ -34,6 +34,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Scanner;
 
+import yangfentuozi.hiddenapi.compat.ServiceManagerCompat;
+
 public class Server extends IService.Stub {
     public static final String TAG = "BatteryRecorderServer";
     public static final String APP_PACKAGE = "yangfentuozi.batteryrecorder";
@@ -65,6 +67,8 @@ public class Server extends IService.Stub {
 
         Runtime.getRuntime().addShutdownHook(new Thread(this::stopServiceImmediately));
         mMainHandler = new Handler(Looper.getMainLooper());
+        ServiceManagerCompat.waitService("activity");
+        ServiceManagerCompat.waitService("activity_task");
         iActivityTaskManager = IActivityTaskManager.Stub.asInterface(ServiceManager.getService("activity_task"));
         iActivityManager = IActivityManager.Stub.asInterface(ServiceManager.getService("activity"));
 

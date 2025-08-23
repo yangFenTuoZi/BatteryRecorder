@@ -3,12 +3,11 @@ plugins {
 }
 
 android {
-    namespace = "yangfentuozi.batteryrecorder.server"
+    namespace = "hiddenapi.stub"
     compileSdk = 36
 
     defaultConfig {
         minSdk = 31
-        consumerProguardFiles("consumer-rules.pro")
     }
 
     buildTypes {
@@ -18,8 +17,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
 
     buildFeatures {
@@ -30,7 +29,4 @@ android {
 dependencies {
 
     implementation(libs.androidx.annotation)
-
-    implementation(project(":hiddenapi:compat"))
-    compileOnly(project(":hiddenapi:stub"))
 }

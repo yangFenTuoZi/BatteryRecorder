@@ -22,4 +22,5 @@ dependencyResolutionManagement {
 rootProject.name = "BatteryRecorder"
 include(":app")
 include(":server")
-include(":hiddenapi")
+include(":hiddenapi:stub")
+include(":hiddenapi:compat")
