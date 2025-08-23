@@ -238,7 +238,17 @@ public class Server extends IService.Stub {
 
     @Override
     public void stopService() {
-        mMainHandler.postDelayed(() -> System.exit(0), 100);
+        Log.i(TAG, "stopService called");
+        mMainHandler.post(() -> {
+            try {
+                stopServiceImmediately();
+                Log.i(TAG, "stopService cleanup complete, exiting");
+            } catch (Throwable t) {
+                Log.e(TAG, "Error during stopService cleanup", t);
+            } finally {
+                System.exit(0);
+            }
+        });
     }
 
     @Override
@@ -251,6 +261,7 @@ public class Server extends IService.Stub {
     }
 
     private void stopServiceImmediately() {
+        Log.i(TAG, "stopServiceImmediately begin");
         if (mMonitorThread != null) {
             mMonitorThread.quitSafely();
             mMonitorThread.interrupt();
@@ -269,6 +280,7 @@ public class Server extends IService.Stub {
         } catch (RemoteException e) {
             Log.e(TAG, "Failed to unregister task stack listener", e);
         }
+        Log.i(TAG, "stopServiceImmediately done");
     }
 
     private void sendBinder() {
