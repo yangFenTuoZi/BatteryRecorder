@@ -53,7 +53,7 @@ open class BaseViewHolder<T>(itemView: View) : RecyclerView.ViewHolder(itemView)
      * Called when bind.
      *
      */
-    fun onBind() {
+    open fun onBind() {
     }
 
     /**
@@ -74,9 +74,9 @@ open class BaseViewHolder<T>(itemView: View) : RecyclerView.ViewHolder(itemView)
     fun onRecycle() {
     }
 
-    fun onViewAttachedToWindow() {
+    open fun onViewAttachedToWindow() {
     }
 
-    fun onViewDetachedFromWindow() {
+    open fun onViewDetachedFromWindow() {
     }
 }
