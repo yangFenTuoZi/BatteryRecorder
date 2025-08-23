@@ -71,7 +71,7 @@ open class BaseViewHolder<T>(itemView: View) : RecyclerView.ViewHolder(itemView)
         mAdapter = null
     }
 
-    fun onRecycle() {
+    open fun onRecycle() {
     }
 
     open fun onViewAttachedToWindow() {

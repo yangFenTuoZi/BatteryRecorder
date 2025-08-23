@@ -6,19 +6,30 @@ import android.view.ViewGroup
 import android.widget.Toast
 import rikka.recyclerview.BaseViewHolder
 import yangfentuozi.batteryrecorder.R
+import yangfentuozi.batteryrecorder.Service
 import yangfentuozi.batteryrecorder.databinding.HomeItemContainerBinding
 import yangfentuozi.batteryrecorder.databinding.HomeStartServerBinding
 
 class StartServerViewHolder(private val binding: HomeStartServerBinding, root: View) :
-    BaseViewHolder<Any?>(root) {
+    BaseViewHolder<Any?>(root), Service.ServiceConnection {
 
     override fun onBind() {
         super.onBind()
         binding.title.setText(R.string.start_card_title_b)
         binding.desc.text = context.getString(R.string.start_card_desc_b)
-        binding.button.text = context.getString(R.string.start_server)
+        
+        // 注册服务连接监听器
+        Service.addListener(this)
+        
+        // 更新按钮状态
+        updateButtonState()
+        
         binding.button.setOnClickListener {
-            startWithRoot()
+            if (Service.service == null) {
+                startWithRoot()
+            } else {
+                stopServer()
+            }
         }
     }
 
@@ -37,6 +48,48 @@ class StartServerViewHolder(private val binding: HomeStartServerBinding, root: V
                 }
             }
         }.start()
+    }
+    
+    private fun stopServer() {
+        Thread {
+            try {
+                Service.service?.stopService()
+                itemView.post {
+                    Toast.makeText(context, "已停止服务", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                itemView.post {
+                    Toast.makeText(context, "停止服务失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }.start()
+    }
+    
+    private fun updateButtonState() {
+        if (Service.service != null) {
+            binding.button.text = context.getString(R.string.stop_server)
+            binding.button.isEnabled = true
+        } else {
+            binding.button.text = context.getString(R.string.start_server)
+            binding.button.isEnabled = true
+        }
+    }
+    
+    override fun onServiceConnected() {
+        itemView.post {
+            updateButtonState()
+        }
+    }
+    
+    override fun onServiceDisconnected() {
+        itemView.post {
+            updateButtonState()
+        }
+    }
+    
+    override fun onRecycle() {
+        super.onRecycle()
+        Service.removeListener(this)
     }
 
     companion object {

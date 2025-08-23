@@ -3,6 +3,8 @@
     <string name="app_name">BatteryRecorder</string>
     <string name="start_server">启动服务</string>
     <string name="stop_server">停止服务</string>
+    <string name="server_running">服务运行中</string>
+    <string name="server_stopped">服务已停止</string>
     <string name="settings">设置</string>
     <string name="about">关于</string>
     <string name="about_view_source_code"><![CDATA[在 %s 查看源码]]></string>
