@@ -1,0 +1,16 @@
+-- Merging decision tree log ---
+manifest
+ADDED from D:\Android Project\BatteryRecorder\hiddenapi\src\main\AndroidManifest.xml:2:1-4:12
+INJECTED from D:\Android Project\BatteryRecorder\hiddenapi\src\main\AndroidManifest.xml:2:1-4:12
+	package
+		INJECTED from D:\Android Project\BatteryRecorder\hiddenapi\src\main\AndroidManifest.xml
+	xmlns:android
+		ADDED from D:\Android Project\BatteryRecorder\hiddenapi\src\main\AndroidManifest.xml:2:11-69
+uses-sdk
+INJECTED from D:\Android Project\BatteryRecorder\hiddenapi\src\main\AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from D:\Android Project\BatteryRecorder\hiddenapi\src\main\AndroidManifest.xml
+INJECTED from D:\Android Project\BatteryRecorder\hiddenapi\src\main\AndroidManifest.xml
+	android:targetSdkVersion
+		INJECTED from D:\Android Project\BatteryRecorder\hiddenapi\src\main\AndroidManifest.xml
+	android:minSdkVersion
+		INJECTED from D:\Android Project\BatteryRecorder\hiddenapi\src\main\AndroidManifest.xml
