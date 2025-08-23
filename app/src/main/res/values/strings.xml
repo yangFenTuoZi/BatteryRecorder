@@ -3,7 +3,6 @@
     <string name="app_name">BatteryRecorder</string>
     <string name="start_server">启动服务</string>
     <string name="stop_server">停止服务</string>
-    <string name="root_start_cmd"><![CDATA[app_process "-Djava.class.path=$(pm path yangfentuozi.batteryrecorder | sed 's/^package://')" / yangfentuozi.batteryrecorder.server.ServerMain]]></string>
     <string name="settings">设置</string>
     <string name="about">关于</string>
     <string name="about_view_source_code"><![CDATA[在 %s 查看源码]]></string>
@@ -20,6 +19,6 @@
     <string name="preference_current_unit_calibration_dialog_message">当前充电速度，除以：</string>
     <string name="reset">重置</string>
     <string name="confirm_stop_server">确认停止服务?</string>
-    <string name="start_card_title_b">启动（针对已 root 设备）</string>
-    <string name="start_card_desc_b">另外，Shizuku 可以在开机时自动启动。如果没有，请检查您的系统或第三方工具是否限制了 Shizuku。你可以参考 https://dontkillmyapp.com/ 。</string>
+    <string name="start_card_title_b">启动</string>
+    <string name="start_card_desc_b">需 Root 权限</string>
 </resources>
