@@ -1,12 +1,13 @@
 package yangfentuozi.batteryrecorder.ui.main.adapter
 
-import rikka.recyclerview.IdBasedRecyclerViewAdapter
-import yangfentuozi.batteryrecorder.ui.main.viewholder.StartServerViewHolder
-import yangfentuozi.batteryrecorder.Service
+import android.annotation.SuppressLint
 import android.os.Handler
 import android.os.Looper
+import rikka.recyclerview.IdBasedRecyclerViewAdapter
+import yangfentuozi.batteryrecorder.Service
+import yangfentuozi.batteryrecorder.ui.main.viewholder.StartServerViewHolder
 
-class HomeAdapter(): IdBasedRecyclerViewAdapter() {
+class HomeAdapter() : IdBasedRecyclerViewAdapter() {
     companion object {
         const val ID_START_SERVER = 0x0000000000000001L
     }
@@ -17,14 +18,14 @@ class HomeAdapter(): IdBasedRecyclerViewAdapter() {
     // 提前声明并初始化 serviceListener，避免在 init 中引用未初始化变量
     private val serviceListener = object : Service.ServiceConnection {
         override fun onServiceConnected() {
-            // 服务连接成功：重新构建列表（不包含启动卡片）
+            // 服务连接成功
             mainHandler.post {
                 updateDataForServiceConnected()
             }
         }
 
         override fun onServiceDisconnected() {
-            // 服务断连：重新构建列表（包含启动卡片）
+            // 服务断连
             mainHandler.post {
                 updateDataForServiceDisconnected()
             }
@@ -38,23 +39,25 @@ class HomeAdapter(): IdBasedRecyclerViewAdapter() {
         Service.addListener(serviceListener)
     }
 
+    @SuppressLint("NotifyDataSetChanged")
     fun updateData() {
         clear()
-        addItem(StartServerViewHolder.CREATOR, null, ID_START_SERVER)
+        if (Service.service == null)
+            addItem(StartServerViewHolder.CREATOR, null, ID_START_SERVER)
         notifyDataSetChanged()
     }
 
     private fun updateDataForServiceConnected() {
-        // 服务已连接，不显示启动卡片
-        clear()
-        // 这里可以添加其他卡片，目前为空列表
-        notifyDataSetChanged()
+        if (getItemId(0) == ID_START_SERVER) {
+            removeItemAt(0)
+            notifyItemRemoved(0)
+        }
     }
 
     private fun updateDataForServiceDisconnected() {
-        // 服务已断开，显示启动卡片
-        clear()
-        addItem(StartServerViewHolder.CREATOR, null, ID_START_SERVER)
-        notifyDataSetChanged()
+        if (getItemId(0) != ID_START_SERVER) {
+            addItemAt(0, StartServerViewHolder.CREATOR, null, ID_START_SERVER)
+            notifyItemInserted(0)
+        }
     }
 }
