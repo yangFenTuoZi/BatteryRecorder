@@ -5,45 +5,37 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 
-abstract class BaseRecyclerViewAdapter<CP : CreatorPool?> : RecyclerView.Adapter<BaseViewHolder<*>?> {
-    private var mItems: MutableList<*>
-    val creatorPool: CP?
+abstract class BaseRecyclerViewAdapter<CP : CreatorPool> : RecyclerView.Adapter<BaseViewHolder<*>?> {
+    var items: MutableList<Any?>
+    val creatorPool: CP
     var listener: Any? = null
 
-    constructor(creatorPool: CP?) : this(java.util.ArrayList<Any?>(), creatorPool)
+    constructor(creatorPool: CP) : this(ArrayList<Any?>(), creatorPool)
 
     @JvmOverloads
-    constructor(items: MutableList<*> = java.util.ArrayList<Any?>()) {
-        mItems = items
+    constructor(items: MutableList<Any?> = ArrayList<Any?>()) {
+        this@BaseRecyclerViewAdapter.items = items
         this.creatorPool = onCreateCreatorPool()
     }
 
-    constructor(items: MutableList<*>, creatorPool: CP?) {
-        mItems = items
+    constructor(items: MutableList<Any?>, creatorPool: CP) {
+        this@BaseRecyclerViewAdapter.items = items
         this.creatorPool = creatorPool
     }
 
-    abstract fun onCreateCreatorPool(): CP?
-
-    fun <T> getItems(): MutableList<T?>? {
-        return mItems.cast()
-    }
-
-    fun setItems(items: MutableList<*>) {
-        mItems = items
-    }
+    abstract fun onCreateCreatorPool(): CP
 
     fun <T> getItemAt(position: Int): T? {
-        return mItems[position].cast()
+        return items[position].cast()
     }
 
     override fun getItemCount(): Int {
-        return mItems.size
+        return items.size
     }
 
     override fun getItemViewType(position: Int): Int {
-        val data = getItemAt<Any?>(position)
-        val index = creatorPool!!.getCreatorIndex(this, position)
+        val data = getItemAt<Any>(position)
+        val index = creatorPool.getCreatorIndex(this, position)
         if (index >= 0) {
             return index
         }
@@ -56,8 +48,8 @@ abstract class BaseRecyclerViewAdapter<CP : CreatorPool?> : RecyclerView.Adapter
 
     override fun onCreateViewHolder(parent: ViewGroup, creatorIndex: Int): BaseViewHolder<*> {
         val inflater = onGetLayoutInflater(parent)
-        val creator: BaseViewHolder.Creator<*> = creatorPool!!.getCreator(creatorIndex)!!
-        return creator.createViewHolder(inflater, parent)!!
+        val creator: BaseViewHolder.Creator<*> = creatorPool.getCreator(creatorIndex)
+        return creator.createViewHolder(inflater, parent)
     }
 
     override fun onBindViewHolder(
