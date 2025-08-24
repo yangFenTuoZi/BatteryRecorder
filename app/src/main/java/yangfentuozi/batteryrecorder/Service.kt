@@ -46,9 +46,6 @@ object Service {
     fun addListener(listener: ServiceConnection) {
         if (listener !in mListener) {
             mListener += listener
-            if (mService != null) {
-                listener.onServiceConnected()
-            }
         }
     }
 
