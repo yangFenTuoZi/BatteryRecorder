@@ -4,6 +4,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import rikka.recyclerview.BaseViewHolder
 import yangfentuozi.batteryrecorder.R
 import yangfentuozi.batteryrecorder.Service
@@ -90,6 +91,14 @@ class StartServerViewHolder(private val binding: HomeStartServerBinding, root: V
     override fun onRecycle() {
         super.onRecycle()
         Service.removeListener(this)
+    }
+
+    override fun onViewAttachedToWindow() {
+        super.onViewAttachedToWindow()
+        val layoutParams = itemView.layoutParams
+        if (layoutParams is StaggeredGridLayoutManager.LayoutParams) {
+            layoutParams.isFullSpan = true
+        }
     }
 
     companion object {
