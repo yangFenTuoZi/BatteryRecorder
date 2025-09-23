@@ -12,8 +12,7 @@ open class BaseActivity: AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-            && DynamicColors.isDynamicColorAvailable())
+        if (DynamicColors.isDynamicColorAvailable())
             DynamicColors.applyToActivityIfAvailable(this)
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.Companion.auto(Color.TRANSPARENT, Color.TRANSPARENT),
