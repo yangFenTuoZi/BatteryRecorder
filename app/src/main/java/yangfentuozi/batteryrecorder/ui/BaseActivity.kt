@@ -1,7 +1,6 @@
 package yangfentuozi.batteryrecorder.ui
 
 import android.graphics.Color
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
@@ -15,8 +14,8 @@ open class BaseActivity: AppCompatActivity() {
         if (DynamicColors.isDynamicColorAvailable())
             DynamicColors.applyToActivityIfAvailable(this)
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.Companion.auto(Color.TRANSPARENT, Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.Companion.auto(Color.TRANSPARENT, Color.TRANSPARENT)
+            statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT)
         )
     }
 
