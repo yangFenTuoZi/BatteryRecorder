@@ -1,31 +1,34 @@
 package rikka.recyclerview
 
-open class IdBasedRecyclerViewAdapter : BaseRecyclerViewAdapter<IndexCreatorPool?> {
-    val ids = ArrayList<Long?>()
+import androidx.recyclerview.widget.RecyclerView
+
+open class IdBasedRecyclerViewAdapter : BaseRecyclerViewAdapter<IndexCreatorPool> {
+    val ids = ArrayList<Long>()
 
     constructor() : super()
 
     constructor(data: MutableList<Any?>) : super(data)
 
     override fun getItemId(position: Int): Long {
-        return ids[position]!!
+        return if (position >= ids.size || position < 0) RecyclerView.NO_ID
+        else ids[position]
     }
 
     fun clear() {
-        creatorPool?.clear()
-        getItems<Any?>()?.clear()
+        creatorPool.clear()
+        items.clear()
         this.ids.clear()
     }
 
     fun <T> addItemAt(index: Int, creator: BaseViewHolder.Creator<T?>, `object`: T?, id: Long) {
-        creatorPool?.add(index, creator)
-        getItems<Any?>()?.add(index, `object`)
+        creatorPool.add(index, creator)
+        items.add(index, `object`)
         this.ids.add(index, id)
     }
 
     fun <T> addItem(creator: BaseViewHolder.Creator<T?>, `object`: T?, id: Long) {
-        creatorPool?.add(creator)
-        getItems<Any?>()?.add(`object`)
+        creatorPool.add(creator)
+        items.add(`object`)
         this.ids.add(id)
     }
 
@@ -33,13 +36,13 @@ open class IdBasedRecyclerViewAdapter : BaseRecyclerViewAdapter<IndexCreatorPool
         index: Int,
         creator: BaseViewHolder.Creator<T?>,
         list: MutableList<T?>,
-        ids: MutableList<Long?>
+        ids: MutableList<Long>
     ) {
         for (i in list.indices) {
-            creatorPool?.add(index, creator)
+            creatorPool.add(index, creator)
         }
 
-        getItems<Any?>()?.addAll(index, list)
+        items.addAll(index, list)
         this.ids.addAll(index, ids)
     }
 
@@ -54,8 +57,8 @@ open class IdBasedRecyclerViewAdapter : BaseRecyclerViewAdapter<IndexCreatorPool
     }
 
     fun removeItemAt(index: Int) {
-        creatorPool?.remove(index)
-        getItems<Any?>()?.remove(index)
+        creatorPool.remove(index)
+        items.removeAt(index)
         this.ids.removeAt(index)
     }
 
@@ -78,14 +81,14 @@ open class IdBasedRecyclerViewAdapter : BaseRecyclerViewAdapter<IndexCreatorPool
     fun setFirstItemById(targetId: Long, `object`: Any?) {
         for (index in 0..<itemCount) {
             if (this.ids[index] == targetId) {
-                getItems<Any?>()?.let { it[index] = `object` }
+                items[index] = `object`
                 return
             }
         }
         throw NoSuchElementException("Cannot found any items belongs to id=$targetId")
     }
 
-    override fun onCreateCreatorPool(): IndexCreatorPool? {
+    override fun onCreateCreatorPool(): IndexCreatorPool {
         return IndexCreatorPool()
     }
 }

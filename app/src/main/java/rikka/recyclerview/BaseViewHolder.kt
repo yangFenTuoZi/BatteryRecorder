@@ -9,7 +9,7 @@ import androidx.recyclerview.widget.RecyclerView
 
 open class BaseViewHolder<T>(itemView: View) : RecyclerView.ViewHolder(itemView) {
     fun interface Creator<T> {
-        fun createViewHolder(inflater: LayoutInflater?, parent: ViewGroup?): BaseViewHolder<T>?
+        fun createViewHolder(inflater: LayoutInflater?, parent: ViewGroup?): BaseViewHolder<T>
     }
 
     private var mData: T? = null
@@ -28,7 +28,7 @@ open class BaseViewHolder<T>(itemView: View) : RecyclerView.ViewHolder(itemView)
         mData = data
 
         val position = getAdapterPosition()
-        this.adapter?.getItems<Any?>()?.set(position, data)
+        this.adapter?.items?.set(position, data)
         this.adapter?.notifyItemChanged(position, payload)
     }
 

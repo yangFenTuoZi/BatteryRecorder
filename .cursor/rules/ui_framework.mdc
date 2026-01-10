@@ -1,3 +1,7 @@
+---
+description: When it is necessary to write or understand UI
+alwaysApply: false
+---
 # BatteryRecorder UI 框架分析文档
 
 本文档旨在详细解析 `BatteryRecorder` 应用 `app` 模块的 UI 框架、核心组件和实现方式，为后续的开发和维护提供清晰的技术指引。
