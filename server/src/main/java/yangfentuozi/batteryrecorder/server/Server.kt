@@ -1,327 +1,338 @@
-package yangfentuozi.batteryrecorder.server;
+package yangfentuozi.batteryrecorder.server
 
-import android.annotation.SuppressLint;
-import android.app.ActivityManager;
-import android.app.ContentProviderHolder;
-import android.app.IActivityManager;
-import android.app.IActivityTaskManager;
-import android.app.ITaskStackListener;
-import android.app.TaskInfo;
-import android.app.TaskStackListener;
-import android.content.AttributionSource;
-import android.content.ComponentName;
-import android.content.IContentProvider;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.IPackageManager;
-import android.os.Build;
-import android.os.Bundle;
-import android.os.Handler;
-import android.os.HandlerThread;
-import android.os.Looper;
-import android.os.RemoteException;
-import android.os.ServiceManager;
-import android.system.ErrnoException;
-import android.system.Os;
-import android.util.Log;
-import android.util.Xml;
+import android.annotation.SuppressLint
+import android.app.ActivityManager.RunningTaskInfo
+import android.app.IActivityManager
+import android.app.IActivityTaskManager
+import android.app.ITaskStackListener
+import android.app.TaskInfo
+import android.app.TaskStackListener
+import android.content.AttributionSource
+import android.content.IContentProvider
+import android.content.pm.ApplicationInfo
+import android.content.pm.IPackageManager
+import android.hardware.display.IDisplayManager
+import android.hardware.display.IDisplayManagerCallback
+import android.os.Build
+import android.os.Bundle
+import android.os.Handler
+import android.os.HandlerThread
+import android.os.IPowerManager
+import android.os.Looper
+import android.os.RemoteException
+import android.os.ServiceManager
+import android.system.ErrnoException
+import android.system.Os
+import android.util.Log
+import android.util.Xml
+import org.xmlpull.v1.XmlPullParser
+import org.xmlpull.v1.XmlPullParserException
+import yangfentuozi.hiddenapi.compat.ServiceManagerCompat
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileNotFoundException
+import java.io.IOException
+import java.util.Scanner
+import kotlin.system.exitProcess
 
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
+class Server internal constructor() : IService.Stub() {
+    private val iActivityTaskManager: IActivityTaskManager
+    private val iActivityManager: IActivityManager
+    private val iDisplayManager: IDisplayManager
+    private val iPowerManager: IPowerManager
+    private val mMainHandler: Handler
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.util.Scanner;
-
-import yangfentuozi.hiddenapi.compat.ServiceManagerCompat;
-
-public class Server extends IService.Stub {
-    public static final String TAG = "BatteryRecorderServer";
-    public static final String APP_PACKAGE = "yangfentuozi.batteryrecorder";
-    @SuppressLint("SdCardPath")
-    public static final String APP_DATA = "/data/user/0/" + APP_PACKAGE;
-    public static final String CONFIG = APP_DATA + "/shared_prefs/" + APP_PACKAGE + "_preferences.xml";
-
-    private final IActivityTaskManager iActivityTaskManager;
-    private final IActivityManager iActivityManager;
-    private final Handler mMainHandler;
-    private final ITaskStackListener taskStackListener = new TaskStackListener() {
-        @Override
-        public void onTaskMovedToFront(ActivityManager.RunningTaskInfo taskInfo) {
-            onFocusedAppChanged(taskInfo);
+    private val taskStackListener: ITaskStackListener = object : TaskStackListener() {
+        override fun onTaskMovedToFront(taskInfo: RunningTaskInfo) {
+            onFocusedAppChanged(taskInfo)
         }
-    };
-
-    private HandlerThread mMonitorThread;
-    private Handler mMonitorHandler;
-    private long mIntervalMillis = 900;
-
-    private PowerDataStorage storage;
-    private String currForegroundApp = null;
-
-    Server() {
-        if (Looper.getMainLooper() == null) {
-            Looper.prepareMainLooper();
-        }
-
-        Runtime.getRuntime().addShutdownHook(new Thread(this::stopServiceImmediately));
-        mMainHandler = new Handler(Looper.getMainLooper());
-        ServiceManagerCompat.waitService("activity");
-        ServiceManagerCompat.waitService("activity_task");
-        iActivityTaskManager = IActivityTaskManager.Stub.asInterface(ServiceManager.getService("activity_task"));
-        iActivityManager = IActivityManager.Stub.asInterface(ServiceManager.getService("activity"));
-
-        startService();
-        Looper.loop();
     }
 
-    private void startService() {
+    private val displayCallback: IDisplayManagerCallback = object : IDisplayManagerCallback.Stub() {
+        override fun onDisplayEvent(displayId: Int, event: Int) {
+            isInteractive = iPowerManager.isInteractive
+        }
+    }
+
+    private var mMonitorThread: HandlerThread? = null
+    private var mMonitorHandler: Handler? = null
+    private var mIntervalMillis: Long = 900
+
+    private var writer: DataWriter? = null
+    private var currForegroundApp: String? = null
+    private var isInteractive: Boolean
+
+    private fun startService() {
         try {
-            IPackageManager iPackageManager = IPackageManager.Stub.asInterface(ServiceManager.getService("package"));
-            ApplicationInfo appInfo;
+            val iPackageManager =
+                IPackageManager.Stub.asInterface(ServiceManager.getService("package"))
+            val appInfo: ApplicationInfo
             if (Build.VERSION.SDK_INT >= 33) {
-                appInfo = iPackageManager.getApplicationInfo(APP_PACKAGE, 0L, Os.getuid());
+                appInfo = iPackageManager.getApplicationInfo(APP_PACKAGE, 0L, Os.getuid())
             } else {
-                appInfo = iPackageManager.getApplicationInfo(APP_PACKAGE, 0, Os.getuid());
+                appInfo = iPackageManager.getApplicationInfo(APP_PACKAGE, 0, Os.getuid())
             }
-            if (appInfo == null) {
-                throw new RuntimeException("Failed to get application info for package: " + APP_PACKAGE);
-            }
-            app_uid = appInfo.uid;
-        } catch (RemoteException e) {
-            throw new RuntimeException("Failed to get application info for package: " + APP_PACKAGE, e);
+            appUid = appInfo.uid
+        } catch (e: RemoteException) {
+            throw RuntimeException("Failed to get application info for package: $APP_PACKAGE", e)
         }
 
         try {
-            iActivityTaskManager.registerTaskStackListener(taskStackListener);
-        } catch (RemoteException e) {
-            throw new RuntimeException("Failed to register task stack listener", e);
+            iActivityTaskManager.registerTaskStackListener(taskStackListener)
+            iDisplayManager.registerCallback(displayCallback)
+        } catch (e: RemoteException) {
+            throw RuntimeException("Failed to register task stack listener", e)
         }
 
         try {
-            onFocusedAppChanged(iActivityTaskManager.getFocusedRootTaskInfo());
-        } catch (RemoteException e) {
-            Log.e(TAG, "Failed to get focused root task info", e);
-            throw new RuntimeException(e);
+            onFocusedAppChanged(iActivityTaskManager.getFocusedRootTaskInfo())
+        } catch (e: RemoteException) {
+            Log.e(TAG, "Failed to get focused root task info", e)
+            throw RuntimeException(e)
         }
+
+        mMonitorThread = HandlerThread("MonitorThread")
+        mMonitorThread!!.start()
+        mMonitorHandler = Handler(mMonitorThread!!.getLooper())
 
         try {
-            storage = new PowerDataStorage();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+            writer = DataWriter(mMonitorThread!!.getLooper())
+        } catch (e: IOException) {
+            throw RuntimeException(e)
         }
-        refreshConfig();
+        refreshConfig()
 
-        mMonitorThread = new HandlerThread("MonitorThread");
-        mMonitorThread.start();
-        mMonitorHandler = new Handler(mMonitorThread.getLooper());
+        startMonitoring()
 
-        startMonitoring();
-
-        new Thread(() -> {
+        Thread({
             try {
-                Scanner scanner = new Scanner(System.in);
-                String line;
-                while ((line = scanner.nextLine()) != null) {
-                    if (line.trim().equals("exit")) {
-                        stopService();
+                val scanner = Scanner(System.`in`)
+                var line: String
+                while ((scanner.nextLine().also { line = it }) != null) {
+                    if (line.trim { it <= ' ' } == "exit") {
+                        stopService()
                     }
                 }
-                scanner.close();
-            } catch (Throwable ignored) {
+                scanner.close()
+            } catch (_: Throwable) {
             }
-        }, "InputHandler").start();
+        }, "InputHandler").start()
     }
 
-    private void startMonitoring() {
-        mMonitorHandler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
+    private fun startMonitoring() {
+        mMonitorHandler!!.postDelayed(object : Runnable {
+            override fun run() {
                 try {
-                    long timestamp = System.currentTimeMillis();
-                    storage.insertRecord(new PowerDataStorage.PowerRecord(timestamp, PowerUtil.getCurrent(), PowerUtil.getVoltage(), currForegroundApp, PowerUtil.getCapacity()));
-                } catch (IOException e) {
-                    Log.e(TAG, "Error reading power data", e);
+                    val timestamp = System.currentTimeMillis()
+                    writer!!.write(
+                        DataWriter.PowerRecord(
+                            timestamp,
+                            PowerUtil.current,
+                            PowerUtil.voltage,
+                            currForegroundApp,
+                            PowerUtil.capacity,
+                            if (isInteractive) 1 else 0
+                        )
+                    )
+                } catch (e: IOException) {
+                    Log.e(TAG, "Error reading power data", e)
                 } finally {
-                    mMonitorHandler.postDelayed(this, mIntervalMillis);
+                    mMonitorHandler!!.postDelayed(this, mIntervalMillis)
                 }
             }
-        }, mIntervalMillis);
+        }, mIntervalMillis)
     }
 
-    public void onFocusedAppChanged(TaskInfo taskInfo) {
-        ComponentName componentName = taskInfo.topActivity;
-        if (componentName == null) return;
-        String packageName = componentName.getPackageName();
-        if (packageName.equals(APP_PACKAGE)) {
-            sendBinder();
+    fun onFocusedAppChanged(taskInfo: TaskInfo) {
+        val componentName = taskInfo.topActivity ?: return
+        val packageName = componentName.packageName
+        if (packageName == APP_PACKAGE) {
+            sendBinder()
         }
-        currForegroundApp = packageName;
+        currForegroundApp = packageName
     }
 
-    @Override
-    public void refreshConfig() {
-        var config = new File(CONFIG);
+    override fun refreshConfig() {
+        val config = File(CONFIG)
         if (!config.exists()) {
-            Log.e(TAG, "Config file not found");
-            return;
+            Log.e(TAG, "Config file not found")
+            return
         }
 
-        try (FileInputStream fis = new FileInputStream(config)) {
-            XmlPullParser parser = Xml.newPullParser();
-            parser.setInput(fis, "UTF-8");
+        try {
+            FileInputStream(config).use { fis ->
+                val parser = Xml.newPullParser()
+                parser.setInput(fis, "UTF-8")
 
-            int eventType = parser.getEventType();
-            mIntervalMillis = 900;
-            int batchSize = 20;
+                var eventType = parser.eventType
+                mIntervalMillis = 900
+                var batchSize = 20  // 保留兼容性
+                var flushIntervalMs = 5000L  // 默认5秒
 
-            while (eventType != XmlPullParser.END_DOCUMENT) {
-                if (eventType == XmlPullParser.START_TAG) {
-                    String tagName = parser.getName();
-                    if ("int".equals(tagName)) {
-                        String nameAttr = parser.getAttributeValue(null, "name");
-                        String valueAttr = parser.getAttributeValue(null, "value");
+                while (eventType != XmlPullParser.END_DOCUMENT) {
+                    if (eventType == XmlPullParser.START_TAG) {
+                        val tagName = parser.name
+                        if ("int" == tagName) {
+                            val nameAttr = parser.getAttributeValue(null, "name")
+                            val valueAttr = parser.getAttributeValue(null, "value")
 
-                        if ("interval".equals(nameAttr)) {
-                            mIntervalMillis = parseInt(valueAttr, 900);
-                        } else if ("batch_size".equals(nameAttr)) {
-                            batchSize = parseInt(valueAttr, 20);
+                            when (nameAttr) {
+                                "interval" ->
+                                    mIntervalMillis = valueAttr.toLongOrNull() ?: 900
+
+                                "batch_size" ->
+                                    batchSize = valueAttr.toIntOrNull() ?: 20
+
+                                "flush_interval" ->
+                                    flushIntervalMs = valueAttr.toLongOrNull() ?: 5000L
+                            }
                         }
                     }
+                    eventType = parser.next()
                 }
-                eventType = parser.next();
+
+                if (mIntervalMillis < 0) mIntervalMillis = 0
+                if (batchSize < 0) batchSize = 0
+                else if (batchSize > 1000) batchSize = 1000
+                if (flushIntervalMs < 100) flushIntervalMs = 100L  // 最小100ms
+                else if (flushIntervalMs > 60000) flushIntervalMs = 60000L  // 最大60秒
+
+                writer!!.batchSize = batchSize  // 保留兼容性
+                writer!!.flushIntervalMs = flushIntervalMs
             }
-
-            if (mIntervalMillis < 0) mIntervalMillis = 0;
-            if (batchSize < 0) batchSize = 0;
-            else if (batchSize > 1000) batchSize = 1000;
-            storage.setBatchSize(batchSize);
-        } catch (FileNotFoundException e) {
-            Log.e(TAG, "Config file not found", e);
-        } catch (IOException e) {
-            Log.e(TAG, "Error reading config file", e);
-        } catch (XmlPullParserException e) {
-            Log.e(TAG, "Error parsing config file", e);
+        } catch (e: FileNotFoundException) {
+            Log.e(TAG, "Config file not found", e)
+        } catch (e: IOException) {
+            Log.e(TAG, "Error reading config file", e)
+        } catch (e: XmlPullParserException) {
+            Log.e(TAG, "Error parsing config file", e)
         }
     }
 
-    public static boolean parseBool(String value, boolean defaultValue) {
-        if (value == null) return defaultValue;
-        return switch (value.toLowerCase()) {
-            case "true" -> true;
-            case "false" -> false;
-            default -> {
-                Log.e(TAG, "Invalid boolean value: " + value);
-                yield defaultValue;
-            }
-        };
+    override fun stopService() {
+        mMainHandler.postDelayed({ exitProcess(0) }, 100)
     }
 
-    public static int parseInt(String value, int defaultValue) {
+    @Throws(RemoteException::class)
+    override fun writeToDatabaseImmediately() {
         try {
-            return Integer.parseInt(value);
-        } catch (NumberFormatException e) {
-            Log.e(TAG, "Invalid integer value: " + value, e);
-            return defaultValue;
+            writer!!.flushBuffer()
+        } catch (e: IOException) {
+            throw RemoteException(Log.getStackTraceString(e))
         }
     }
 
-    public static long parseLong(String value, long defaultValue) {
-        try {
-            return Long.parseLong(value);
-        } catch (NumberFormatException e) {
-            Log.e(TAG, "Invalid integer value: " + value, e);
-            return defaultValue;
-        }
-    }
-
-    @Override
-    public void stopService() {
-        mMainHandler.postDelayed(() -> System.exit(0), 100);
-    }
-
-    @Override
-    public void writeToDatabaseImmediately() throws RemoteException {
-        try {
-            storage.flushBuffer();
-        } catch (IOException e) {
-            throw new RemoteException(Log.getStackTraceString(e));
-        }
-    }
-
-    private void stopServiceImmediately() {
+    private fun stopServiceImmediately() {
         if (mMonitorThread != null) {
-            mMonitorThread.quitSafely();
-            mMonitorThread.interrupt();
+            mMonitorThread!!.quitSafely()
+            mMonitorThread!!.interrupt()
         }
 
         try {
-            storage.flushBuffer();
-        } catch (IOException e) {
-            Log.e(TAG, Log.getStackTraceString(e));
+            writer!!.flushBuffer()
+        } catch (e: IOException) {
+            Log.e(TAG, Log.getStackTraceString(e))
         }
 
-        storage.close();
+        writer!!.close()
 
         try {
-            iActivityTaskManager.unregisterTaskStackListener(taskStackListener);
-        } catch (RemoteException e) {
-            Log.e(TAG, "Failed to unregister task stack listener", e);
+            iActivityTaskManager.unregisterTaskStackListener(taskStackListener)
+        } catch (e: RemoteException) {
+            Log.e(TAG, "Failed to unregister task stack listener", e)
         }
     }
 
-    private void sendBinder() {
-        IContentProvider provider = null;
-        String name = "yangfentuozi.batteryrecorder.binderProvider";
+    private fun sendBinder() {
+        var provider: IContentProvider? = null
+        val name = "yangfentuozi.batteryrecorder.binderProvider"
         try {
-            ContentProviderHolder contentProviderHolder=
-                    iActivityManager.getContentProviderExternal(name, 0, null, name);
-            provider = contentProviderHolder != null ? contentProviderHolder.provider : null;
+            val contentProviderHolder =
+                iActivityManager.getContentProviderExternal(name, 0, null, name)
+            provider = contentProviderHolder?.provider
 
             if (provider == null) {
-                Log.e(TAG, "Provider is null");
-                return;
+                Log.e(TAG, "Provider is null")
+                return
             }
             if (!provider.asBinder().pingBinder()) {
-                Log.e(TAG, "Provider is dead");
+                Log.e(TAG, "Provider is dead")
             }
 
-            Bundle extras = new Bundle();
-            extras.putBinder("binder", this);
+            val extras = Bundle()
+            extras.putBinder("binder", this)
 
-            provider.call((new AttributionSource.Builder(Os.getuid())).setPackageName(null).build(), name, "setBinder", null, extras);
-            Log.i(TAG, "Send binder");
-        } catch (RemoteException e) {
-            Log.e(TAG, "Failed send binder", e);
+            provider.call(
+                (AttributionSource.Builder(Os.getuid())).setPackageName(null).build(),
+                name,
+                "setBinder",
+                null,
+                extras
+            )
+            Log.i(TAG, "Send binder")
+        } catch (e: RemoteException) {
+            Log.e(TAG, "Failed send binder", e)
         } finally {
             if (provider != null) {
                 try {
-                    iActivityManager.removeContentProviderExternal(name, null);
-                } catch (Throwable tr) {
-                    Log.w(TAG, "RemoveContentProviderExternal", tr);
+                    iActivityManager.removeContentProviderExternal(name, null)
+                } catch (tr: Throwable) {
+                    Log.w(TAG, "RemoveContentProviderExternal", tr)
                 }
             }
         }
     }
 
-    public static int app_uid;
-
-    public static void chown(File file) {
-        try {
-            Os.chown(file.getAbsolutePath(), app_uid, app_uid);
-        } catch (ErrnoException e) {
-            throw new RuntimeException("Failed to set file owner or group", e);
+    init {
+        if (Looper.getMainLooper() == null) {
+            Looper.prepareMainLooper()
         }
+
+        Runtime.getRuntime().addShutdownHook(Thread { this.stopServiceImmediately() })
+        mMainHandler = Handler(Looper.getMainLooper())
+        ServiceManagerCompat.waitService("activity")
+        ServiceManagerCompat.waitService("activity_task")
+        ServiceManagerCompat.waitService("display")
+        ServiceManagerCompat.waitService("power")
+        iActivityTaskManager =
+            IActivityTaskManager.Stub.asInterface(ServiceManager.getService("activity_task"))
+        iActivityManager = IActivityManager.Stub.asInterface(ServiceManager.getService("activity"))
+        iDisplayManager = IDisplayManager.Stub.asInterface(ServiceManager.getService("display"))
+        iPowerManager = IPowerManager.Stub.asInterface(ServiceManager.getService("power"))
+
+        isInteractive = iPowerManager.isInteractive
+
+        startService()
+        Looper.loop()
     }
 
-    public static void chownR(File file) {
-        chown(file);
-        if (file.isDirectory()) {
-            File[] files = file.listFiles();
-            if (files != null) {
-                for (File child : files) {
-                    chownR(child);
+    companion object {
+        const val TAG: String = "BatteryRecorderServer"
+        const val APP_PACKAGE: String = "yangfentuozi.batteryrecorder"
+
+        @SuppressLint("SdCardPath")
+        const val APP_DATA: String = "/data/user/0/$APP_PACKAGE"
+        const val CONFIG: String = APP_DATA + "/shared_prefs/" + APP_PACKAGE + "_preferences.xml"
+
+        var appUid: Int = 0
+
+        @JvmStatic
+        fun changeOwner(file: File) {
+            try {
+                Os.chown(file.absolutePath, appUid, appUid)
+            } catch (e: ErrnoException) {
+                throw RuntimeException("Failed to set file owner or group", e)
+            }
+        }
+
+        fun changeOwnerRecursively(file: File) {
+            changeOwner(file)
+            if (file.isDirectory()) {
+                val files = file.listFiles()
+                if (files != null) {
+                    for (child in files) {
+                        changeOwnerRecursively(child)
+                    }
                 }
             }
         }
