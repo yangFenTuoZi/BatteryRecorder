@@ -31,12 +31,20 @@ fun BatchSizeDialog(
         onDismissRequest = onDismiss,
         title = { Text("批量大小") },
         text = {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(
+                modifier = Modifier
+                    .padding(
+                        top = 4.dp,
+                        start = 8.dp,
+                        end = 8.dp
+                    )
+            ) {
                 OutlinedTextField(
                     value = value,
                     onValueChange = { newValue: String ->
                         value = newValue
-                        isError = newValue.toIntOrNull() == null || newValue.toInt() < 0 || newValue.toInt() > 1000
+                        isError =
+                            newValue.toIntOrNull() == null || newValue.toInt() < 0 || newValue.toInt() > 1000
                     },
                     label = { Text("批量大小") },
                     isError = isError,
@@ -46,12 +54,12 @@ fun BatchSizeDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 TextButton(
                     onClick = onReset,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("重置为默认值 (20)")
+                    Text("重置为默认值 (200)")
                 }
             }
         },
@@ -59,7 +67,7 @@ fun BatchSizeDialog(
             TextButton(
                 onClick = {
                     value.toIntOrNull()?.let { intValue ->
-                        if (intValue >= 0 && intValue <= 1000) {
+                        if (intValue in 0..1000) {
                             onSave(intValue)
                         }
                     }

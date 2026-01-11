@@ -1,5 +1,6 @@
 package yangfentuozi.batteryrecorder.ui.compose.settings.dialogs
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,7 +14,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -28,7 +29,6 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun CalibrationDialog(
     currentValue: Int,
-    onValueChange: (Int) -> Unit,
     onDismiss: () -> Unit,
     onSave: (Int) -> Unit,
     onReset: () -> Unit
@@ -43,20 +43,23 @@ fun CalibrationDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
+                    .padding(
+                        top = 4.dp,
+                        start = 8.dp,
+                        end = 8.dp
+                    )
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // 减小按钮
-                    OutlinedButton(
+                    IconButton(
                         onClick = {
                             if (value < 0) value *= 10
                             else value /= 10
                             if (value == 0) value = -1
                             if (value < -maxValue) value = -maxValue
-                            onValueChange(value)
                         },
                         modifier = Modifier.size(48.dp)
                     ) {
@@ -65,23 +68,27 @@ fun CalibrationDialog(
 
                     Spacer(modifier = Modifier.width(24.dp))
 
-                    // 显示当前值
-                    Text(
-                        text = value.toString(),
-                        style = androidx.compose.material3.MaterialTheme.typography.headlineMedium,
-                        modifier = Modifier.weight(1f)
-                    )
+                    Box(
+                        modifier = Modifier.weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+
+                        // 显示当前值
+                        Text(
+                            text = value.toString(),
+                            style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
+                        )
+                    }
 
                     Spacer(modifier = Modifier.width(24.dp))
 
                     // 增大按钮
-                    OutlinedButton(
+                    IconButton(
                         onClick = {
                             if (value > 0) value *= 10
                             else value /= 10
                             if (value == 0) value = 1
                             if (value > maxValue) value = maxValue
-                            onValueChange(value)
                         },
                         modifier = Modifier.size(48.dp)
                     ) {
@@ -89,7 +96,7 @@ fun CalibrationDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // 重置按钮
                 TextButton(

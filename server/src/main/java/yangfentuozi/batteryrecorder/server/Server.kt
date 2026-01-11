@@ -181,7 +181,7 @@ class Server internal constructor() : IService.Stub() {
                                     mIntervalMillis = valueAttr.toLongOrNull() ?: 900
 
                                 "batch_size" ->
-                                    batchSize = valueAttr.toIntOrNull() ?: 20
+                                    batchSize = valueAttr.toIntOrNull() ?: 200
 
                                 "flush_interval" ->
                                     flushIntervalMs = valueAttr.toLongOrNull() ?: 5000L

@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
 @Composable
-fun IntervalDialog(
+fun WriteLatencyDialog(
     currentValueMs: Long,
     onDismiss: () -> Unit,
     onSave: (Long) -> Unit,
@@ -35,7 +35,7 @@ fun IntervalDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("采样间隔") },
+        title = { Text("写入延迟") },
         text = {
             Column(
                 modifier = Modifier
@@ -69,7 +69,7 @@ fun IntervalDialog(
                     onClick = onReset,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("重置为默认值 (0.9秒)")
+                    Text("重置为默认值 (5秒)")
                 }
             }
         },

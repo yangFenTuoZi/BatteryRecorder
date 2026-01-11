@@ -1,6 +1,7 @@
 package yangfentuozi.batteryrecorder.ui.compose.viewmodel
 
 import android.app.Application
+import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,11 +25,15 @@ class ThemeViewModel(application: Application) : AndroidViewModel(application) {
     fun setDarkThemeMode(mode: DarkThemeMode) {
         viewModelScope.launch {
             _darkThemeMode.value = mode
-            prefs.edit().putString(KEY_DARK_THEME, when (mode) {
-                DarkThemeMode.LIGHT -> "light"
-                DarkThemeMode.DARK -> "dark"
-                DarkThemeMode.SYSTEM -> null
-            }).apply()
+            prefs.edit {
+                putString(
+                    KEY_DARK_THEME, when (mode) {
+                        DarkThemeMode.LIGHT -> "light"
+                        DarkThemeMode.DARK -> "dark"
+                        DarkThemeMode.SYSTEM -> null
+                    }
+                )
+            }
         }
     }
 
