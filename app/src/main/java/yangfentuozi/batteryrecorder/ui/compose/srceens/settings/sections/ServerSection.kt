@@ -7,7 +7,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsItem
-import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsItemContainer
 import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsTitle
 import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.dialogs.BatchSizeDialog
 import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.dialogs.IntervalDialog
@@ -29,25 +28,23 @@ fun ServerSection(
     Column {
         SettingsTitle("服务端")
 
-        SettingsItemContainer {
-            // 采样间隔
-            SettingsItem(
-                title = "采样间隔",
-                summary = "${intervalMs / 1000.0} 秒",
-            ) { showIntervalDialog = true }
+        // 采样间隔
+        SettingsItem(
+            title = "采样间隔",
+            summary = "${intervalMs / 1000.0} 秒",
+        ) { showIntervalDialog = true }
 
-            // 写入延迟
-            SettingsItem(
-                title = "写入延迟",
-                summary = "${writeLatencyMs / 1000.0} 秒",
-            ) { showWriteLatencyDialog = true }
+        // 写入延迟
+        SettingsItem(
+            title = "写入延迟",
+            summary = "${writeLatencyMs / 1000.0} 秒",
+        ) { showWriteLatencyDialog = true }
 
-            // 批量大小
-            SettingsItem(
-                title = "批量大小",
-                summary = "$batchSize 条",
-            ) { showBatchSizeDialog = true }
-        }
+        // 批量大小
+        SettingsItem(
+            title = "批量大小",
+            summary = "$batchSize 条",
+        ) { showBatchSizeDialog = true }
 
         // 采样间隔对话框
         if (showIntervalDialog) {

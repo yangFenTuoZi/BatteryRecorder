@@ -7,7 +7,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsItem
-import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsItemContainer
 import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsSwitchItem
 import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsTitle
 import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.dialogs.CalibrationDialog
@@ -24,35 +23,33 @@ fun CalibrationSection(
     Column {
         SettingsTitle("校准")
 
-        SettingsItemContainer {
-            // 双电池开关
-            SettingsSwitchItem(
-                text = "双电池",
-                checked = dualCellEnabled,
-                onCheckedChange = onDualCellChange
+        // 双电池开关
+        SettingsSwitchItem(
+            text = "双电池",
+            checked = dualCellEnabled,
+            onCheckedChange = onDualCellChange
+        )
+
+        // 电流单位校准
+        SettingsItem(
+            title = "电流单位校准",
+            summary = "调整电流读数的倍率"
+        ) { showDialog = true }
+
+        // 显示对话框
+        if (showDialog) {
+            CalibrationDialog(
+                currentValue = calibrationValue,
+                onDismiss = { showDialog = false },
+                onSave = { value ->
+                    onCalibrationChange(value)
+                    showDialog = false
+                },
+                onReset = {
+                    onCalibrationChange(-1)
+                    showDialog = false
+                }
             )
-
-            // 电流单位校准
-            SettingsItem(
-                title = "电流单位校准",
-                summary = "调整电流读数的倍率"
-            ) { showDialog = true }
-
-            // 显示对话框
-            if (showDialog) {
-                CalibrationDialog(
-                    currentValue = calibrationValue,
-                    onDismiss = { showDialog = false },
-                    onSave = { value ->
-                        onCalibrationChange(value)
-                        showDialog = false
-                    },
-                    onReset = {
-                        onCalibrationChange(-1)
-                        showDialog = false
-                    }
-                )
-            }
         }
     }
 }
