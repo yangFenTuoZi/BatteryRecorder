@@ -1,12 +1,12 @@
-package yangfentuozi.batteryrecorder.ui.compose.settings.sections
+package yangfentuozi.batteryrecorder.ui.compose.srceens.settings.sections
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
-import yangfentuozi.batteryrecorder.ui.compose.settings.SettingsItemContainer
-import yangfentuozi.batteryrecorder.ui.compose.settings.SettingsRadioItem
-import yangfentuozi.batteryrecorder.ui.compose.settings.SettingsTitle
+import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsItemContainer
+import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsRadioItem
+import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsTitle
 import yangfentuozi.batteryrecorder.ui.compose.theme.DarkThemeMode
 
 @Composable

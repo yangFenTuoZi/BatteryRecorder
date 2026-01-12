@@ -45,7 +45,7 @@ fun BatteryRecorderTopAppBar(
         actions = {
             if (!showBackButton) {
                 IconButton(onClick = onSettingsClick) {
-                    Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings))
+                    Icon(Icons.Default.Settings, contentDescription = "设置")
                 }
             }
             IconButton(onClick = { showMenu = !showMenu }) {
@@ -57,7 +57,7 @@ fun BatteryRecorderTopAppBar(
             ) {
                 if (!showBackButton && showStopServer) {
                     DropdownMenuItem(
-                        text = { Text(stringResource(R.string.stop_server)) },
+                        text = { Text("停止服务") },
                         onClick = {
                             showMenu = false
                             onStopServerClick()
@@ -65,7 +65,7 @@ fun BatteryRecorderTopAppBar(
                     )
                 }
                 DropdownMenuItem(
-                    text = { Text(stringResource(R.string.about)) },
+                    text = { Text("关于") },
                     onClick = {
                         showMenu = false
                         onAboutClick()

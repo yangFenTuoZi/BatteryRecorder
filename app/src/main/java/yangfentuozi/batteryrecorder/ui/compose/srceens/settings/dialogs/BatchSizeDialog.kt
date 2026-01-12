@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.ui.compose.settings.dialogs
+package yangfentuozi.batteryrecorder.ui.compose.srceens.settings.dialogs
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer

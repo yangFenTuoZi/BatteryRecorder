@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.ui.compose.settings.dialogs
+package yangfentuozi.batteryrecorder.ui.compose.srceens.settings.dialogs
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -76,7 +77,7 @@ fun CalibrationDialog(
                         // 显示当前值
                         Text(
                             text = value.toString(),
-                            style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
+                            style = MaterialTheme.typography.bodyLarge,
                         )
                     }
 

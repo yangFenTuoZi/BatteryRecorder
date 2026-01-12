@@ -1,5 +1,6 @@
-package yangfentuozi.batteryrecorder.ui.compose.home
+package yangfentuozi.batteryrecorder.ui.compose.srceens.home
 
+import android.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,9 +20,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import yangfentuozi.batteryrecorder.R
 import yangfentuozi.batteryrecorder.ui.compose.components.AboutDialog
 import yangfentuozi.batteryrecorder.ui.compose.components.BatteryRecorderTopAppBar
+import yangfentuozi.batteryrecorder.ui.compose.srceens.home.items.StartServerCard
 import yangfentuozi.batteryrecorder.ui.compose.viewmodel.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -59,6 +60,7 @@ fun HomeScreen(
                         StartServerCard()
                     }
                 }
+
             }
         }
     }
@@ -67,8 +69,8 @@ fun HomeScreen(
     if (showStopDialog) {
         AlertDialog(
             onDismissRequest = viewModel::dismissStopDialog,
-            title = { Text(stringResource(R.string.stop_server)) },
-            text = { Text(stringResource(R.string.confirm_stop_server)) },
+            title = { Text("停止服务") },
+            text = { Text("确认停止服务?") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -76,14 +78,14 @@ fun HomeScreen(
                         viewModel.stopService()
                     }
                 ) {
-                    Text(stringResource(android.R.string.ok))
+                    Text(stringResource(R.string.ok))
                 }
             },
             dismissButton = {
                 TextButton(
                     onClick = viewModel::dismissStopDialog
                 ) {
-                    Text(stringResource(android.R.string.cancel))
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )

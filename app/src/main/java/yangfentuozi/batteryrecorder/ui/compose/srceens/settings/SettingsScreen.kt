@@ -1,5 +1,6 @@
-package yangfentuozi.batteryrecorder.ui.compose.settings
+package yangfentuozi.batteryrecorder.ui.compose.srceens.settings
 
+import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -22,15 +23,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import androidx.lifecycle.viewmodel.compose.viewModel
-import yangfentuozi.batteryrecorder.R
 import yangfentuozi.batteryrecorder.Service
-import yangfentuozi.batteryrecorder.ui.compose.settings.sections.AppearanceSection
-import yangfentuozi.batteryrecorder.ui.compose.settings.sections.CalibrationSection
-import yangfentuozi.batteryrecorder.ui.compose.settings.sections.ServerSection
+import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.sections.AppearanceSection
+import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.sections.CalibrationSection
+import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.sections.ServerSection
 import yangfentuozi.batteryrecorder.ui.compose.viewmodel.ThemeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,7 +43,7 @@ fun SettingsScreen(
 
     // 获取 SharedPreferences
     val prefs = remember {
-        context.getSharedPreferences("yangfentuozi.batteryrecorder_preferences", android.content.Context.MODE_PRIVATE)
+        context.getSharedPreferences("yangfentuozi.batteryrecorder_preferences", Context.MODE_PRIVATE)
     }
 
     // 读取配置值
@@ -57,7 +56,7 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.settings)) },
+                title = { Text("关于") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, null)

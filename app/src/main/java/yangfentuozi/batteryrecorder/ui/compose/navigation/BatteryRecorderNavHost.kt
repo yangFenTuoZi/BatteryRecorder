@@ -5,8 +5,8 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import yangfentuozi.batteryrecorder.ui.compose.home.HomeScreen
-import yangfentuozi.batteryrecorder.ui.compose.settings.SettingsScreen
+import yangfentuozi.batteryrecorder.ui.compose.srceens.home.HomeScreen
+import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsScreen
 
 @Composable
 fun BatteryRecorderNavHost(

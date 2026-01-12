@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.ui.compose.settings.dialogs
+package yangfentuozi.batteryrecorder.ui.compose.srceens.settings.dialogs
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -60,7 +61,7 @@ fun IntervalDialog(
                             .width(60.dp)
                             .padding(start = 8.dp),
                         text = "${(value * 10).roundToInt() / 10.0} 秒",
-                        style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodyMedium,
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))

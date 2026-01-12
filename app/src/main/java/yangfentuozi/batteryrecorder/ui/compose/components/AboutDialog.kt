@@ -98,7 +98,7 @@ fun AboutDialog(onDismiss: () -> Unit) {
 
                     // 源码链接
                     val sourceCodeText = buildAnnotatedString {
-                        val template = stringResource(R.string.about_view_source_code)
+                        val template = $$"在 %1$s 查看源码"
                         val parts = template.split($$"%1$s")
 
                         append(parts.getOrNull(0) ?: "")

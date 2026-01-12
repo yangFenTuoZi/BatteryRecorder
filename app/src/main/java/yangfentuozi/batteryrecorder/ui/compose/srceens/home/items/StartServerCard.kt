@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.ui.compose.home
+package yangfentuozi.batteryrecorder.ui.compose.srceens.home.items
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -12,9 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import yangfentuozi.batteryrecorder.R
 
 @Composable
 fun StartServerCard(
@@ -26,18 +24,21 @@ fun StartServerCard(
         modifier = modifier.padding(8.dp),
         elevation = CardDefaults.cardElevation(
             defaultElevation = 2.dp
+        ),
+        colors =  CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
         )
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
             Text(
-                text = stringResource(R.string.start_card_title_b),
+                text = "启动（Root）",
                 style = MaterialTheme.typography.titleMedium
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = stringResource(R.string.start_card_desc_b),
+                text = "启动后台监测服务",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -54,7 +55,7 @@ fun StartServerCard(
                     }.start()
                 }
             ) {
-                Text(stringResource(R.string.start_server))
+                Text("启动服务")
             }
         }
     }

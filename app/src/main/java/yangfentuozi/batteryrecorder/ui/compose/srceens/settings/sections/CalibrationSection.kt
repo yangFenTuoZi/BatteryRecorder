@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.ui.compose.settings.sections
+package yangfentuozi.batteryrecorder.ui.compose.srceens.settings.sections
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
@@ -6,11 +6,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import yangfentuozi.batteryrecorder.ui.compose.settings.SettingsItem
-import yangfentuozi.batteryrecorder.ui.compose.settings.SettingsItemContainer
-import yangfentuozi.batteryrecorder.ui.compose.settings.SettingsSwitchItem
-import yangfentuozi.batteryrecorder.ui.compose.settings.SettingsTitle
-import yangfentuozi.batteryrecorder.ui.compose.settings.dialogs.CalibrationDialog
+import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsItem
+import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsItemContainer
+import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsSwitchItem
+import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsTitle
+import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.dialogs.CalibrationDialog
 
 @Composable
 fun CalibrationSection(
