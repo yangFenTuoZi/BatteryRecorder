@@ -171,21 +171,17 @@ class Server internal constructor() : IService.Stub() {
 
                 while (eventType != XmlPullParser.END_DOCUMENT) {
                     if (eventType == XmlPullParser.START_TAG) {
-                        val tagName = parser.name
-                        if ("int" == tagName) {
-                            val nameAttr = parser.getAttributeValue(null, "name")
-                            val valueAttr = parser.getAttributeValue(null, "value")
+                        val nameAttr = parser.getAttributeValue(null, "name")
+                        val valueAttr = parser.getAttributeValue(null, "value")
+                        when (nameAttr) {
+                            "interval" ->
+                                mIntervalMillis = valueAttr.toLongOrNull() ?: 900
 
-                            when (nameAttr) {
-                                "interval" ->
-                                    mIntervalMillis = valueAttr.toLongOrNull() ?: 900
+                            "batch_size" ->
+                                batchSize = valueAttr.toIntOrNull() ?: 200
 
-                                "batch_size" ->
-                                    batchSize = valueAttr.toIntOrNull() ?: 200
-
-                                "flush_interval" ->
-                                    flushIntervalMs = valueAttr.toLongOrNull() ?: 30000L
-                            }
+                            "flush_interval" ->
+                                flushIntervalMs = valueAttr.toLongOrNull() ?: 30000L
                         }
                     }
                     eventType = parser.next()
