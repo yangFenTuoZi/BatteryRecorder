@@ -14,7 +14,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -25,20 +24,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
-import androidx.lifecycle.viewmodel.compose.viewModel
 import yangfentuozi.batteryrecorder.Service
-import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.sections.AppearanceSection
 import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.sections.CalibrationSection
 import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.sections.ServerSection
-import yangfentuozi.batteryrecorder.ui.compose.viewmodel.ThemeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    themeViewModel: ThemeViewModel = viewModel(),
     onNavigateBack: () -> Unit = {}
 ) {
-    val darkThemeMode by themeViewModel.darkThemeMode.collectAsState()
     val context = LocalContext.current
 
     // 获取 SharedPreferences
@@ -72,13 +66,6 @@ fun SettingsScreen(
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // 外观设置
-            item {
-                AppearanceSection(
-                    darkThemeMode = darkThemeMode,
-                    onDarkThemeModeChange = { themeViewModel.setDarkThemeMode(it) }
-                )
-            }
 
             // 校准设置
             item {
