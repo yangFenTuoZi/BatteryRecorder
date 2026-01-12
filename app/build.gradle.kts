@@ -38,15 +38,12 @@ android {
 
     buildFeatures {
         compose = true
-        viewBinding = true  // 保留，逐步移除
         buildConfig = true
     }
 }
 
 dependencies {
     implementation(project(":server"))
-
-    implementation(libs.androidx.core.ktx)
 
     // Compose
     val composeBom = platform(libs.compose.bom)
