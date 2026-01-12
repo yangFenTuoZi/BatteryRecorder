@@ -127,11 +127,11 @@ class Server internal constructor() : IService.Stub() {
                     writer!!.write(
                         DataWriter.PowerRecord(
                             timestamp,
-                            PowerUtil.current,
-                            PowerUtil.voltage,
+                            PowerUtil.power,
                             currForegroundApp,
                             PowerUtil.capacity,
-                            if (isInteractive) 1 else 0
+                            if (isInteractive) 1 else 0,
+                            PowerUtil.status
                         )
                     )
                 } catch (e: IOException) {
@@ -166,8 +166,8 @@ class Server internal constructor() : IService.Stub() {
 
                 var eventType = parser.eventType
                 mIntervalMillis = 900
-                var batchSize = 20  // 保留兼容性
-                var flushIntervalMs = 5000L  // 默认5秒
+                var batchSize = 200  // 保留兼容性
+                var flushIntervalMs = 30000L  // 默认5秒
 
                 while (eventType != XmlPullParser.END_DOCUMENT) {
                     if (eventType == XmlPullParser.START_TAG) {
@@ -184,7 +184,7 @@ class Server internal constructor() : IService.Stub() {
                                     batchSize = valueAttr.toIntOrNull() ?: 200
 
                                 "flush_interval" ->
-                                    flushIntervalMs = valueAttr.toLongOrNull() ?: 5000L
+                                    flushIntervalMs = valueAttr.toLongOrNull() ?: 30000L
                             }
                         }
                     }

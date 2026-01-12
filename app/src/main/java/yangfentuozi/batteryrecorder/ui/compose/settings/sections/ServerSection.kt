@@ -75,7 +75,7 @@ fun ServerSection(
                     showWriteLatencyDialog = false
                 },
                 onReset = {
-                    onWriteLatencyChange(5000)
+                    onWriteLatencyChange(30000)
                     showWriteLatencyDialog = false
                 }
             )

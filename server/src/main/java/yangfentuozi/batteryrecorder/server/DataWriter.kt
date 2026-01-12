@@ -3,6 +3,9 @@ package yangfentuozi.batteryrecorder.server
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import yangfentuozi.batteryrecorder.server.PowerUtil.BatteryStatus.Charging
+import yangfentuozi.batteryrecorder.server.PowerUtil.BatteryStatus.Discharging
+import yangfentuozi.batteryrecorder.server.PowerUtil.BatteryStatus.Full
 import yangfentuozi.batteryrecorder.server.Server.Companion.changeOwner
 import java.io.File
 import java.io.FileOutputStream
@@ -11,7 +14,7 @@ import java.io.OutputStream
 
 class DataWriter(val looper: Looper) {
 
-    private var isCharging = false
+    private var lastStatus: PowerUtil.BatteryStatus? = null
 
     private val chargeDataWriter = BaseWriter(chargeDir)
     private val dischargeDataWriter = BaseWriter(dischargeDir)
@@ -36,13 +39,18 @@ class DataWriter(val looper: Looper) {
     }
 
     fun write(record: PowerRecord) {
-        if (record.current >= 0) {
-            dischargeDataWriter.write(record, isCharging)
-            isCharging = false
-        } else {
-            chargeDataWriter.write(record, !isCharging)
-            isCharging = true
+        when (record.status) {
+            Charging -> {
+                chargeDataWriter.write(record, lastStatus != Charging)
+            }
+
+            Discharging -> {
+                dischargeDataWriter.write(record, lastStatus != Discharging)
+            }
+
+            Full -> {}
         }
+        lastStatus = record.status
     }
 
     fun close() {
@@ -59,6 +67,7 @@ class DataWriter(val looper: Looper) {
         private var outputStream: OutputStream? = null
         private var startTime: Long = 0L
         private var lastTime: Long = 0L
+        private var lastChangedStatusTime = 0L
 
         private val buffer = StringBuilder(4096)
         private var batchCount = 0
@@ -78,9 +87,18 @@ class DataWriter(val looper: Looper) {
 
         fun write(
             record: PowerRecord,
-            justSwitchedFromTheOppositeCurrentRecord: Boolean
+            justChangedStatus: Boolean
         ) {
-            startNewSegmentIfNeed(justSwitchedFromTheOppositeCurrentRecord)
+            startNewSegmentIfNeed(justChangedStatus)
+            lastTime = record.timestamp
+
+            // 选择性丢弃一些干扰数据
+            if (justChangedStatus) lastChangedStatusTime = record.timestamp
+            if (record.timestamp - lastChangedStatusTime < 2 * 1000L) {
+                if ((record.power > 0) != (record.status == Discharging)) {
+                    return
+                }
+            }
 
             buffer.append(record).append("\n")
             batchCount++
@@ -98,13 +116,13 @@ class DataWriter(val looper: Looper) {
         }
 
         private fun startNewSegmentIfNeed(
-            justSwitchedFromTheOppositeCurrentRecord: Boolean
+            justChangedStatus: Boolean
         ) {
             val nowTime = System.currentTimeMillis()
             if (// case1 记录超过 24 小时
                 (nowTime - startTime > 24 * 60 * 60 * 1000) ||
                 // case2 应对电压正负快速变化，允许短时间内续接之前记录
-                (justSwitchedFromTheOppositeCurrentRecord && nowTime - lastTime > 30 * 1000) ||
+                (justChangedStatus && nowTime - lastTime > 30 * 1000) ||
                 // case3 还没记录过
                 outputStream == null
             ) {
@@ -143,11 +161,11 @@ class DataWriter(val looper: Looper) {
     }
 
     data class PowerRecord(
-        val timestamp: Long, val current: Long, val voltage: Long, val packageName: String?,
-        val capacity: Int, val isDisplayOn: Int
+        val timestamp: Long, val power: Long, val packageName: String?,
+        val capacity: Int, val isDisplayOn: Int, val status: PowerUtil.BatteryStatus
     ) {
         override fun toString(): String {
-            return "$timestamp,$current,$voltage,$packageName,$capacity,$isDisplayOn"
+            return "$timestamp,$power,$packageName,$capacity,$isDisplayOn"
         }
     }
 

@@ -69,7 +69,7 @@ fun WriteLatencyDialog(
                     onClick = onReset,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("重置为默认值 (5秒)")
+                    Text("重置为默认值 (30秒)")
                 }
             }
         },

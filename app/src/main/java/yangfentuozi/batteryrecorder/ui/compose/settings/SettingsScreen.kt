@@ -51,7 +51,7 @@ fun SettingsScreen(
     var dualCellEnabled by remember { mutableStateOf(prefs.getBoolean("dual_cell", false)) }
     var calibrationValue by remember { mutableIntStateOf(prefs.getInt("current_unit_calibration", -1)) }
     var intervalMs by remember { mutableLongStateOf(prefs.getLong("interval", 900)) }
-    var writeLatencyMs by remember { mutableLongStateOf(prefs.getLong("flush_interval", 5000)) }
+    var writeLatencyMs by remember { mutableLongStateOf(prefs.getLong("flush_interval", 30000)) }
     var batchSize by remember { mutableIntStateOf(prefs.getInt("batch_size", 200)) }
 
     Scaffold(
