@@ -7,10 +7,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import yangfentuozi.batteryrecorder.ui.compose.srceens.home.HomeScreen
 import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsScreen
+import yangfentuozi.batteryrecorder.ui.compose.viewmodel.MainViewModel
+import yangfentuozi.batteryrecorder.ui.compose.viewmodel.SettingsViewModel
 
 @Composable
 fun BatteryRecorderNavHost(
     navController: NavHostController,
+    mainViewModel: MainViewModel,
+    settingsViewModel: SettingsViewModel,
     modifier: Modifier = Modifier
 ) {
     NavHost(
@@ -20,6 +24,8 @@ fun BatteryRecorderNavHost(
     ) {
         composable(Screen.Home.route) {
             HomeScreen(
+                viewModel = mainViewModel,
+                settingsViewModel = settingsViewModel,
                 onNavigateToSettings = {
                     navController.navigate(Screen.Settings.route)
                 }
@@ -27,6 +33,7 @@ fun BatteryRecorderNavHost(
         }
         composable(Screen.Settings.route) {
             SettingsScreen(
+                settingsViewModel = settingsViewModel,
                 onNavigateBack = {
                     navController.popBackStack()
                 }

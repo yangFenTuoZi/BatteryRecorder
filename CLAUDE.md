@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Core Architecture
 
-- **`app` module**: Kotlin-based client acting as UI and configuration controller. Uses View system with ViewBinding, Material Design components.
+- **`app` module**: Kotlin-based client acting as UI and configuration controller. Uses **Jetpack Compose** with Material 3, Navigation Compose.
 - **`server` module**: Kotlin-based backend service that handles all data collection, processing, and storage.
 - **`hiddenapi` modules**: Stub library (`hiddenapi:stub`) and compatibility layer (`hiddenapi:compat`) for accessing Android hidden APIs.
 
@@ -45,17 +45,28 @@ Communication via **AIDL** (`IService.aidl`):
 ./gradlew :server:compileDebugAidl
 ```
 
+**Build Configuration**:
+- Java 21 (source & target compatibility)
+- Target API 36, Min API 31
+- Kotlin DSL for Gradle scripts
+- Compose compiler plugin enabled in app module
+
 ## Module Structure
 
 ### `app` module
-- `MainActivity.kt`: Main UI with RecyclerView (2-column grid), service control, navigation
-- `SettingsActivity.kt`/`SettingsFragment.kt`: Configuration UI (sampling rate, batch size)
+- `MainActivity.kt`: Entry point with Compose content, extends `ComponentActivity`
+- `ui/compose/`: All Compose UI code
+  - `BatteryRecorderApp.kt`: Root composable with Material 3 theme
+  - `BatteryRecorderNavHost.kt`: Navigation setup (home, settings, about routes)
+  - `screens/home/HomeScreen.kt`: Main dashboard with service status cards
+  - `screens/settings/SettingsScreen.kt`: Configuration UI for sampling rate, batch size, flush interval, calibration
+  - `viewmodel/MainViewModel.kt`: State management for UI
 - `Service.kt`: Singleton managing binder connections and lifecycle
 - `BinderProvider.kt`: ContentProvider for receiving server's binder
 
 ### `server` module
 - `Server.kt`: Main service implementing AIDL interface, monitoring loop
-- `PowerUtil.kt`: Direct system interface for battery metrics (voltage, current, capacity)
+- `PowerUtil.kt`: Direct system interface for battery metrics, includes `BatteryStatus` enum and power calculation (voltage × current)
 - `DataWriter.kt`: Data storage with hybrid batch/timed flushing and segmentation by charge/discharge state
 - `IService.aidl`: AIDL interface for IPC
 
@@ -71,13 +82,18 @@ Runtime compatibility layer for hidden API access
    - `voltage_now` (μV)
    - `current_now` (μA)
    - `capacity` (%)
+   - `status` (charging/discharging/full/unknown)
 
-2. **Server** samples at configurable intervals (default: 900ms) via `HandlerThread`
-3. **DataWriter** handles storage with hybrid strategy:
+2. **Power calculation**: Power (W) = voltage (V) × current (A) - positive for charging, negative for discharging
+
+3. **Server** samples at configurable intervals (default: 900ms) via `HandlerThread`
+
+4. **DataWriter** handles storage with hybrid strategy:
    - Flush when batch size reached (default: 200 records)
    - Flush after timeout (default: 30 seconds)
    - Segmentation by charge/discharge state (creates new file when current direction changes with 30s gap)
    - Automatic file rotation (24-hour segments)
+   - State detection based on `PowerUtil.BatteryStatus` with noise filtering during transitions
 
 ## Data Storage Format
 
@@ -85,22 +101,27 @@ Runtime compatibility layer for hidden API access
 
 **File naming**: `[timestamp].txt` (no +/- suffix, state determined by directory)
 
-**CSV format**: `timestamp,current,voltage,packageName,capacity,isDisplayOn`
+**CSV format**: `timestamp,power,packageName,capacity,isDisplayOn`
 
 Example:
 ```
-1672531200000,500,4231,com.android.launcher,95,1
-1672531205000,510,4230,com.some.app,95,1
+1672531200000,2100000,com.android.launcher,95,1
+1672531205000,2150000,com.some.app,95,1
 ```
 
-**Display state**: `1` = screen on, `0` = screen off
+**Field descriptions**:
+- `timestamp`: Unix timestamp in milliseconds
+- `power`: Power in μW (microwatts), calculated as voltage × current (positive = charging, negative = discharging)
+- `packageName`: Foreground app package name
+- `capacity`: Battery capacity percentage
+- `isDisplayOn`: `1` = screen on, `0` = screen off
 
 ## Configuration
 
 - Stored in `SharedPreferences` at `/data/user/0/yangfentuozi.batteryrecorder/shared_prefs/yangfentuozi.batteryrecorder_preferences.xml`
-- Modified by `app` via `SettingsFragment`
+- Modified by `app` via `SettingsScreen.kt` Compose UI
 - Server reloads via `refreshConfig()` AIDL call
-- Key settings: sampling interval (`interval`), batch size (`batch_size`), flush interval (`flush_interval`)
+- Key settings: sampling interval (`interval`), batch size (`batch_size`), flush interval (`flush_interval`), calibration values
 
 ## Display State Tracking
 
@@ -122,13 +143,13 @@ Implementation details:
 - When batch threshold is hit, flush immediately and cancel pending timer
 - When timer fires, flush and reschedule only if new data arrived during async write
 
-## UI Framework Notes
+## UI Framework
 
-- **View system** (not Jetpack Compose)
-- **ViewBinding** enabled (replaces `findViewById`)
-- **Material Components** (MaterialToolbar, MaterialAlertDialogBuilder)
-- **PreferenceFragmentCompat** for settings
-- Uses `Theme.Material3.DayNight.NoActionBar`
+- **Jetpack Compose** with Material 3 components
+- **Navigation Compose** for screen routing
+- **ViewModel** with Compose state management
+- Material 3 theming with system theme following (no manual dark/light toggle)
+- Uses `Theme.Material3.DayNight.NoActionBar` (follows system theme automatically)
 
 ## Development Rules
 
