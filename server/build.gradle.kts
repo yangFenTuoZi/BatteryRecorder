@@ -10,6 +10,9 @@ android {
     defaultConfig {
         minSdk = 31
         consumerProguardFiles("consumer-rules.pro")
+        ndk {
+            abiFilters.addAll(listOf("x86", "x86_64", "armeabi-v7a", "arm64-v8a"))
+        }
     }
 
     buildTypes {
@@ -32,6 +35,15 @@ android {
             targetCompatibility = JavaVersion.VERSION_21
         }
     }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/jni/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+
+    ndkVersion = "29.0.14206865"
 }
 
 dependencies {

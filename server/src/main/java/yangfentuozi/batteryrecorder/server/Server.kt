@@ -27,6 +27,7 @@ import android.util.Log
 import android.util.Xml
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserException
+import yangfentuozi.batteryrecorder.server.PowerUtil.nativeInit
 import yangfentuozi.hiddenapi.compat.ServiceManagerCompat
 import java.io.File
 import java.io.FileInputStream
@@ -100,6 +101,8 @@ class Server internal constructor() : IService.Stub() {
                 appInfo = iPackageManager.getApplicationInfo(APP_PACKAGE, 0, Os.getuid())
             }
             appUid = appInfo.uid
+            System.load("${appInfo.nativeLibraryDir}/libbatteryrecorder.so")
+            nativeInit()
         } catch (e: RemoteException) {
             throw RuntimeException("Failed to get application info for package: $APP_PACKAGE", e)
         }
