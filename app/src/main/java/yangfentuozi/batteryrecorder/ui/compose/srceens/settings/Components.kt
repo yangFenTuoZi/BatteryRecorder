@@ -19,11 +19,11 @@ import androidx.compose.ui.unit.dp
 fun SettingsTitle(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.titleMedium,
+        style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier
             .padding(start = 24.dp)
-            .padding(vertical = 12.dp)
+            .padding(vertical = 16.dp)
     )
 }
 
@@ -39,7 +39,7 @@ fun SettingsSwitchItem(
             .clickable { onCheckedChange?.invoke(!checked) }
             .fillMaxWidth()
             .padding(horizontal = 36.dp)
-            .height(64.dp),
+            .height(72.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -73,7 +73,7 @@ fun SettingsItem(
             }
                 .fillMaxWidth()
                 .padding(horizontal = 36.dp)
-                .height(64.dp),
+                .height(72.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
