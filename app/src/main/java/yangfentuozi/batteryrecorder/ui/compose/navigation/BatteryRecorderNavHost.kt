@@ -1,5 +1,11 @@
 package yangfentuozi.batteryrecorder.ui.compose.navigation
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
@@ -22,7 +28,35 @@ fun BatteryRecorderNavHost(
         startDestination = Screen.Home.route,
         modifier = modifier
     ) {
-        composable(Screen.Home.route) {
+        composable(
+            route = Screen.Home.route,
+            enterTransition = {
+                scaleIn(
+                    initialScale = 0.95f,
+                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+                ) + fadeIn(
+                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+                )
+            },
+            exitTransition = {
+                fadeOut(
+                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+                )
+            },
+            popEnterTransition = {
+                fadeIn(
+                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+                )
+            },
+            popExitTransition = {
+                scaleOut(
+                    targetScale = 0.95f,
+                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+                ) + fadeOut(
+                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+                )
+            }
+        ) {
             HomeScreen(
                 viewModel = mainViewModel,
                 settingsViewModel = settingsViewModel,
@@ -31,7 +65,35 @@ fun BatteryRecorderNavHost(
                 }
             )
         }
-        composable(Screen.Settings.route) {
+        composable(
+            route = Screen.Settings.route,
+            enterTransition = {
+                scaleIn(
+                    initialScale = 0.95f,
+                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+                ) + fadeIn(
+                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+                )
+            },
+            exitTransition = {
+                fadeOut(
+                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+                )
+            },
+            popEnterTransition = {
+                fadeIn(
+                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+                )
+            },
+            popExitTransition = {
+                scaleOut(
+                    targetScale = 0.95f,
+                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+                ) + fadeOut(
+                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+                )
+            }
+        ) {
             SettingsScreen(
                 settingsViewModel = settingsViewModel,
                 onNavigateBack = {
