@@ -17,7 +17,7 @@ val AppTypography = Typography(
     displayMedium = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.W400,
-        fontSize = 45.sp,
+        fontSize = 42.sp,
         lineHeight = 52.sp,
         letterSpacing = 0.sp,
     ),

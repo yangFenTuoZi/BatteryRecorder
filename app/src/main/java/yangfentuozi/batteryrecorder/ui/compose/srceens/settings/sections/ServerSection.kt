@@ -1,14 +1,16 @@
 package yangfentuozi.batteryrecorder.ui.compose.srceens.settings.sections
 
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.ui.compose.components.global.M3ESwitchWidget
+import yangfentuozi.batteryrecorder.ui.compose.components.global.SplicedColumnGroup
 import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsItem
-import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsTitle
 import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.dialogs.BatchSizeDialog
 import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.dialogs.IntervalDialog
 import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.dialogs.WriteLatencyDialog
@@ -28,81 +30,85 @@ fun ServerSection(
     var showWriteLatencyDialog by remember { mutableStateOf(false) }
     var showBatchSizeDialog by remember { mutableStateOf(false) }
 
-    Column {
-        SettingsTitle("服务端")
-
-        // 息屏时记录
-        M3ESwitchWidget(
-            text = "息屏记录",
-            checked = recordScreenOffEnabled,
-            onCheckedChange = onRecordScreenOffChange
-        )
-
-        // 采样间隔
-        SettingsItem(
-            title = "采样间隔",
-            summary = "${intervalMs / 1000.0} 秒",
-        ) { showIntervalDialog = true }
-
-        // 写入延迟
-        SettingsItem(
-            title = "写入延迟",
-            summary = "${writeLatencyMs / 1000.0} 秒",
-        ) { showWriteLatencyDialog = true }
-
-        // 批量大小
-        SettingsItem(
-            title = "批量大小",
-            summary = "$batchSize 条",
-        ) { showBatchSizeDialog = true }
-
-        // 采样间隔对话框
-        if (showIntervalDialog) {
-            IntervalDialog(
-                currentValueMs = intervalMs,
-                onDismiss = { showIntervalDialog = false },
-                onSave = { value ->
-                    onIntervalChange(value)
-                    showIntervalDialog = false
-                },
-                onReset = {
-                    onIntervalChange(900)
-                    showIntervalDialog = false
-                }
+    SplicedColumnGroup(
+        title = "服务端",
+        modifier = Modifier.padding(horizontal = 16.dp)
+    ) {
+        item {
+            M3ESwitchWidget(
+                text = "息屏记录",
+                checked = recordScreenOffEnabled,
+                onCheckedChange = onRecordScreenOffChange
             )
         }
 
-        // 写入延迟对话框
-        if (showWriteLatencyDialog) {
-            WriteLatencyDialog(
-                currentValueMs = writeLatencyMs,
-                onDismiss = { showWriteLatencyDialog = false },
-                onSave = { value ->
-                    onWriteLatencyChange(value)
-                    showWriteLatencyDialog = false
-                },
-                onReset = {
-                    onWriteLatencyChange(30000)
-                    showWriteLatencyDialog = false
-                }
-            )
+        item {
+            SettingsItem(
+                title = "采样间隔",
+                summary = "${intervalMs / 1000.0} 秒"
+            ) { showIntervalDialog = true }
         }
 
-        // 批量大小对话框
-        if (showBatchSizeDialog) {
-            BatchSizeDialog(
-                currentValue = batchSize,
-                onDismiss = { showBatchSizeDialog = false },
-                onSave = { value ->
-                    onBatchSizeChange(value)
-                    showBatchSizeDialog = false
-                },
-                onReset = {
-                    onBatchSizeChange(200)
-                    showBatchSizeDialog = false
-                }
-            )
+        item {
+            SettingsItem(
+                title = "写入延迟",
+                summary = "${writeLatencyMs / 1000.0} 秒"
+            ) { showWriteLatencyDialog = true }
+        }
+
+        item {
+            SettingsItem(
+                title = "批量大小",
+                summary = "$batchSize 条"
+            ) { showBatchSizeDialog = true }
         }
     }
-}
 
+    // 采样间隔对话框
+    if (showIntervalDialog) {
+        IntervalDialog(
+            currentValueMs = intervalMs,
+            onDismiss = { showIntervalDialog = false },
+            onSave = { value ->
+                onIntervalChange(value)
+                showIntervalDialog = false
+            },
+            onReset = {
+                onIntervalChange(900)
+                showIntervalDialog = false
+            }
+        )
+    }
+
+    // 写入延迟对话框
+    if (showWriteLatencyDialog) {
+        WriteLatencyDialog(
+            currentValueMs = writeLatencyMs,
+            onDismiss = { showWriteLatencyDialog = false },
+            onSave = { value ->
+                onWriteLatencyChange(value)
+                showWriteLatencyDialog = false
+            },
+            onReset = {
+                onWriteLatencyChange(30000)
+                showWriteLatencyDialog = false
+            }
+        )
+    }
+
+    // 批量大小对话框
+    if (showBatchSizeDialog) {
+        BatchSizeDialog(
+            currentValue = batchSize,
+            onDismiss = { showBatchSizeDialog = false },
+            onSave = { value ->
+                onBatchSizeChange(value)
+                showBatchSizeDialog = false
+            },
+            onReset = {
+                onBatchSizeChange(200)
+                showBatchSizeDialog = false
+            }
+        )
+    }
+}
