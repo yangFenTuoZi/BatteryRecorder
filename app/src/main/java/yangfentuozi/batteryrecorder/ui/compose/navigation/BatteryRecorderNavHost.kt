@@ -1,5 +1,7 @@
 package yangfentuozi.batteryrecorder.ui.compose.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -16,6 +18,28 @@ import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsScreen
 import yangfentuozi.batteryrecorder.ui.compose.viewmodel.MainViewModel
 import yangfentuozi.batteryrecorder.ui.compose.viewmodel.SettingsViewModel
 
+private const val ANIMATION_DURATION = 300
+private const val SCALE_FACTOR = 0.95f
+
+private val animationSpec = tween<Float>(
+    durationMillis = ANIMATION_DURATION,
+    easing = FastOutSlowInEasing
+)
+
+private val defaultEnterTransition: EnterTransition = scaleIn(
+    initialScale = SCALE_FACTOR,
+    animationSpec = animationSpec
+) + fadeIn(animationSpec = animationSpec)
+
+private val defaultExitTransition: ExitTransition = fadeOut(animationSpec = animationSpec)
+
+private val defaultPopEnterTransition: EnterTransition = fadeIn(animationSpec = animationSpec)
+
+private val defaultPopExitTransition: ExitTransition = scaleOut(
+    targetScale = SCALE_FACTOR,
+    animationSpec = animationSpec
+) + fadeOut(animationSpec = animationSpec)
+
 @Composable
 fun BatteryRecorderNavHost(
     navController: NavHostController,
@@ -30,32 +54,10 @@ fun BatteryRecorderNavHost(
     ) {
         composable(
             route = Screen.Home.route,
-            enterTransition = {
-                scaleIn(
-                    initialScale = 0.95f,
-                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
-                ) + fadeIn(
-                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
-                )
-            },
-            exitTransition = {
-                fadeOut(
-                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
-                )
-            },
-            popEnterTransition = {
-                fadeIn(
-                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
-                )
-            },
-            popExitTransition = {
-                scaleOut(
-                    targetScale = 0.95f,
-                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
-                ) + fadeOut(
-                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
-                )
-            }
+            enterTransition = { defaultEnterTransition },
+            exitTransition = { defaultExitTransition },
+            popEnterTransition = { defaultPopEnterTransition },
+            popExitTransition = { defaultPopExitTransition }
         ) {
             HomeScreen(
                 viewModel = mainViewModel,
@@ -67,32 +69,10 @@ fun BatteryRecorderNavHost(
         }
         composable(
             route = Screen.Settings.route,
-            enterTransition = {
-                scaleIn(
-                    initialScale = 0.95f,
-                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
-                ) + fadeIn(
-                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
-                )
-            },
-            exitTransition = {
-                fadeOut(
-                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
-                )
-            },
-            popEnterTransition = {
-                fadeIn(
-                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
-                )
-            },
-            popExitTransition = {
-                scaleOut(
-                    targetScale = 0.95f,
-                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
-                ) + fadeOut(
-                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
-                )
-            }
+            enterTransition = { defaultEnterTransition },
+            exitTransition = { defaultExitTransition },
+            popEnterTransition = { defaultPopEnterTransition },
+            popExitTransition = { defaultPopExitTransition }
         ) {
             SettingsScreen(
                 settingsViewModel = settingsViewModel,

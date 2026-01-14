@@ -6,8 +6,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import yangfentuozi.batteryrecorder.ui.compose.components.global.M3ESwitchWidget
 import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsItem
-import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsSwitchItem
 import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsTitle
 import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.dialogs.CalibrationDialog
 
@@ -24,7 +24,7 @@ fun CalibrationSection(
         SettingsTitle("校准")
 
         // 双电池开关
-        SettingsSwitchItem(
+        M3ESwitchWidget(
             text = "双电池",
             checked = dualCellEnabled,
             onCheckedChange = onDualCellChange
