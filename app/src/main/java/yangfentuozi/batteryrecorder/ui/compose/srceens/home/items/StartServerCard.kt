@@ -24,9 +24,6 @@ fun StartServerCard(
         modifier = modifier.padding(8.dp),
         elevation = CardDefaults.cardElevation(
             defaultElevation = 2.dp
-        ),
-        colors =  CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
         )
     ) {
         Column(

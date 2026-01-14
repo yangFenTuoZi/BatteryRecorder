@@ -48,13 +48,9 @@ fun SettingsScreen(
         topBar = {
             LargeTopAppBar(
                 title = { Text("设置") },
-                scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.largeTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
-                )
+                scrollBehavior = scrollBehavior
             )
-        },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer
+        }
     ) { padding ->
         LazyColumn(
             modifier = Modifier

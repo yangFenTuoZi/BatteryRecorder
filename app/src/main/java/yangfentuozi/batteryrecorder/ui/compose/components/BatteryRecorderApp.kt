@@ -17,13 +17,9 @@ fun BatteryRecorderApp(
     settingsViewModel: SettingsViewModel = viewModel()
 ) {
     val navController = rememberNavController()
-    Surface(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        BatteryRecorderNavHost(
-            navController = navController,
-            mainViewModel = mainViewModel,
-            settingsViewModel = settingsViewModel
-        )
-    }
+    BatteryRecorderNavHost(
+        navController = navController,
+        mainViewModel = mainViewModel,
+        settingsViewModel = settingsViewModel
+    )
 }

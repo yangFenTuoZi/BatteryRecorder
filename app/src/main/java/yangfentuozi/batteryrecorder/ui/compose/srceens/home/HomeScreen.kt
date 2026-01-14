@@ -89,8 +89,7 @@ fun HomeScreen(
                     onAboutClick = viewModel::showAboutDialog,
                     showStopServer = serviceConnected
                 )
-            },
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
+            }
         ) { paddingValues ->
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),

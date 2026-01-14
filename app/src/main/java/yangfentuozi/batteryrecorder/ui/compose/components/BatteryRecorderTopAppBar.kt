@@ -44,9 +44,6 @@ fun BatteryRecorderTopAppBar(
                 }
             }
         },
-        colors = topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
-        ),
         actions = {
             if (!showBackButton) {
                 IconButton(onClick = onSettingsClick) {
