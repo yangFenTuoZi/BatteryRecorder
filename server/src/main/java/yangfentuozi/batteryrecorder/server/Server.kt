@@ -50,16 +50,9 @@ class Server internal constructor() : IService.Stub() {
 
     private val displayCallback: IDisplayManagerCallback = object : IDisplayManagerCallback.Stub() {
         override fun onDisplayEvent(displayId: Int, event: Int) {
-            val isInteractiveNow = iPowerManager.isInteractive
-            val isInteractiveJustNow = isInteractive
-            isInteractive = isInteractiveNow
-            if (!recordScreenOff) {
-                if (isInteractiveJustNow && !isInteractiveNow) {
-                    stopMonitoring()
-                    mMonitorHandler!!.post(mMonitorRunnableWithoutRecursion)
-                } else if (!isInteractiveJustNow && isInteractiveNow) {
-                    startMonitoring()
-                }
+            isInteractive = iPowerManager.isInteractive
+            if (isInteractive && !mMonitorHandler!!.hasCallbacks(mMonitorRunnable)) {
+                startMonitoring()
             }
         }
     }
@@ -83,25 +76,10 @@ class Server internal constructor() : IService.Stub() {
             } catch (e: IOException) {
                 Log.e(TAG, "Error reading power data", e)
             } finally {
-                mMonitorHandler!!.postDelayed(this, mIntervalMillis)
+                if (isInteractive || recordScreenOff) {
+                    mMonitorHandler!!.postDelayed(this, mIntervalMillis)
+                }
             }
-        }
-    }
-    private val mMonitorRunnableWithoutRecursion = Runnable {
-        try {
-            val timestamp = System.currentTimeMillis()
-            writer!!.write(
-                DataWriter.PowerRecord(
-                    timestamp,
-                    PowerUtil.power,
-                    currForegroundApp,
-                    PowerUtil.capacity,
-                    if (isInteractive) 1 else 0,
-                    PowerUtil.status
-                )
-            )
-        } catch (e: IOException) {
-            Log.e(TAG, "Error reading power data", e)
         }
     }
     private var mIntervalMillis: Long = 900
@@ -172,10 +150,6 @@ class Server internal constructor() : IService.Stub() {
         mMonitorHandler!!.postDelayed(mMonitorRunnable, mIntervalMillis)
     }
 
-    private fun stopMonitoring() {
-        mMonitorHandler!!.removeCallbacks(mMonitorRunnable)
-    }
-
     fun onFocusedAppChanged(taskInfo: TaskInfo) {
         val componentName = taskInfo.topActivity ?: return
         val packageName = componentName.packageName
@@ -234,12 +208,7 @@ class Server internal constructor() : IService.Stub() {
                 writer!!.batchSize = batchSize
                 writer!!.flushIntervalMs = flushIntervalMs
 
-                if (!this.recordScreenOff && recordScreenOff && !isInteractive && !mMonitorHandler!!.hasCallbacks(mMonitorRunnable)) {
-                    startMonitoring()
-                }
-                if (this.recordScreenOff && !recordScreenOff && !isInteractive && mMonitorHandler!!.hasCallbacks(mMonitorRunnable)) {
-                    stopMonitoring()
-                }
+                this.recordScreenOff = recordScreenOff
             }
         } catch (e: FileNotFoundException) {
             Log.e(TAG, "Config file not found", e)
