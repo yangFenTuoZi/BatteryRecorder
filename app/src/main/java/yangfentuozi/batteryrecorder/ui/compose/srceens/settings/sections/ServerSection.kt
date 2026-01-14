@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsItem
+import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsSwitchItem
 import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsTitle
 import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.dialogs.BatchSizeDialog
 import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.dialogs.IntervalDialog
@@ -19,7 +20,9 @@ fun ServerSection(
     writeLatencyMs: Long,
     onWriteLatencyChange: (Long) -> Unit,
     batchSize: Int,
-    onBatchSizeChange: (Int) -> Unit
+    onBatchSizeChange: (Int) -> Unit,
+    recordScreenOffEnabled: Boolean,
+    onRecordScreenOffChange: (Boolean) -> Unit
 ) {
     var showIntervalDialog by remember { mutableStateOf(false) }
     var showWriteLatencyDialog by remember { mutableStateOf(false) }
@@ -27,6 +30,13 @@ fun ServerSection(
 
     Column {
         SettingsTitle("服务端")
+
+        // 息屏时记录
+        SettingsSwitchItem(
+            text = "息屏记录",
+            checked = recordScreenOffEnabled,
+            onCheckedChange = onRecordScreenOffChange
+        )
 
         // 采样间隔
         SettingsItem(

@@ -40,6 +40,7 @@ fun SettingsScreen(
     val intervalMs by settingsViewModel.intervalMs.collectAsState()
     val writeLatencyMs by settingsViewModel.writeLatencyMs.collectAsState()
     val batchSize by settingsViewModel.batchSize.collectAsState()
+    val recordScreenOffEnabled by settingsViewModel.recordScreenOff.collectAsState()
 
     Scaffold(
         topBar = {
@@ -77,7 +78,9 @@ fun SettingsScreen(
                     writeLatencyMs = writeLatencyMs,
                     onWriteLatencyChange = settingsViewModel::setWriteLatencyMs,
                     batchSize = batchSize,
-                    onBatchSizeChange = settingsViewModel::setBatchSize
+                    onBatchSizeChange = settingsViewModel::setBatchSize,
+                    recordScreenOffEnabled = recordScreenOffEnabled,
+                    onRecordScreenOffChange = settingsViewModel::setRecordScreenOffEnabled,
                 )
             }
         }

@@ -50,17 +50,66 @@ class Server internal constructor() : IService.Stub() {
 
     private val displayCallback: IDisplayManagerCallback = object : IDisplayManagerCallback.Stub() {
         override fun onDisplayEvent(displayId: Int, event: Int) {
-            isInteractive = iPowerManager.isInteractive
+            val isInteractiveNow = iPowerManager.isInteractive
+            val isInteractiveJustNow = isInteractive
+            isInteractive = isInteractiveNow
+            if (!recordScreenOff) {
+                if (isInteractiveJustNow && !isInteractiveNow) {
+                    stopMonitoring()
+                    mMonitorHandler!!.post(mMonitorRunnableWithoutRecursion)
+                } else if (!isInteractiveJustNow && isInteractiveNow) {
+                    startMonitoring()
+                }
+            }
         }
     }
 
     private var mMonitorThread: HandlerThread? = null
     private var mMonitorHandler: Handler? = null
+    private val mMonitorRunnable = object : Runnable {
+        override fun run() {
+            try {
+                val timestamp = System.currentTimeMillis()
+                writer!!.write(
+                    DataWriter.PowerRecord(
+                        timestamp,
+                        PowerUtil.power,
+                        currForegroundApp,
+                        PowerUtil.capacity,
+                        if (isInteractive) 1 else 0,
+                        PowerUtil.status
+                    )
+                )
+            } catch (e: IOException) {
+                Log.e(TAG, "Error reading power data", e)
+            } finally {
+                mMonitorHandler!!.postDelayed(this, mIntervalMillis)
+            }
+        }
+    }
+    private val mMonitorRunnableWithoutRecursion = Runnable {
+        try {
+            val timestamp = System.currentTimeMillis()
+            writer!!.write(
+                DataWriter.PowerRecord(
+                    timestamp,
+                    PowerUtil.power,
+                    currForegroundApp,
+                    PowerUtil.capacity,
+                    if (isInteractive) 1 else 0,
+                    PowerUtil.status
+                )
+            )
+        } catch (e: IOException) {
+            Log.e(TAG, "Error reading power data", e)
+        }
+    }
     private var mIntervalMillis: Long = 900
 
     private var writer: DataWriter? = null
     private var currForegroundApp: String? = null
     private var isInteractive: Boolean
+    private var recordScreenOff: Boolean = false
 
     private fun startService() {
         try {
@@ -120,27 +169,11 @@ class Server internal constructor() : IService.Stub() {
     }
 
     private fun startMonitoring() {
-        mMonitorHandler!!.postDelayed(object : Runnable {
-            override fun run() {
-                try {
-                    val timestamp = System.currentTimeMillis()
-                    writer!!.write(
-                        DataWriter.PowerRecord(
-                            timestamp,
-                            PowerUtil.power,
-                            currForegroundApp,
-                            PowerUtil.capacity,
-                            if (isInteractive) 1 else 0,
-                            PowerUtil.status
-                        )
-                    )
-                } catch (e: IOException) {
-                    Log.e(TAG, "Error reading power data", e)
-                } finally {
-                    mMonitorHandler!!.postDelayed(this, mIntervalMillis)
-                }
-            }
-        }, mIntervalMillis)
+        mMonitorHandler!!.postDelayed(mMonitorRunnable, mIntervalMillis)
+    }
+
+    private fun stopMonitoring() {
+        mMonitorHandler!!.removeCallbacks(mMonitorRunnable)
     }
 
     fun onFocusedAppChanged(taskInfo: TaskInfo) {
@@ -168,6 +201,7 @@ class Server internal constructor() : IService.Stub() {
                 mIntervalMillis = 900
                 var batchSize = 200  // 保留兼容性
                 var flushIntervalMs = 30000L  // 默认5秒
+                var recordScreenOff = false
 
                 while (eventType != XmlPullParser.END_DOCUMENT) {
                     if (eventType == XmlPullParser.START_TAG) {
@@ -182,6 +216,10 @@ class Server internal constructor() : IService.Stub() {
 
                             "flush_interval" ->
                                 flushIntervalMs = valueAttr.toLongOrNull() ?: 30000L
+
+                            "record_screen_off" -> {
+                                recordScreenOff = valueAttr == "true"
+                            }
                         }
                     }
                     eventType = parser.next()
@@ -193,8 +231,15 @@ class Server internal constructor() : IService.Stub() {
                 if (flushIntervalMs < 100) flushIntervalMs = 100L  // 最小100ms
                 else if (flushIntervalMs > 60000) flushIntervalMs = 60000L  // 最大60秒
 
-                writer!!.batchSize = batchSize  // 保留兼容性
+                writer!!.batchSize = batchSize
                 writer!!.flushIntervalMs = flushIntervalMs
+
+                if (!this.recordScreenOff && recordScreenOff && !isInteractive && !mMonitorHandler!!.hasCallbacks(mMonitorRunnable)) {
+                    startMonitoring()
+                }
+                if (this.recordScreenOff && !recordScreenOff && !isInteractive && mMonitorHandler!!.hasCallbacks(mMonitorRunnable)) {
+                    stopMonitoring()
+                }
             }
         } catch (e: FileNotFoundException) {
             Log.e(TAG, "Config file not found", e)

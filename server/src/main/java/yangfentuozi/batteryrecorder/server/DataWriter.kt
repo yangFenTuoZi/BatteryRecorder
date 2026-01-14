@@ -16,8 +16,8 @@ class DataWriter(val looper: Looper) {
 
     private var lastStatus: PowerUtil.BatteryStatus? = null
 
-    private val chargeDataWriter = BaseWriter(chargeDir)
-    private val dischargeDataWriter = BaseWriter(dischargeDir)
+    private val chargeDataWriter = ChargeDataWriter(chargeDir)
+    private val dischargeDataWriter = DischargeDataWriter(dischargeDir)
 
     var batchSize = 200
     var flushIntervalMs = 30 * 1000L
@@ -63,17 +63,44 @@ class DataWriter(val looper: Looper) {
         dischargeDataWriter.flushBuffer()
     }
 
-    inner class BaseWriter(val dir: File) {
-        private var outputStream: OutputStream? = null
-        private var startTime: Long = 0L
-        private var lastTime: Long = 0L
-        private var lastChangedStatusTime = 0L
+    inner class ChargeDataWriter(dir: File) : BaseWriter(dir) {
+        override fun needStartNewSegment(justChangedStatus: Boolean, nowTime: Long): Boolean {
+            //          case1 记录超过 24 小时
+            return (nowTime - startTime > 24 * 60 * 60 * 1000) ||
+                    //  case2 允许短时间内续接之前记录
+                    (justChangedStatus && nowTime - lastTime > 30 * 1000)
+        }
 
-        private val buffer = StringBuilder(4096)
-        private var batchCount = 0
+        override fun needDeleteSegment(nowTime: Long): Boolean {
+            return nowTime - startTime < 1 * 60 * 1000 // 1min
+        }
+    }
 
-        private val handler: Handler = Handler(looper)
-        private val writingRunnable = Runnable {
+    inner class DischargeDataWriter(dir: File) : BaseWriter(dir) {
+        override fun needStartNewSegment(justChangedStatus: Boolean, nowTime: Long): Boolean {
+            //          case1 记录超过 24 小时
+            return (nowTime - startTime > 24 * 60 * 60 * 1000) ||
+                    //  case2 允许短时间内续接之前记录
+                    (justChangedStatus && nowTime - lastTime > 10 * 60 * 1000)
+        }
+
+        override fun needDeleteSegment(nowTime: Long): Boolean {
+            return nowTime - startTime < 15 * 60 * 1000 // 15min
+        }
+    }
+
+    abstract inner class BaseWriter(val dir: File) {
+        protected var segmentFile: File? = null
+        protected var outputStream: OutputStream? = null
+        protected var startTime: Long = 0L
+        protected var lastTime: Long = 0L
+        protected var lastChangedStatusTime = 0L
+
+        protected val buffer = StringBuilder(4096)
+        protected var batchCount = 0
+
+        protected val handler: Handler = Handler(looper)
+        protected val writingRunnable = Runnable {
             flushBuffer()
             // 防止异步写完被忽略掉
             if (batchCount > 0) {
@@ -119,25 +146,31 @@ class DataWriter(val looper: Looper) {
             justChangedStatus: Boolean
         ) {
             val nowTime = System.currentTimeMillis()
-            if (// case1 记录超过 24 小时
-                (nowTime - startTime > 24 * 60 * 60 * 1000) ||
-                // case2 应对电压正负快速变化，允许短时间内续接之前记录
-                (justChangedStatus && nowTime - lastTime > 30 * 1000) ||
-                // case3 还没记录过
+            if (needStartNewSegment(justChangedStatus, nowTime) ||
+                // case 还没记录过
                 outputStream == null
             ) {
                 // 关闭之前的记录，打开新的
                 closeCurrentSegment()
                 startTime = nowTime
                 val fileName = "$nowTime.txt"
-                val segmentFile = File(dir, fileName)
-                if (!segmentFile.exists() && !segmentFile.createNewFile()) {
-                    throw IOException("Failed to create segment file: " + segmentFile.absolutePath)
+                segmentFile = File(dir, fileName)
+                if (!segmentFile!!.exists() && !segmentFile!!.createNewFile()) {
+                    throw IOException("Failed to create segment file: " + segmentFile!!.absolutePath)
                 }
-                changeOwner(segmentFile)
-                outputStream = FileOutputStream(segmentFile, true)
+                changeOwner(segmentFile!!)
+                outputStream = FileOutputStream(segmentFile!!, true)
             }
         }
+
+        abstract fun needStartNewSegment(
+            justChangedStatus: Boolean,
+            nowTime: Long = System.currentTimeMillis()
+        ): Boolean
+
+        abstract fun needDeleteSegment(
+            nowTime: Long = System.currentTimeMillis()
+        ): Boolean
 
         fun flushBuffer() {
             if (batchCount == 0 || outputStream == null) return
@@ -156,6 +189,10 @@ class DataWriter(val looper: Looper) {
                     Log.e(Server.TAG, "Failed to close segment file", e)
                 }
                 outputStream = null
+                if (needDeleteSegment(System.currentTimeMillis())) {
+                    segmentFile!!.delete()
+                }
+                segmentFile = null
             }
         }
     }

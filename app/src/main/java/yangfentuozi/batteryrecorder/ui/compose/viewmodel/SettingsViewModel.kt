@@ -34,6 +34,10 @@ class SettingsViewModel : ViewModel() {
     private val _batchSize = MutableStateFlow(200)
     val batchSize: StateFlow<Int> = _batchSize.asStateFlow()
 
+    // 息屏时继续记录
+    private val _recordScreenOff = MutableStateFlow(false)
+    val recordScreenOff: StateFlow<Boolean> = _recordScreenOff.asStateFlow()
+
     /**
      * 初始化 SharedPreferences
      */
@@ -53,6 +57,7 @@ class SettingsViewModel : ViewModel() {
         _intervalMs.value = prefs.getLong("interval", 900)
         _writeLatencyMs.value = prefs.getLong("flush_interval", 30000)
         _batchSize.value = prefs.getInt("batch_size", 200)
+        _recordScreenOff.value = prefs.getBoolean("record_screen_off", false)
     }
 
     /**
@@ -104,6 +109,14 @@ class SettingsViewModel : ViewModel() {
         viewModelScope.launch {
             prefs.edit { putInt("batch_size", value) }
             _batchSize.value = value
+            Service.service?.refreshConfig()
+        }
+    }
+
+    fun setRecordScreenOffEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            prefs.edit { putBoolean("record_screen_off", enabled) }
+            _recordScreenOff.value = enabled
             Service.service?.refreshConfig()
         }
     }
