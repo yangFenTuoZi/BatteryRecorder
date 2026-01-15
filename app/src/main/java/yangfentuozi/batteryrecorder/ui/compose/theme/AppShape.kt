@@ -59,45 +59,5 @@ object AppShape {
             bottomEnd = 16.dp
         )
         val middle = ContinuousRoundedRectangle(6.dp)
-
-        // Home 页面启动卡片专用（顶部项，下方是双列）
-        val homeStartCard = ContinuousRoundedRectangle(
-            topStart = 16.dp,
-            topEnd = 16.dp,
-            bottomStart = 6.dp,
-            bottomEnd = 6.dp
-        )
-    }
-
-    // 拼接行组专用形状
-    object SplicedRow {
-        val single = ContinuousRoundedRectangle(16.dp)
-        val start = ContinuousRoundedRectangle(
-            topStart = 16.dp,
-            topEnd = 6.dp,
-            bottomStart = 16.dp,
-            bottomEnd = 6.dp
-        )
-        val end = ContinuousRoundedRectangle(
-            topStart = 6.dp,
-            topEnd = 16.dp,
-            bottomStart = 6.dp,
-            bottomEnd = 16.dp
-        )
-        val middle = ContinuousRoundedRectangle(6.dp)
-
-        // Home 页面专用形状
-        val homeChargeStats = ContinuousRoundedRectangle(
-            topStart = 6.dp,
-            topEnd = 6.dp,
-            bottomStart = 16.dp,
-            bottomEnd = 6.dp
-        )
-        val homeDischargeStats = ContinuousRoundedRectangle(
-            topStart = 6.dp,
-            topEnd = 6.dp,
-            bottomStart = 6.dp,
-            bottomEnd = 16.dp
-        )
     }
 }
