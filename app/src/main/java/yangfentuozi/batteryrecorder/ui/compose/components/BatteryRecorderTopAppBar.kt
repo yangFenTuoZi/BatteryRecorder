@@ -19,7 +19,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.R
+import yangfentuozi.batteryrecorder.ui.compose.theme.AppShape
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,14 +56,16 @@ fun BatteryRecorderTopAppBar(
             IconButton(onClick = { showMenu = !showMenu }) {
                 Icon(Icons.Default.MoreVert, null)
             }
-            DropdownMenu(
-                expanded = showMenu,
-                onDismissRequest = { showMenu = false }
-            ) {
-                if (!showBackButton && showStopServer) {
-                    DropdownMenuItem(
-                        text = { Text("停止服务") },
-                        onClick = {
+             DropdownMenu(
+                 expanded = showMenu,
+                 onDismissRequest = { showMenu = false },
+                 shape = AppShape.large,
+                 offset = DpOffset(x = 0.dp, y = (-48).dp)
+             ) {
+                 if (!showBackButton && showStopServer) {
+                     DropdownMenuItem(
+                         text = { Text("停止服务") },
+                         onClick = {
                             showMenu = false
                             onStopServerClick()
                         }
