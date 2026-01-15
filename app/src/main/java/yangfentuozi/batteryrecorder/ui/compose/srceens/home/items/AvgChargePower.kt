@@ -3,10 +3,9 @@ package yangfentuozi.batteryrecorder.ui.compose.srceens.home.items
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,18 +22,18 @@ fun ChargeStatsCard(
     dualCellEnabled: Boolean,
     calibrationValue: Int
 ) {
-    Card(
-        modifier = modifier.padding(8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(16.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "充电统计",
-                style = MaterialTheme.typography.titleMedium
-            )
+        Text(
+            text = "充电统计",
+            style = MaterialTheme.typography.titleMedium
+        )
 
-            if (stats != null) {
-                Spacer(Modifier.height(12.dp))
+        if (stats != null) {
+            Spacer(Modifier.height(12.dp))
 
                 // 平均功率
                 StatRow(
@@ -57,18 +56,17 @@ fun ChargeStatsCard(
                 val screenOnHours = stats.screenOnTimeMs / 3600000.0
                 StatRow("亮屏", String.format("%.1fh", screenOnHours))
 
-                // 息屏时间
-                val screenOffHours = stats.screenOffTimeMs / 3600000.0
-                StatRow("息屏", String.format("%.1fh", screenOffHours))
+            // 息屏时间
+            val screenOffHours = stats.screenOffTimeMs / 3600000.0
+            StatRow("息屏", String.format("%.1fh", screenOffHours))
 
-            } else {
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = "暂无数据",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+        } else {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = "暂无数据",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -80,18 +78,18 @@ fun DischargeStatsCard(
     dualCellEnabled: Boolean,
     calibrationValue: Int
 ) {
-    Card(
-        modifier = modifier.padding(8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(16.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "放电统计",
-                style = MaterialTheme.typography.titleMedium
-            )
+        Text(
+            text = "放电统计",
+            style = MaterialTheme.typography.titleMedium
+        )
 
-            if (stats != null) {
-                Spacer(Modifier.height(12.dp))
+        if (stats != null) {
+            Spacer(Modifier.height(12.dp))
 
                 // 平均功率
                 StatRow(
@@ -114,18 +112,17 @@ fun DischargeStatsCard(
                 val screenOnHours = stats.screenOnTimeMs / 3600000.0
                 StatRow("亮屏", String.format("%.1fh", screenOnHours))
 
-                // 息屏时间
-                val screenOffHours = stats.screenOffTimeMs / 3600000.0
-                StatRow("息屏", String.format("%.1fh", screenOffHours))
+            // 息屏时间
+            val screenOffHours = stats.screenOffTimeMs / 3600000.0
+            StatRow("息屏", String.format("%.1fh", screenOffHours))
 
-            } else {
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = "暂无数据",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+        } else {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = "暂无数据",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

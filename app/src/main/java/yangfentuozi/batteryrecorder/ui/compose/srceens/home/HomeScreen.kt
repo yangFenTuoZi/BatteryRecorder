@@ -1,11 +1,11 @@
 package yangfentuozi.batteryrecorder.ui.compose.srceens.home
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -19,18 +19,22 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.kyant.capsule.ContinuousRoundedRectangle
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import yangfentuozi.batteryrecorder.ui.compose.components.AboutDialog
 import yangfentuozi.batteryrecorder.ui.compose.components.BatteryRecorderTopAppBar
+import yangfentuozi.batteryrecorder.ui.compose.components.global.SplicedRowGroup
 import yangfentuozi.batteryrecorder.ui.compose.srceens.home.items.ChargeStatsCard
 import yangfentuozi.batteryrecorder.ui.compose.srceens.home.items.DischargeStatsCard
 import yangfentuozi.batteryrecorder.ui.compose.srceens.home.items.StartServerCard
+import yangfentuozi.batteryrecorder.ui.compose.theme.AppShape
 import yangfentuozi.batteryrecorder.ui.compose.viewmodel.MainViewModel
 import yangfentuozi.batteryrecorder.ui.compose.viewmodel.SettingsViewModel
 
@@ -91,39 +95,83 @@ fun HomeScreen(
                 )
             }
         ) { paddingValues ->
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                contentPadding = PaddingValues(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
+                    .padding(vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
+                // 启动卡片（条件显示）
                 if (!serviceConnected) {
-                    item {
+                    Column(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .clip(AppShape.SplicedGroup.homeStartCard)
+                            .background(MaterialTheme.colorScheme.surfaceBright)
+                    ) {
                         StartServerCard()
                     }
                 }
 
-                // 充电统计卡片
-                item {
-                    ChargeStatsCard(
-                        stats = chargeStats,
-                        modifier = Modifier.fillMaxSize(),
-                        dualCellEnabled = dualCellEnabled,
-                        calibrationValue = calibrationValue
-                    )
-                }
+                // 统计卡片行
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    // 充电统计
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(
+                                if (serviceConnected) {
+                                    // 服务已连接，统计卡片是顶部项
+                                    ContinuousRoundedRectangle(
+                                        topStart = 16.dp,
+                                        topEnd = 6.dp,
+                                        bottomStart = 16.dp,
+                                        bottomEnd = 6.dp
+                                    )
+                                } else {
+                                    // 服务未连接，统计卡片是底部项
+                                    AppShape.SplicedRow.homeChargeStats
+                                }
+                            )
+                            .background(MaterialTheme.colorScheme.surfaceBright)
+                    ) {
+                        ChargeStatsCard(
+                            stats = chargeStats,
+                            dualCellEnabled = dualCellEnabled,
+                            calibrationValue = calibrationValue
+                        )
+                    }
 
-                // 放电统计卡片
-                item {
-                    DischargeStatsCard(
-                        stats = dischargeStats,
-                        modifier = Modifier.fillMaxSize(),
-                        dualCellEnabled = dualCellEnabled,
-                        calibrationValue = calibrationValue
-                    )
+                    // 放电统计
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(
+                                if (serviceConnected) {
+                                    // 服务已连接，统计卡片是顶部项
+                                    ContinuousRoundedRectangle(
+                                        topStart = 6.dp,
+                                        topEnd = 16.dp,
+                                        bottomStart = 6.dp,
+                                        bottomEnd = 16.dp
+                                    )
+                                } else {
+                                    // 服务未连接，统计卡片是底部项
+                                    AppShape.SplicedRow.homeDischargeStats
+                                }
+                            )
+                            .background(MaterialTheme.colorScheme.surfaceBright)
+                    ) {
+                        DischargeStatsCard(
+                            stats = dischargeStats,
+                            dualCellEnabled = dualCellEnabled,
+                            calibrationValue = calibrationValue
+                        )
+                    }
                 }
             }
         }
