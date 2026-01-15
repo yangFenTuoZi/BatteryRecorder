@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import yangfentuozi.batteryrecorder.ui.compose.theme.AppShape
 
 @Composable
 fun CalibrationDialog(
@@ -41,70 +42,54 @@ fun CalibrationDialog(
         onDismissRequest = onDismiss,
         title = { Text("电流单位校准") },
         text = {
-            Column(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(
                         top = 4.dp,
                         start = 8.dp,
                         end = 8.dp
-                    )
+                    ),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                // 减小按钮
+                IconButton(
+                    onClick = {
+                        if (value < 0) value *= 10
+                        else value /= 10
+                        if (value == 0) value = -1
+                        if (value < -maxValue) value = -maxValue
+                    },
+                    modifier = Modifier.size(48.dp)
                 ) {
-                    // 减小按钮
-                    IconButton(
-                        onClick = {
-                            if (value < 0) value *= 10
-                            else value /= 10
-                            if (value == 0) value = -1
-                            if (value < -maxValue) value = -maxValue
-                        },
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(Icons.Default.Remove, contentDescription = null)
-                    }
-
-                    Spacer(modifier = Modifier.width(24.dp))
-
-                    Box(
-                        modifier = Modifier.weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-
-                        // 显示当前值
-                        Text(
-                            text = value.toString(),
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(24.dp))
-
-                    // 增大按钮
-                    IconButton(
-                        onClick = {
-                            if (value > 0) value *= 10
-                            else value /= 10
-                            if (value == 0) value = 1
-                            if (value > maxValue) value = maxValue
-                        },
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                    }
+                    Icon(Icons.Default.Remove, contentDescription = null)
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.width(24.dp))
 
-                // 重置按钮
-                TextButton(
-                    onClick = onReset,
-                    modifier = Modifier.fillMaxWidth()
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text("重置为默认值 (-1)")
+                    Text(
+                        text = value.toString(),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(24.dp))
+
+                // 增大按钮
+                IconButton(
+                    onClick = {
+                        if (value > 0) value *= 10
+                        else value /= 10
+                        if (value == 0) value = 1
+                        if (value > maxValue) value = maxValue
+                    },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
                 }
             }
         },
@@ -114,9 +99,10 @@ fun CalibrationDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
+            TextButton(onClick = onReset) {
+                Text("重置")
             }
-        }
+        },
+        shape = AppShape.extraLarge
     )
 }

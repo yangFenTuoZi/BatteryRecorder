@@ -8,6 +8,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
@@ -54,10 +56,22 @@ fun BatteryRecorderNavHost(
     ) {
         composable(
             route = Screen.Home.route,
-            enterTransition = { defaultEnterTransition },
-            exitTransition = { defaultExitTransition },
-            popEnterTransition = { defaultPopEnterTransition },
-            popExitTransition = { defaultPopExitTransition }
+            exitTransition = {
+                // 从 MainPage 到 EditPage 时，MainPage 的退出动画
+                slideOutHorizontally(targetOffsetX = { fullWidth -> -fullWidth / 4 }) +
+                        fadeOut()
+            },
+            // --- MainPage 的 popEnterTransition ---
+            popEnterTransition = {
+                // 当从 EditPage 返回 MainPage 时，MainPage 的进入动画
+                slideInHorizontally(initialOffsetX = { fullWidth -> -fullWidth / 4 }) +
+                        fadeIn()
+            },
+
+            enterTransition = { null },
+//            exitTransition = { defaultExitTransition },
+//            popEnterTransition = { defaultPopEnterTransition },
+            popExitTransition = { null }
         ) {
             HomeScreen(
                 viewModel = mainViewModel,
