@@ -23,7 +23,7 @@ class SettingsViewModel : ViewModel() {
     val calibrationValue: StateFlow<Int> = _calibrationValue.asStateFlow()
 
     // 采样间隔 (ms)
-    private val _intervalMs = MutableStateFlow(900L)
+    private val _intervalMs = MutableStateFlow(1000L)
     val intervalMs: StateFlow<Long> = _intervalMs.asStateFlow()
 
     // 写入延迟 (ms)

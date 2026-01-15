@@ -45,14 +45,14 @@ fun ServerSection(
         item {
             SettingsItem(
                 title = "采样间隔",
-                summary = "${intervalMs / 1000.0} 秒"
+                summary = "${"%.1f".format(intervalMs / 1000.0)} 秒"
             ) { showIntervalDialog = true }
         }
 
         item {
             SettingsItem(
                 title = "写入延迟",
-                summary = "${writeLatencyMs / 1000.0} 秒"
+                summary = "${"%.1f".format(writeLatencyMs / 1000.0)} 秒"
             ) { showWriteLatencyDialog = true }
         }
 
@@ -70,11 +70,12 @@ fun ServerSection(
             currentValueMs = intervalMs,
             onDismiss = { showIntervalDialog = false },
             onSave = { value ->
-                onIntervalChange(value)
+                val roundedValue = (kotlin.math.round(value / 100.0) * 100).toLong()
+                onIntervalChange(roundedValue)
                 showIntervalDialog = false
             },
             onReset = {
-                onIntervalChange(900)
+                onIntervalChange(1000)
                 showIntervalDialog = false
             }
         )
@@ -86,7 +87,8 @@ fun ServerSection(
             currentValueMs = writeLatencyMs,
             onDismiss = { showWriteLatencyDialog = false },
             onSave = { value ->
-                onWriteLatencyChange(value)
+                val roundedValue = (kotlin.math.round(value / 100.0) * 100).toLong()
+                onWriteLatencyChange(roundedValue)
                 showWriteLatencyDialog = false
             },
             onReset = {

@@ -1,5 +1,6 @@
 package yangfentuozi.batteryrecorder.ui.compose.components.global
 
+import android.R.attr.onClick
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,8 +19,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
-
 
 @Composable
 fun M3ESwitchWidget(
@@ -29,9 +31,14 @@ fun M3ESwitchWidget(
     enabled: Boolean = true,
     icon: ImageVector? = null
 ) {
+    val haptic = LocalHapticFeedback.current
+
     Row(
         modifier = Modifier
-            .clickable(enabled = enabled) { onCheckedChange(!checked) }
+            .clickable(enabled = enabled) {
+                haptic.performHapticFeedback(HapticFeedbackType.ToggleOn)
+                onCheckedChange(!checked)
+            }
             .fillMaxWidth()
             .padding(horizontal = 36.dp)
             .height(72.dp),

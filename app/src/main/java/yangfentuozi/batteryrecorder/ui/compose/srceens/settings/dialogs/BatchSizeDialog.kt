@@ -1,9 +1,6 @@
 package yangfentuozi.batteryrecorder.ui.compose.srceens.settings.dialogs
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
@@ -16,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import yangfentuozi.batteryrecorder.ui.compose.theme.AppShape
 
 @Composable
 fun BatchSizeDialog(
@@ -31,37 +29,27 @@ fun BatchSizeDialog(
         onDismissRequest = onDismiss,
         title = { Text("批量大小") },
         text = {
-            Column(
+            OutlinedTextField(
+                value = value,
+                onValueChange = { newValue: String ->
+                    value = newValue
+                    isError =
+                        newValue.toIntOrNull() == null || newValue.toInt() < 0 || newValue.toInt() > 1000
+                },
+                label = { Text("批量大小") },
+                isError = isError,
+                supportingText = if (isError) {
+                    { Text("请输入 0-1000 之间的整数") }
+                } else null,
+                singleLine = true,
                 modifier = Modifier
+                    .fillMaxWidth()
                     .padding(
                         top = 4.dp,
                         start = 8.dp,
                         end = 8.dp
                     )
-            ) {
-                OutlinedTextField(
-                    value = value,
-                    onValueChange = { newValue: String ->
-                        value = newValue
-                        isError =
-                            newValue.toIntOrNull() == null || newValue.toInt() < 0 || newValue.toInt() > 1000
-                    },
-                    label = { Text("批量大小") },
-                    isError = isError,
-                    supportingText = if (isError) {
-                        { Text("请输入 0-1000 之间的整数") }
-                    } else null,
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                TextButton(
-                    onClick = onReset,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("重置为默认值 (200)")
-                }
-            }
+            )
         },
         confirmButton = {
             TextButton(
@@ -78,9 +66,10 @@ fun BatchSizeDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
+            TextButton(onClick = onReset) {
+                Text("重置")
             }
-        }
+        },
+        shape = AppShape.extraLarge
     )
 }
