@@ -3,7 +3,7 @@
 #include <string.h>
 #include <android/log.h>
 
-#define TAG "PowerUtilJNI"
+#define TAG "PowerReaderJNI"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 
@@ -79,32 +79,26 @@ static long read_long(FILE *fp) {
     return atol(buffer);
 }
 
-// Read a string from file
-static int read_string(FILE *fp, char *buffer, size_t size) {
+// Read a int value from file
+static int read_int(FILE *fp) {
+    char buffer[MAX_LINE_LENGTH];
     rewind(fp);
     fflush(fp);
 
-    if (!fgets(buffer, size, fp)) {
+    if (!fgets(buffer, MAX_LINE_LENGTH, fp)) {
         return 0;
     }
 
-    // Trim whitespace
-    size_t len = strlen(buffer);
-    while (len > 0 && (buffer[len - 1] == ' ' || buffer[len - 1] == '\n' ||
-                       buffer[len - 1] == '\r' || buffer[len - 1] == '\t')) {
-        buffer[--len] = '\0';
-    }
-
-    return 1;
+    return atoi(buffer);
 }
 
 JNIEXPORT jint JNICALL
-Java_yangfentuozi_batteryrecorder_server_PowerUtil_nativeInit(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
+Java_yangfentuozi_batteryrecorder_server_Native_nativeInit(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
     return init_file_cache();
 }
 
 JNIEXPORT jlong JNICALL
-Java_yangfentuozi_batteryrecorder_server_PowerUtil_nativeGetVoltage(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
+Java_yangfentuozi_batteryrecorder_server_Native_nativeGetVoltage(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
     if (!g_cache.initialized || !g_cache.voltage_fp) {
         return 0;
     }
@@ -112,7 +106,7 @@ Java_yangfentuozi_batteryrecorder_server_PowerUtil_nativeGetVoltage(JNIEnv *env 
 }
 
 JNIEXPORT jlong JNICALL
-Java_yangfentuozi_batteryrecorder_server_PowerUtil_nativeGetCurrent(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
+Java_yangfentuozi_batteryrecorder_server_Native_nativeGetCurrent(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
     if (!g_cache.initialized || !g_cache.current_fp) {
         return 0;
     }
@@ -120,24 +114,27 @@ Java_yangfentuozi_batteryrecorder_server_PowerUtil_nativeGetCurrent(JNIEnv *env 
 }
 
 JNIEXPORT jint JNICALL
-Java_yangfentuozi_batteryrecorder_server_PowerUtil_nativeGetCapacity(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
+Java_yangfentuozi_batteryrecorder_server_Native_nativeGetCapacity(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
     if (!g_cache.initialized || !g_cache.capacity_fp) {
         return 0;
     }
-    return (jint)read_long(g_cache.capacity_fp);
+    return read_int(g_cache.capacity_fp);
 }
 
-JNIEXPORT jstring JNICALL
-Java_yangfentuozi_batteryrecorder_server_PowerUtil_nativeGetStatus(JNIEnv *env, jclass clazz __attribute__((unused))) {
-    char buffer[MAX_LINE_LENGTH];
-
+JNIEXPORT jint JNICALL
+Java_yangfentuozi_batteryrecorder_server_Native_nativeGetStatus(JNIEnv *env, jclass clazz __attribute__((unused))) {
     if (!g_cache.initialized || !g_cache.status_fp) {
-        return (*env)->NewStringUTF(env, "Unknown");
+        return 0;
     }
 
-    if (!read_string(g_cache.status_fp, buffer, MAX_LINE_LENGTH)) {
-        return (*env)->NewStringUTF(env, "Unknown");
+    FILE *fp = g_cache.status_fp;
+    rewind(fp);
+    fflush(fp);
+
+    int ch = fgetc(fp);
+    if (ch != EOF) {
+        return ch;
     }
 
-    return (*env)->NewStringUTF(env, buffer);
+    return 0;
 }

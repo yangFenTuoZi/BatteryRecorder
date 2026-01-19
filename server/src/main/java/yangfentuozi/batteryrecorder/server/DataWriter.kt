@@ -3,9 +3,9 @@ package yangfentuozi.batteryrecorder.server
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import yangfentuozi.batteryrecorder.server.PowerUtil.BatteryStatus.Charging
-import yangfentuozi.batteryrecorder.server.PowerUtil.BatteryStatus.Discharging
-import yangfentuozi.batteryrecorder.server.PowerUtil.BatteryStatus.Full
+import yangfentuozi.batteryrecorder.server.BatteryStatus.Charging
+import yangfentuozi.batteryrecorder.server.BatteryStatus.Discharging
+import yangfentuozi.batteryrecorder.server.BatteryStatus.Full
 import yangfentuozi.batteryrecorder.server.Server.Companion.changeOwner
 import java.io.File
 import java.io.FileOutputStream
@@ -14,7 +14,7 @@ import java.io.OutputStream
 
 class DataWriter(val looper: Looper) {
 
-    private var lastStatus: PowerUtil.BatteryStatus? = null
+    private var lastStatus: BatteryStatus? = null
 
     private val chargeDataWriter = ChargeDataWriter(chargeDir)
     private val dischargeDataWriter = DischargeDataWriter(dischargeDir)
@@ -199,7 +199,7 @@ class DataWriter(val looper: Looper) {
 
     data class PowerRecord(
         val timestamp: Long, val power: Long, val packageName: String?,
-        val capacity: Int, val isDisplayOn: Int, val status: PowerUtil.BatteryStatus
+        val capacity: Int, val isDisplayOn: Int, val status: BatteryStatus
     ) {
         override fun toString(): String {
             return "$timestamp,$power,$packageName,$capacity,$isDisplayOn"

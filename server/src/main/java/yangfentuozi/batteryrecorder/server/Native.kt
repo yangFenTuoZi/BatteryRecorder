@@ -2,7 +2,7 @@ package yangfentuozi.batteryrecorder.server
 
 import java.io.IOException
 
-object PowerUtil {
+object Native {
 
     @JvmStatic
     external fun nativeInit(): Int
@@ -17,7 +17,7 @@ object PowerUtil {
     external fun nativeGetCapacity(): Int
 
     @JvmStatic
-    external fun nativeGetStatus(): String
+    external fun nativeGetStatus(): Int
 
     @get:Throws(IOException::class)
     val power: Long
@@ -29,15 +29,9 @@ object PowerUtil {
 
     @get:Throws(IOException::class)
     val status: BatteryStatus
-        get() = when(nativeGetStatus()) {
-            "Charging" -> BatteryStatus.Charging
-            "Discharging" -> BatteryStatus.Discharging
+        get() = when(nativeGetStatus().toChar()) {
+            'C' -> BatteryStatus.Charging
+            'D' -> BatteryStatus.Discharging
             else -> BatteryStatus.Full
         }
-
-    enum class BatteryStatus {
-        Charging,
-        Discharging,
-        Full
-    }
 }

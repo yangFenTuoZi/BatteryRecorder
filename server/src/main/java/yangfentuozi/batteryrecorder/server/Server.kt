@@ -27,7 +27,7 @@ import android.util.Log
 import android.util.Xml
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserException
-import yangfentuozi.batteryrecorder.server.PowerUtil.nativeInit
+import yangfentuozi.batteryrecorder.server.Native.nativeInit
 import yangfentuozi.hiddenapi.compat.ServiceManagerCompat
 import java.io.File
 import java.io.FileInputStream
@@ -67,11 +67,11 @@ class Server internal constructor() : IService.Stub() {
                 writer!!.write(
                     DataWriter.PowerRecord(
                         timestamp,
-                        PowerUtil.power,
+                        Native.power,
                         currForegroundApp,
-                        PowerUtil.capacity,
+                        Native.capacity,
                         if (isInteractive) 1 else 0,
-                        PowerUtil.status
+                        Native.status
                     )
                 )
             } catch (e: IOException) {

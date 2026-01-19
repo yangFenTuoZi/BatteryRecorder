@@ -1,5 +1,5 @@
-# 保证 ServerMain.main 方法不被混淆
--keepclassmembers class yangfentuozi.batteryrecorder.server.ServerMain {
+# 保证 Main.main 方法不被混淆
+-keepclassmembers class yangfentuozi.batteryrecorder.server.Main {
     public static void main(java.lang.String[]);
 }
 

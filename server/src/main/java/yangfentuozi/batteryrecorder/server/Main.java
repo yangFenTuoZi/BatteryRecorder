@@ -5,7 +5,7 @@ import android.system.Os;
 
 import java.io.IOException;
 
-public class ServerMain {
+public class Main {
     public static void main(String[] args) {
         DdmHandleAppName.setAppName("battery_recorder", Os.getuid());
         try {

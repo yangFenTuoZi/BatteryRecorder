@@ -45,7 +45,7 @@ fun StartServerCard(
                 Thread {
                     try {
                         Runtime.getRuntime().exec(arrayOf("su", "-c",
-                            "app_process \"-Djava.class.path=${context.applicationInfo.sourceDir}\" / yangfentuozi.batteryrecorder.server.ServerMain"
+                            "app_process \"-Djava.class.path=${context.applicationInfo.sourceDir}\" / yangfentuozi.batteryrecorder.server.Main"
                         ))
                     } catch (_: Throwable) {
                     }
