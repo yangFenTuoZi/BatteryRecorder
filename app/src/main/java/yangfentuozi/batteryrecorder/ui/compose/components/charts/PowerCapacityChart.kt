@@ -434,6 +434,8 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawScreenStateLine
     val timeRange = max(1L, maxTime - minTime).toDouble()
     val y = paddingTop + chartHeight + 8.dp.toPx()
 
+    if (points.isEmpty()) return
+
     if (points.size == 1) {
         drawLine(
             color = if (points[0].isDisplayOn) screenOnColor else screenOffColor,
@@ -444,15 +446,46 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawScreenStateLine
         return
     }
 
-    points.zipWithNext().forEach { (start, end) ->
-        val startX = paddingLeft + ((start.timestamp - minTime) / timeRange).toFloat() * chartWidth
-        val endX = paddingLeft + ((end.timestamp - minTime) / timeRange).toFloat() * chartWidth
-        val color = if (start.isDisplayOn) screenOnColor else screenOffColor
-        drawLine(
-            color = color,
-            start = Offset(startX, y),
-            end = Offset(endX, y),
-            strokeWidth = strokeWidth.toPx()
+    val screenOnPath = Path()
+    val screenOffPath = Path()
+    var onPathStarted = false
+    var offPathStarted = false
+
+    for (i in 0 until points.size - 1) {
+        val current = points[i]
+        val next = points[i + 1]
+        val startX = paddingLeft + ((current.timestamp - minTime) / timeRange).toFloat() * chartWidth
+        val endX = paddingLeft + ((next.timestamp - minTime) / timeRange).toFloat() * chartWidth
+
+        if (current.isDisplayOn) {
+            if (!onPathStarted) {
+                screenOnPath.moveTo(startX, y)
+                onPathStarted = true
+            }
+            screenOnPath.lineTo(startX, y)
+            screenOnPath.lineTo(endX, y)
+        } else {
+            if (!offPathStarted) {
+                screenOffPath.moveTo(startX, y)
+                offPathStarted = true
+            }
+            screenOffPath.lineTo(startX, y)
+            screenOffPath.lineTo(endX, y)
+        }
+    }
+
+    if (onPathStarted) {
+        drawPath(
+            path = screenOnPath,
+            color = screenOnColor,
+            style = Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Butt)
+        )
+    }
+    if (offPathStarted) {
+        drawPath(
+            path = screenOffPath,
+            color = screenOffColor,
+            style = Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Butt)
         )
     }
 }
