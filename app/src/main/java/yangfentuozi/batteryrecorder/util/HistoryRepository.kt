@@ -167,6 +167,22 @@ object HistoryRepository {
         return File(File(context.dataDir, "power_data"), type.dirName)
     }
 
+    fun deleteRecord(context: Context, type: RecordType, name: String): Boolean {
+        val dataDir = getDataDir(context, type)
+        if (!dataDir.exists() || !dataDir.isDirectory) return false
+
+        val recordFile = File(dataDir, name)
+        if (!recordFile.exists() || !recordFile.isFile) return false
+
+        val deleted = runCatching { recordFile.delete() }.getOrDefault(false)
+        if (!deleted) return false
+
+        val cacheFile = File(File(context.cacheDir, "power_stats"), name)
+        runCatching { if (cacheFile.exists()) cacheFile.delete() }
+
+        return true
+    }
+
     private fun loadLatestRecordForType(context: Context, type: RecordType): HistoryRecord? {
         val dataDir = getDataDir(context, type)
         if (!dataDir.exists() || !dataDir.isDirectory) return null

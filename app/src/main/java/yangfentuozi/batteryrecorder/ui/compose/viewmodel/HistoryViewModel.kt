@@ -49,4 +49,24 @@ class HistoryViewModel : ViewModel() {
             }
         }
     }
+
+    fun deleteRecord(context: Context, type: RecordType, name: String) {
+        if (_isLoading.value) return
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val deleted = HistoryRepository.deleteRecord(context, type, name)
+                if (deleted) {
+                    _records.value = HistoryRepository.loadRecords(context, type)
+                    val detail = _recordDetail.value
+                    if (detail != null && detail.type == type && detail.name == name) {
+                        _recordDetail.value = null
+                        _recordPoints.value = emptyList()
+                    }
+                }
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
 }

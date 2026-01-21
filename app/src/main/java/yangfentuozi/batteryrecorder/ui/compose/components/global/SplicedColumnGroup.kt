@@ -70,7 +70,7 @@ fun SplicedColumnGroup(
                     when (itemData.type) {
                         SplicedItemType.NORMAL -> {
                             // 普通单列 item
-                            val shape = getCornerRadius(
+                            val shape = splicedCornerRadius(
                                 isVerticalFirst = isVerticalFirst,
                                 isVerticalLast = isVerticalLast
                             )
@@ -96,7 +96,7 @@ fun SplicedColumnGroup(
                                     val isHorizontalFirst = hIndex == 0
                                     val isHorizontalLast = hIndex == visibleRowItems.size - 1
 
-                                    val shape = getCornerRadius(
+                                    val shape = splicedCornerRadius(
                                         isVerticalFirst = isVerticalFirst,
                                         isVerticalLast = isVerticalLast,
                                         isHorizontalFirst = isHorizontalFirst,
@@ -215,10 +215,10 @@ private fun getCornerRadius(
     isHorizontalFirst: Boolean = true,
     isHorizontalLast: Boolean = true
 ): ContinuousRoundedRectangle {
-    val topStart = if (isVerticalFirst && isHorizontalFirst) 16.dp else 6.dp
-    val topEnd = if (isVerticalFirst && isHorizontalLast) 16.dp else 6.dp
-    val bottomStart = if (isVerticalLast && isHorizontalLast) 16.dp else 6.dp
-    val bottomEnd = if (isVerticalLast && isHorizontalFirst) 16.dp else 6.dp
-
-    return ContinuousRoundedRectangle(topStart, topEnd, bottomStart, bottomEnd)
+    return splicedCornerRadius(
+        isVerticalFirst = isVerticalFirst,
+        isVerticalLast = isVerticalLast,
+        isHorizontalFirst = isHorizontalFirst,
+        isHorizontalLast = isHorizontalLast
+    )
 }

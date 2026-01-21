@@ -1,6 +1,9 @@
 package yangfentuozi.batteryrecorder.ui.compose.srceens.history
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,10 +13,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -22,11 +24,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import yangfentuozi.batteryrecorder.ui.compose.components.global.SplicedColumnGroup
+import yangfentuozi.batteryrecorder.ui.compose.components.global.SwipeRevealRow
 import yangfentuozi.batteryrecorder.ui.compose.viewmodel.HistoryViewModel
 import yangfentuozi.batteryrecorder.ui.compose.viewmodel.SettingsViewModel
 import yangfentuozi.batteryrecorder.util.HistoryRecord
@@ -47,12 +54,14 @@ fun HistoryListScreen(
     val records by viewModel.records.collectAsState()
     val dualCellEnabled by settingsViewModel.dualCellEnabled.collectAsState()
     val calibrationValue by settingsViewModel.calibrationValue.collectAsState()
+    var openRecordName by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         settingsViewModel.init(context)
     }
 
     LaunchedEffect(recordType) {
+        openRecordName = null
         viewModel.loadRecords(context, recordType)
     }
 
@@ -86,16 +95,39 @@ fun HistoryListScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(vertical = 8.dp)
             ) {
-                SplicedColumnGroup(
-                    modifier = Modifier.padding(horizontal = 16.dp)
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    records.forEach { record ->
-                        item(key = record.name) {
-                            HistoryRecordItem(
-                                record = record,
-                                dualCellEnabled = dualCellEnabled,
-                                calibrationValue = calibrationValue,
-                                onClick = {
+                    records.forEachIndexed { index, record ->
+                        key(record.name) {
+                            SwipeRevealRow(
+                                isOpen = openRecordName == record.name,
+                                onOpenChange = { open ->
+                                    openRecordName = if (open) {
+                                        record.name
+                                    } else {
+                                        if (openRecordName == record.name) null else openRecordName
+                                    }
+                                },
+                                isGroupFirst = index == 0,
+                                isGroupLast = index == records.size - 1,
+                                actionContent = {
+                                    DeleteAction(
+                                        onClick = {
+                                            openRecordName = null
+                                            viewModel.deleteRecord(context, record.type, record.name)
+                                        }
+                                    )
+                                },
+                                content = {
+                                    HistoryRecordItem(
+                                        record = record,
+                                        dualCellEnabled = dualCellEnabled,
+                                        calibrationValue = calibrationValue,
+                                    )
+                                },
+                                onContentClick = {
                                     onNavigateToRecordDetail(record.type, record.name)
                                 }
                             )
@@ -113,7 +145,6 @@ private fun HistoryRecordItem(
     record: HistoryRecord,
     dualCellEnabled: Boolean,
     calibrationValue: Int,
-    onClick: () -> Unit
 ) {
     val stats = record.stats
     val durationMs = stats.endTime - stats.startTime
@@ -125,7 +156,6 @@ private fun HistoryRecordItem(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() }
             .padding(16.dp)
     ) {
         Text(
@@ -144,4 +174,30 @@ private fun HistoryRecordItem(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+}
+
+@Composable
+private fun DeleteAction(
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(12.dp)
+            .noRippleClickable(onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Delete,
+            contentDescription = "删除",
+            tint = MaterialTheme.colorScheme.onError
+        )
+    }
+}
+
+private fun Modifier.noRippleClickable(onClick: () -> Unit): Modifier {
+    return clickable(
+        interactionSource = MutableInteractionSource(),
+        indication = null
+    ) { onClick() }
 }
