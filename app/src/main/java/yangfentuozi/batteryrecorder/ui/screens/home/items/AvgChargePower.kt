@@ -16,8 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import yangfentuozi.batteryrecorder.util.HistorySummary
-import yangfentuozi.batteryrecorder.util.formatPower
+import yangfentuozi.batteryrecorder.data.history.HistorySummary
+import yangfentuozi.batteryrecorder.ui.format.formatPower
 
 @Composable
 fun ChargeStatsCard(

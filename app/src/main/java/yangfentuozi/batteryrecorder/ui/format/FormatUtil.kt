@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.util
+package yangfentuozi.batteryrecorder.ui.format
 
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -19,7 +19,7 @@ fun formatPower(
     dualCellEnabled: Boolean,
     calibrationValue: Int
 ): String {
-    val finalValue = (if (dualCellEnabled) 2 else 1) * calibrationValue * (powerW / 1000000)
+    val finalValue = (if (dualCellEnabled) 2 else 1) * calibrationValue * (powerW / 1000000000)
     return String.format(Locale.getDefault(), "%.1f W", finalValue)
 }
 
@@ -28,6 +28,6 @@ fun formatPowerInt(
     dualCellEnabled: Boolean,
     calibrationValue: Int
 ): String {
-    val finalValue = (if (dualCellEnabled) 2 else 1) * calibrationValue * (powerW / 1000000)
+    val finalValue = (if (dualCellEnabled) 2 else 1) * calibrationValue * (powerW / 1000000000)
     return String.format(Locale.getDefault(), "%.0f W", finalValue)
 }

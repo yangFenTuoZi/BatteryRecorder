@@ -18,13 +18,13 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import yangfentuozi.batteryrecorder.data.history.RecordType
 import yangfentuozi.batteryrecorder.ui.screens.history.HistoryListScreen
 import yangfentuozi.batteryrecorder.ui.screens.history.RecordDetailScreen
 import yangfentuozi.batteryrecorder.ui.screens.home.HomeScreen
 import yangfentuozi.batteryrecorder.ui.screens.settings.SettingsScreen
 import yangfentuozi.batteryrecorder.ui.viewmodel.MainViewModel
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
-import yangfentuozi.batteryrecorder.util.RecordType
 
 private const val ANIMATION_DURATION = 300
 private const val SCALE_FACTOR = 0.95f

@@ -14,11 +14,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import yangfentuozi.batteryrecorder.util.HistoryRecord
-import yangfentuozi.batteryrecorder.util.RecordType
-import yangfentuozi.batteryrecorder.util.formatDateTime
-import yangfentuozi.batteryrecorder.util.formatDurationHours
-import yangfentuozi.batteryrecorder.util.formatPower
+import yangfentuozi.batteryrecorder.data.history.HistoryRecord
+import yangfentuozi.batteryrecorder.data.history.RecordType
+import yangfentuozi.batteryrecorder.ui.format.formatDateTime
+import yangfentuozi.batteryrecorder.ui.format.formatDurationHours
+import yangfentuozi.batteryrecorder.ui.format.formatPower
 
 @Composable
 fun CurrentRecordCard(

@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.provider
+package yangfentuozi.batteryrecorder.ipc
 
 import android.content.ContentProvider
 import android.content.ContentValues
@@ -7,7 +7,6 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.IBinder
 import android.util.Log
-import yangfentuozi.batteryrecorder.Service
 
 class BinderProvider : ContentProvider() {
 

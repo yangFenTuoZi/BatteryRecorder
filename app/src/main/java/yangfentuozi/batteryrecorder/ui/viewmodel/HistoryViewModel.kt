@@ -7,10 +7,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import yangfentuozi.batteryrecorder.ui.components.charts.ChartPoint
-import yangfentuozi.batteryrecorder.util.HistoryRecord
-import yangfentuozi.batteryrecorder.util.HistoryRepository
-import yangfentuozi.batteryrecorder.util.RecordType
+import yangfentuozi.batteryrecorder.data.history.HistoryRecord
+import yangfentuozi.batteryrecorder.data.history.HistoryRepository
+import yangfentuozi.batteryrecorder.data.history.RecordType
+import yangfentuozi.batteryrecorder.data.model.ChartPoint
 
 class HistoryViewModel : ViewModel() {
     private val _records = MutableStateFlow<List<HistoryRecord>>(emptyList())

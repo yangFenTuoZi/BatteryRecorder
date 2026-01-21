@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import yangfentuozi.batteryrecorder.Service
+import yangfentuozi.batteryrecorder.ipc.Service
 
 class SettingsViewModel : ViewModel() {
     private lateinit var prefs: SharedPreferences

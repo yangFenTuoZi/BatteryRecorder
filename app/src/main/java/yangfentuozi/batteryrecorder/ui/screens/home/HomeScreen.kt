@@ -22,6 +22,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import yangfentuozi.batteryrecorder.data.history.RecordType
 import yangfentuozi.batteryrecorder.ui.components.AboutDialog
 import yangfentuozi.batteryrecorder.ui.components.BatteryRecorderTopAppBar
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
@@ -31,7 +32,6 @@ import yangfentuozi.batteryrecorder.ui.screens.home.items.DischargeStatsCard
 import yangfentuozi.batteryrecorder.ui.screens.home.items.StartServerCard
 import yangfentuozi.batteryrecorder.ui.viewmodel.MainViewModel
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
-import yangfentuozi.batteryrecorder.util.RecordType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

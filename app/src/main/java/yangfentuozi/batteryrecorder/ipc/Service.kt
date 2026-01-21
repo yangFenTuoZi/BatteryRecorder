@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder
+package yangfentuozi.batteryrecorder.ipc
 
 import android.os.IBinder
 import android.os.RemoteException

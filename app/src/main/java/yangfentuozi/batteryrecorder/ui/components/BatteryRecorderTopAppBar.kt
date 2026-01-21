@@ -1,5 +1,6 @@
 package yangfentuozi.batteryrecorder.ui.components
 
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
@@ -16,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -58,7 +60,8 @@ fun BatteryRecorderTopAppBar(
                  expanded = showMenu,
                  onDismissRequest = { showMenu = false },
                  shape = AppShape.large,
-                 offset = DpOffset(x = 0.dp, y = (-48).dp)
+                 offset = DpOffset(x = 0.dp, y = (-48).dp),
+                 modifier = Modifier.widthIn(min = 160.dp)
              ) {
                  if (!showBackButton && showStopServer) {
                      DropdownMenuItem(

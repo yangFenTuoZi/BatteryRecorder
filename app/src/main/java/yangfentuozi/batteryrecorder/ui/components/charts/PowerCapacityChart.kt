@@ -29,15 +29,9 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import yangfentuozi.batteryrecorder.data.model.ChartPoint
 import kotlin.math.max
 import kotlin.math.roundToInt
-
-data class ChartPoint(
-    val timestamp: Long,
-    val power: Double,
-    val capacity: Int,
-    val isDisplayOn: Boolean
-)
 
 @Composable
 fun PowerCapacityChart(

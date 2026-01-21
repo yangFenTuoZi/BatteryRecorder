@@ -73,9 +73,9 @@ ui/
 | `server/Server.kt` | 服务主入口，注册系统回调，协调数据采集 |
 | `server/DataWriter.kt` | 数据分段写入，缓冲批量刷盘 |
 | `server/PowerUtil.kt` | JNI 桥接，读取电池状态 |
-| `app/Service.kt` | App 端 Binder 持有者 |
-| `app/provider/BinderProvider.kt` | 接收 Server 传递的 Binder |
-| `app/util/HistoryRepository.kt` | 历史记录数据读取 |
+| `app/ipc/Service.kt` | App 端 Binder 持有者 |
+| `app/ipc/BinderProvider.kt` | 接收 Server 传递的 Binder |
+| `app/data/history/HistoryRepository.kt` | 历史记录数据读取 |
 
 ## 数据存储
 

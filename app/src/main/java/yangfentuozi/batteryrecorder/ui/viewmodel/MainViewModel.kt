@@ -9,11 +9,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import yangfentuozi.batteryrecorder.Service
-import yangfentuozi.batteryrecorder.util.HistoryRecord
-import yangfentuozi.batteryrecorder.util.HistoryRepository
-import yangfentuozi.batteryrecorder.util.HistorySummary
-import yangfentuozi.batteryrecorder.util.RecordType
+import yangfentuozi.batteryrecorder.data.history.HistoryRecord
+import yangfentuozi.batteryrecorder.data.history.HistoryRepository
+import yangfentuozi.batteryrecorder.data.history.HistorySummary
+import yangfentuozi.batteryrecorder.data.history.RecordType
+import yangfentuozi.batteryrecorder.ipc.Service
 
 class MainViewModel : ViewModel() {
     private val _serviceConnected = MutableStateFlow(false)
