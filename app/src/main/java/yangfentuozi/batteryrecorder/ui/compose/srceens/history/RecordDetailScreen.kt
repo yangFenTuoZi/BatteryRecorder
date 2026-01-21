@@ -1,20 +1,16 @@
 package yangfentuozi.batteryrecorder.ui.compose.srceens.history
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -68,22 +64,21 @@ fun RecordDetailScreen(
             )
         }
     ) { paddingValues ->
-        SplicedColumnGroup(
+        val detail = record
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(16.dp)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            val detail = record
             if (detail == null) {
-                item {
-                    Text(
-                        text = "暂无数据",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Text(
+                    text = "暂无数据",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             } else {
                 val stats = detail.stats
                 val durationMs = stats.endTime - stats.startTime
@@ -94,61 +89,58 @@ fun RecordDetailScreen(
                 }
                 val typeLabel = if (detail.type == RecordType.CHARGE) "充电记录" else "放电记录"
 
-                item {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        Text(
-                            text = typeLabel,
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        InfoRow(
-                            "时间",
-                            "${formatDateTime(stats.startTime)} 到 ${formatDateTime(stats.endTime)} (${
-                                formatDurationHours(durationMs)
-                            })"
-                        )
-
-                        InfoRow(
-                            "平均功率",
-                            formatPower(stats.averagePower, dualCellEnabled, calibrationValue)
-                        )
-                        InfoRow("电量变化", "${capacityChange}%")
-                        InfoRow("亮屏", formatDurationHours(stats.screenOnTimeMs))
-                        Spacer(Modifier.width(8.dp))
-                        InfoRow("息屏", formatDurationHours(stats.screenOffTimeMs))
-                        InfoRow("文件名", detail.name)
+                SplicedColumnGroup(title = typeLabel) {
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
+                            InfoRow(
+                                "时间",
+                                "${formatDateTime(stats.startTime)} 到 ${formatDateTime(stats.endTime)} (${
+                                    formatDurationHours(durationMs)
+                                })"
+                            )
+                            InfoRow(
+                                "平均功率",
+                                formatPower(stats.averagePower, dualCellEnabled, calibrationValue)
+                            )
+                            InfoRow("电量变化", "${capacityChange}%")
+                            InfoRow("亮屏", formatDurationHours(stats.screenOnTimeMs))
+                            InfoRow("息屏", formatDurationHours(stats.screenOffTimeMs))
+                            InfoRow("文件名", detail.name)
+                        }
                     }
                 }
 
-                item {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        val chartPoints = if (detail.type == RecordType.CHARGE) {
-                            points.map { it.copy(power = -it.power) }
-                        } else {
-                            points
+                SplicedColumnGroup(title = "功耗/电量曲线") {
+                    item {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            val chartPoints = if (detail.type == RecordType.CHARGE) {
+                                points.map { it.copy(power = -it.power) }
+                            } else {
+                                points
+                            }
+                            PowerCapacityChart(
+                                points = chartPoints,
+                                recordScreenOffEnabled = recordScreenOffEnabled,
+                                modifier = Modifier.fillMaxWidth(),
+                                powerLabelFormatter = { value ->
+                                    formatPower(value, dualCellEnabled, calibrationValue)
+                                },
+                                capacityLabelFormatter = { value -> "$value%" },
+                                timeLabelFormatter = { value ->
+                                    val offset = (value - stats.startTime).coerceAtLeast(0L)
+                                    formatRelativeOffset(offset)
+                                },
+                                axisPowerLabelFormatter = { value ->
+                                    formatPowerInt(value, dualCellEnabled, calibrationValue)
+                                },
+                                axisCapacityLabelFormatter = { value -> "$value%" },
+                                axisTimeLabelFormatter = { value -> formatRelativeOffset(value) }
+                            )
                         }
-                        PowerCapacityChart(
-                            points = chartPoints,
-                            recordScreenOffEnabled = recordScreenOffEnabled,
-                            modifier = Modifier.fillMaxWidth(),
-                            powerLabelFormatter = { value ->
-                                formatPower(value, dualCellEnabled, calibrationValue)
-                            },
-                            capacityLabelFormatter = { value -> "$value%" },
-                            timeLabelFormatter = { value ->
-                                val offset = (value - stats.startTime).coerceAtLeast(0L)
-                                formatRelativeOffset(offset)
-                            },
-                            axisPowerLabelFormatter = { value ->
-                                formatPowerInt(value, dualCellEnabled, calibrationValue)
-                            },
-                            axisCapacityLabelFormatter = { value -> "$value%" },
-                            axisTimeLabelFormatter = { value -> formatRelativeOffset(value) }
-                        )
                     }
                 }
             }

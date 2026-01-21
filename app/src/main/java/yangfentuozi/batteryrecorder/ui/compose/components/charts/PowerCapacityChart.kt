@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -44,7 +43,6 @@ fun PowerCapacityChart(
     points: List<ChartPoint>,
     recordScreenOffEnabled: Boolean,
     modifier: Modifier = Modifier,
-    title: String = "功耗/电量曲线",
     powerColor: Color = MaterialTheme.colorScheme.primary,
     capacityColor: Color = MaterialTheme.colorScheme.tertiary,
     gridColor: Color = MaterialTheme.colorScheme.outlineVariant,
@@ -64,11 +62,6 @@ fun PowerCapacityChart(
     val selectedPointState = remember { mutableStateOf<ChartPoint?>(null) }
 
     Column(modifier = modifier) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium
-        )
-        Spacer(modifier = Modifier.height(8.dp))
         if (filteredPoints.size < 2) {
             Text(
                 text = "暂无数据",
@@ -78,40 +71,6 @@ fun PowerCapacityChart(
             return
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = "图例",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    LegendItem(label = "功耗", color = powerColor)
-                    LegendItem(label = "电量", color = capacityColor)
-                }
-                if (showScreenStateLine) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        LegendItem(label = "亮屏线", color = screenOnColor)
-                        LegendItem(label = "息屏线", color = screenOffColor)
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
         SelectedPointInfo(
             selected = selectedPointState.value,
             timeLabelFormatter = timeLabelFormatter,
@@ -119,7 +78,7 @@ fun PowerCapacityChart(
             capacityLabelFormatter = capacityLabelFormatter
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(13.dp))
 
         Box(
             modifier = Modifier
@@ -278,6 +237,20 @@ fun PowerCapacityChart(
                         center = Offset(selectedX, capacityY)
                     )
                 }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            LegendItem(label = "功耗", color = powerColor)
+            LegendItem(label = "电量", color = capacityColor)
+            if (showScreenStateLine) {
+                LegendItem(label = "亮屏线", color = screenOnColor)
+                LegendItem(label = "息屏线", color = screenOffColor)
             }
         }
     }
