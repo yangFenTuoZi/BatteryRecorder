@@ -6,14 +6,9 @@ BatteryRecorder 是一个 Android 电池功耗记录应用，通过 Shizuku/root
 ## 构建命令
 
 ```bash
-# 构建 Debug APK
-./gradlew assembleDebug
-
-# 构建 Release APK
-./gradlew assembleRelease
-
-# 仅编译 server 模块（含 JNI）
-./gradlew :server:assembleDebug
+./gradlew assembleDebug          # Debug APK
+./gradlew assembleRelease        # Release APK
+./gradlew :server:assembleDebug  # 仅编译 server 模块（含 JNI）
 ```
 
 ## 技术栈
@@ -54,6 +49,20 @@ DataWriter.kt
 /data/user/0/yangfentuozi.batteryrecorder/power_data/{charge,discharge}/*.txt
 ```
 
+### UI 层结构 (app 模块)
+
+```
+ui/compose/
+├── navigation/          # NavRoute, BatteryRecorderNavHost
+├── srceens/
+│   ├── home/           # HomeScreen + 卡片组件
+│   ├── history/        # HistoryListScreen, RecordDetailScreen
+│   └── settings/       # SettingsScreen + dialogs/sections
+├── viewmodel/          # MainViewModel, SettingsViewModel, HistoryViewModel
+├── components/         # 通用组件 (charts, global)
+└── theme/              # Theme, Type, AppShape
+```
+
 ### 关键类
 
 | 类 | 职责 |
@@ -63,31 +72,35 @@ DataWriter.kt
 | `server/PowerUtil.kt` | JNI 桥接，读取电池状态 |
 | `app/Service.kt` | App 端 Binder 持有者 |
 | `app/provider/BinderProvider.kt` | 接收 Server 传递的 Binder |
+| `app/util/HistoryRepository.kt` | 历史记录数据读取 |
 
-### 配置文件
+## 数据存储
 
-Server 读取 App 的 SharedPreferences XML：
+路径：`/data/user/0/yangfentuozi.batteryrecorder/power_data/`
+- `charge/{timestamp}.txt` - 充电记录
+- `discharge/{timestamp}.txt` - 放电记录
+
+记录格式（每行）：`timestamp,power,packageName,capacity,isDisplayOn`
+
+分段规则：
+- 充电：超过 24h 或中断 >30s 开新段，<1min 的段丢弃
+- 放电：超过 24h 或中断 >10min 开新段，<15min 的段丢弃
+
+## 配置
+
+Server 读取 App 的 SharedPreferences：
 `/data/user/0/yangfentuozi.batteryrecorder/shared_prefs/yangfentuozi.batteryrecorder_preferences.xml`
 
 配置项：`interval`, `batch_size`, `flush_interval`, `record_screen_off`
 
 ## AIDL 接口
 
-`IService.aidl` 定义了 App 与 Server 的通信接口：
+`IService.aidl`：
 - `refreshConfig()` - 重新加载配置
 - `stopService()` - 停止服务
 - `writeToDatabaseImmediately()` - 立即刷盘
 
-## 数据存储
-
-数据文件路径：`/data/user/0/yangfentuozi.batteryrecorder/power_data/`
-- `charge/*.txt` - 充电记录
-- `discharge/*.txt` - 放电记录
-
-每条记录格式：时间戳、电量、电流、电压等（由 JNI 层读取）
-
 ## 权限要求
 
 - Server 进程需以 `shell` 或 `root` 身份运行（通过 Shizuku）
-- App 需声明 `BinderProvider` 并设置 `android.permission.INTERACT_ACROSS_USERS_FULL` 权限
 - JNI 需读取 `/sys/class/power_supply/battery/*` 系统文件
