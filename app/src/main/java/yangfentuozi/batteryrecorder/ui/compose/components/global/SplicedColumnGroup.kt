@@ -15,7 +15,6 @@ import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import com.kyant.capsule.ContinuousRoundedRectangle
 
 /**
  * 拼接列分组组件
@@ -201,24 +200,3 @@ enum class SplicedItemType {
     ROW      // 水平布局 item（包含多个子项）
 }
 
-/**
- * 计算拼接项的圆角
- *
- * @param isVerticalFirst 是否是垂直方向的第一项
- * @param isVerticalLast 是否是垂直方向的最后一项
- * @param isHorizontalFirst 是否是水平方向的第一项（仅对 ROW 类型有效）
- * @param isHorizontalLast 是否是水平方向的最后一项（仅对 ROW 类型有效）
- */
-private fun getCornerRadius(
-    isVerticalFirst: Boolean,
-    isVerticalLast: Boolean,
-    isHorizontalFirst: Boolean = true,
-    isHorizontalLast: Boolean = true
-): ContinuousRoundedRectangle {
-    return splicedCornerRadius(
-        isVerticalFirst = isVerticalFirst,
-        isVerticalLast = isVerticalLast,
-        isHorizontalFirst = isHorizontalFirst,
-        isHorizontalLast = isHorizontalLast
-    )
-}

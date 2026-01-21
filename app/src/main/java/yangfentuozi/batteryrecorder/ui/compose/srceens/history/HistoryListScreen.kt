@@ -195,9 +195,11 @@ private fun DeleteAction(
     }
 }
 
+@Composable
 private fun Modifier.noRippleClickable(onClick: () -> Unit): Modifier {
     return clickable(
-        interactionSource = MutableInteractionSource(),
-        indication = null
-    ) { onClick() }
+        interactionSource = remember { MutableInteractionSource() },
+        indication = null,
+        onClick = onClick
+    )
 }
