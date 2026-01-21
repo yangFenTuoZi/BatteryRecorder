@@ -10,9 +10,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import yangfentuozi.batteryrecorder.Service
-import yangfentuozi.batteryrecorder.util.PowerStats
-import yangfentuozi.batteryrecorder.util.StatisticsUtil
-import java.io.File
+import yangfentuozi.batteryrecorder.util.HistoryRecord
+import yangfentuozi.batteryrecorder.util.HistoryRepository
+import yangfentuozi.batteryrecorder.util.HistorySummary
+import yangfentuozi.batteryrecorder.util.RecordType
 
 class MainViewModel : ViewModel() {
     private val _serviceConnected = MutableStateFlow(false)
@@ -24,11 +25,14 @@ class MainViewModel : ViewModel() {
     private val _showAboutDialog = MutableStateFlow(false)
     val showAboutDialog: StateFlow<Boolean> = _showAboutDialog.asStateFlow()
 
-    private val _chargeStats = MutableStateFlow<PowerStats?>(null)
-    val chargeStats: StateFlow<PowerStats?> = _chargeStats.asStateFlow()
+    private val _chargeSummary = MutableStateFlow<HistorySummary?>(null)
+    val chargeSummary: StateFlow<HistorySummary?> = _chargeSummary.asStateFlow()
 
-    private val _dischargeStats = MutableStateFlow<PowerStats?>(null)
-    val dischargeStats: StateFlow<PowerStats?> = _dischargeStats.asStateFlow()
+    private val _dischargeSummary = MutableStateFlow<HistorySummary?>(null)
+    val dischargeSummary: StateFlow<HistorySummary?> = _dischargeSummary.asStateFlow()
+
+    private val _currentRecord = MutableStateFlow<HistoryRecord?>(null)
+    val currentRecord: StateFlow<HistoryRecord?> = _currentRecord.asStateFlow()
 
     private val _isLoadingStats = MutableStateFlow(false)
     val isLoadingStats: StateFlow<Boolean> = _isLoadingStats.asStateFlow()
@@ -87,48 +91,9 @@ class MainViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoadingStats.value = true
             try {
-                val powerDir = File(context.dataDir, "power_data")
-                val chargeDir = File(powerDir, "charge")
-                val dischargeDir = File(powerDir, "discharge")
-                val cacheDir = File(context.cacheDir, "power_stats")
-
-                // 获取最新文件
-                val latestChargeFile = chargeDir.listFiles()?.filter { it.isFile }
-                    ?.maxByOrNull { it.lastModified() }?.name
-                val latestDischargeFile = dischargeDir.listFiles()?.filter { it.isFile }
-                    ?.maxByOrNull { it.lastModified() }?.name
-
-                // 加载充电统计
-                if (chargeDir.exists() && chargeDir.isDirectory) {
-                    chargeDir.listFiles()?.filter { it.isFile }?.maxByOrNull { it.lastModified() }?.let { file ->
-                        try {
-                            val stats = StatisticsUtil.getCachedPowerStats(
-                                cacheDir = cacheDir,
-                                dataDir = chargeDir,
-                                name = file.name,
-                                lastestFileName = latestChargeFile
-                            )
-                            _chargeStats.value = stats
-                        } catch (_: Exception) {
-                        }
-                    }
-                }
-
-                // 加载放电统计
-                if (dischargeDir.exists() && dischargeDir.isDirectory) {
-                    dischargeDir.listFiles()?.filter { it.isFile }?.maxByOrNull { it.lastModified() }?.let { file ->
-                        try {
-                            val stats = StatisticsUtil.getCachedPowerStats(
-                                cacheDir = cacheDir,
-                                dataDir = dischargeDir,
-                                name = file.name,
-                                lastestFileName = latestDischargeFile
-                            )
-                            _dischargeStats.value = stats
-                        } catch (_: Exception) {
-                        }
-                    }
-                }
+                _chargeSummary.value = HistoryRepository.loadSummary(context, RecordType.CHARGE)
+                _dischargeSummary.value = HistoryRepository.loadSummary(context, RecordType.DISCHARGE)
+                _currentRecord.value = HistoryRepository.loadLatestRecord(context)
             } finally {
                 _isLoadingStats.value = false
             }
@@ -136,8 +101,9 @@ class MainViewModel : ViewModel() {
     }
 
     fun refreshStatistics(context: Context) {
-        _chargeStats.value = null
-        _dischargeStats.value = null
+        _chargeSummary.value = null
+        _dischargeSummary.value = null
+        _currentRecord.value = null
         loadStatistics(context)
     }
 }

@@ -8,10 +8,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import yangfentuozi.batteryrecorder.ui.compose.theme.AppShape
 import com.kyant.capsule.ContinuousRoundedRectangle
 
 /**
@@ -63,48 +63,52 @@ fun SplicedColumnGroup(
                 val isVerticalFirst = vIndex == 0
                 val isVerticalLast = vIndex == visibleItems.size - 1
 
-                when (itemData.type) {
-                    SplicedItemType.NORMAL -> {
-                        // 普通单列 item
-                        val shape = getCornerRadius(
-                            isVerticalFirst = isVerticalFirst,
-                            isVerticalLast = isVerticalLast
-                        )
+                key(itemData.key ?: vIndex) {
+                    when (itemData.type) {
+                        SplicedItemType.NORMAL -> {
+                            // 普通单列 item
+                            val shape = getCornerRadius(
+                                isVerticalFirst = isVerticalFirst,
+                                isVerticalLast = isVerticalLast
+                            )
 
-                        Column(
-                            modifier = Modifier
-                                .clip(shape)
-                                .background(MaterialTheme.colorScheme.surfaceBright)
-                        ) {
-                            itemData.content()
+                            Column(
+                                modifier = Modifier
+                                    .clip(shape)
+                                    .background(MaterialTheme.colorScheme.surfaceBright)
+                            ) {
+                                itemData.content()
+                            }
                         }
-                    }
 
-                    SplicedItemType.ROW -> {
-                        // 水平布局 item
-                        val visibleRowItems = itemData.rowItems.filter { it.visible }
+                        SplicedItemType.ROW -> {
+                            // 水平布局 item
+                            val visibleRowItems = itemData.rowItems.filter { it.visible }
 
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(2.dp)
-                        ) {
-                            visibleRowItems.forEachIndexed { hIndex, rowItem ->
-                                val isHorizontalFirst = hIndex == 0
-                                val isHorizontalLast = hIndex == visibleRowItems.size - 1
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                visibleRowItems.forEachIndexed { hIndex, rowItem ->
+                                    val isHorizontalFirst = hIndex == 0
+                                    val isHorizontalLast = hIndex == visibleRowItems.size - 1
 
-                                val shape = getCornerRadius(
-                                    isVerticalFirst = isVerticalFirst,
-                                    isVerticalLast = isVerticalLast,
-                                    isHorizontalFirst = isHorizontalFirst,
-                                    isHorizontalLast = isHorizontalLast
-                                )
+                                    val shape = getCornerRadius(
+                                        isVerticalFirst = isVerticalFirst,
+                                        isVerticalLast = isVerticalLast,
+                                        isHorizontalFirst = isHorizontalFirst,
+                                        isHorizontalLast = isHorizontalLast
+                                    )
 
-                                Column(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(shape)
-                                        .background(MaterialTheme.colorScheme.surfaceBright)
-                                ) {
-                                    rowItem.content()
+                                    key(rowItem.key ?: hIndex) {
+                                        Column(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clip(shape)
+                                                .background(MaterialTheme.colorScheme.surfaceBright)
+                                        ) {
+                                            rowItem.content()
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -132,8 +136,13 @@ class SplicedGroupScope {
      *                ```
      * @param content 项目内容的 Composable 函数
      */
-    fun item(visible: Boolean = true, content: @Composable () -> Unit) {
+    fun item(
+        key: Any? = null,
+        visible: Boolean = true,
+        content: @Composable () -> Unit
+    ) {
         items.add(SplicedItemData(
+            key = key,
             visible = visible,
             type = SplicedItemType.NORMAL,
             content = content
@@ -149,11 +158,13 @@ class SplicedGroupScope {
      * @param content DSL 构建器，用于添加行内的子项
      */
     fun rowItem(
+        key: Any? = null,
         visible: Boolean = true,
         content: SplicedGroupScope.() -> Unit
     ) {
         val rowScope = SplicedGroupScope().apply(content)
         items.add(SplicedItemData(
+            key = key,
             visible = visible,
             type = SplicedItemType.ROW,
             rowItems = rowScope.items
@@ -170,6 +181,7 @@ class SplicedGroupScope {
  * @property rowItems 行内子项（仅当 type 为 ROW 时有效）
  */
 data class SplicedItemData(
+    val key: Any? = null,
     val visible: Boolean,
     val type: SplicedItemType = SplicedItemType.NORMAL,
     val content: @Composable () -> Unit = {},

@@ -1,12 +1,10 @@
 package yangfentuozi.batteryrecorder.ui.compose.srceens.home
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -28,24 +26,29 @@ import yangfentuozi.batteryrecorder.ui.compose.components.AboutDialog
 import yangfentuozi.batteryrecorder.ui.compose.components.BatteryRecorderTopAppBar
 import yangfentuozi.batteryrecorder.ui.compose.components.global.SplicedColumnGroup
 import yangfentuozi.batteryrecorder.ui.compose.srceens.home.items.ChargeStatsCard
+import yangfentuozi.batteryrecorder.ui.compose.srceens.home.items.CurrentRecordCard
 import yangfentuozi.batteryrecorder.ui.compose.srceens.home.items.DischargeStatsCard
 import yangfentuozi.batteryrecorder.ui.compose.srceens.home.items.StartServerCard
 import yangfentuozi.batteryrecorder.ui.compose.viewmodel.MainViewModel
 import yangfentuozi.batteryrecorder.ui.compose.viewmodel.SettingsViewModel
+import yangfentuozi.batteryrecorder.util.RecordType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: MainViewModel = viewModel(),
     settingsViewModel: SettingsViewModel = viewModel(),
-    onNavigateToSettings: () -> Unit = {}
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToHistoryList: (RecordType) -> Unit = {},
+    onNavigateToRecordDetail: (RecordType, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val serviceConnected by viewModel.serviceConnected.collectAsState()
     val showStopDialog by viewModel.showStopDialog.collectAsState()
     val showAboutDialog by viewModel.showAboutDialog.collectAsState()
-    val chargeStats by viewModel.chargeStats.collectAsState()
-    val dischargeStats by viewModel.dischargeStats.collectAsState()
+    val chargeSummary by viewModel.chargeSummary.collectAsState()
+    val dischargeSummary by viewModel.dischargeSummary.collectAsState()
+    val currentRecord by viewModel.currentRecord.collectAsState()
 
     // 读取设置值
     val dualCellEnabled by settingsViewModel.dualCellEnabled.collectAsState()
@@ -104,20 +107,35 @@ fun HomeScreen(
                         StartServerCard()
                     }
 
+                    item {
+                        CurrentRecordCard(
+                            record = currentRecord,
+                            dualCellEnabled = dualCellEnabled,
+                            calibrationValue = calibrationValue,
+                            onClick = {
+                                currentRecord?.let { record ->
+                                    onNavigateToRecordDetail(record.type, record.name)
+                                }
+                            }
+                        )
+                    }
+
                     // 统计卡片行（自动处理圆角）
                     rowItem {
                         item {
                             ChargeStatsCard(
-                                stats = chargeStats,
+                                summary = chargeSummary,
                                 dualCellEnabled = dualCellEnabled,
-                                calibrationValue = calibrationValue
+                                calibrationValue = calibrationValue,
+                                onClick = { onNavigateToHistoryList(RecordType.CHARGE) }
                             )
                         }
                         item {
                             DischargeStatsCard(
-                                stats = dischargeStats,
+                                summary = dischargeSummary,
                                 dualCellEnabled = dualCellEnabled,
-                                calibrationValue = calibrationValue
+                                calibrationValue = calibrationValue,
+                                onClick = { onNavigateToHistoryList(RecordType.DISCHARGE) }
                             )
                         }
                     }

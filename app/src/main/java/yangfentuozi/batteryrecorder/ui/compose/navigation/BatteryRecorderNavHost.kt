@@ -1,5 +1,6 @@
 package yangfentuozi.batteryrecorder.ui.compose.navigation
 
+import android.net.Uri
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -13,12 +14,17 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
+import yangfentuozi.batteryrecorder.ui.compose.srceens.history.HistoryListScreen
+import yangfentuozi.batteryrecorder.ui.compose.srceens.history.RecordDetailScreen
 import yangfentuozi.batteryrecorder.ui.compose.srceens.home.HomeScreen
 import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsScreen
 import yangfentuozi.batteryrecorder.ui.compose.viewmodel.MainViewModel
 import yangfentuozi.batteryrecorder.ui.compose.viewmodel.SettingsViewModel
+import yangfentuozi.batteryrecorder.util.RecordType
 
 private const val ANIMATION_DURATION = 300
 private const val SCALE_FACTOR = 0.95f
@@ -78,6 +84,17 @@ fun BatteryRecorderNavHost(
                 settingsViewModel = settingsViewModel,
                 onNavigateToSettings = {
                     navController.navigate(Screen.Settings.route)
+                },
+                onNavigateToHistoryList = { type ->
+                    navController.navigate(Screen.HistoryList.createRoute(type.dirName))
+                },
+                onNavigateToRecordDetail = { type, name ->
+                    navController.navigate(
+                        Screen.RecordDetail.createRoute(
+                            type.dirName,
+                            Uri.encode(name)
+                        )
+                    )
                 }
             )
         }
@@ -93,6 +110,54 @@ fun BatteryRecorderNavHost(
                 onNavigateBack = {
                     navController.popBackStack()
                 }
+            )
+        }
+        composable(
+            route = Screen.HistoryList.route,
+            arguments = listOf(navArgument("type") { type = NavType.StringType }),
+            enterTransition = { defaultEnterTransition },
+            exitTransition = { defaultExitTransition },
+            popEnterTransition = { defaultPopEnterTransition },
+            popExitTransition = { defaultPopExitTransition }
+        ) { backStackEntry ->
+            val typeArg = backStackEntry.arguments?.getString("type") ?: RecordType.CHARGE.dirName
+            val recordType = if (typeArg == RecordType.DISCHARGE.dirName) {
+                RecordType.DISCHARGE
+            } else {
+                RecordType.CHARGE
+            }
+            HistoryListScreen(
+                recordType = recordType,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToRecordDetail = { type, name ->
+                    navController.navigate(
+                        Screen.RecordDetail.createRoute(type.dirName, Uri.encode(name))
+                    )
+                }
+            )
+        }
+        composable(
+            route = Screen.RecordDetail.route,
+            arguments = listOf(
+                navArgument("type") { type = NavType.StringType },
+                navArgument("name") { type = NavType.StringType }
+            ),
+            enterTransition = { defaultEnterTransition },
+            exitTransition = { defaultExitTransition },
+            popEnterTransition = { defaultPopEnterTransition },
+            popExitTransition = { defaultPopExitTransition }
+        ) { backStackEntry ->
+            val typeArg = backStackEntry.arguments?.getString("type") ?: RecordType.CHARGE.dirName
+            val nameArg = backStackEntry.arguments?.getString("name") ?: ""
+            val recordType = if (typeArg == RecordType.DISCHARGE.dirName) {
+                RecordType.DISCHARGE
+            } else {
+                RecordType.CHARGE
+            }
+            RecordDetailScreen(
+                recordType = recordType,
+                recordName = Uri.decode(nameArg),
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

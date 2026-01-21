@@ -83,7 +83,7 @@ object StatisticsUtil {
     ): PowerStats {
         if (!cacheDir.exists()) cacheDir.mkdirs()
 
-        val cacheFile = File(cacheDir, "$name.txt")
+        val cacheFile = File(cacheDir, name)
         if (cacheFile.exists()) {
             val parts = cacheFile.readText().trim().split(",")
             val startTime = parts[0].toLongOrNull()

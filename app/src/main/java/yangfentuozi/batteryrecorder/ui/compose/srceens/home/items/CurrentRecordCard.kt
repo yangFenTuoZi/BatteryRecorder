@@ -13,14 +13,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import yangfentuozi.batteryrecorder.util.HistorySummary
+import yangfentuozi.batteryrecorder.util.HistoryRecord
+import yangfentuozi.batteryrecorder.util.RecordType
+import yangfentuozi.batteryrecorder.util.formatDateTime
+import yangfentuozi.batteryrecorder.util.formatDurationHours
 import yangfentuozi.batteryrecorder.util.formatPower
 
 @Composable
-fun ChargeStatsCard(
-    summary: HistorySummary?,
+fun CurrentRecordCard(
+    record: HistoryRecord?,
     modifier: Modifier = Modifier,
     dualCellEnabled: Boolean,
     calibrationValue: Int,
@@ -28,79 +30,49 @@ fun ChargeStatsCard(
 ) {
     Column(
         modifier = modifier
-            .clickable(enabled = onClick != null) { onClick?.invoke() }
+            .clickable(enabled = record != null && onClick != null) { onClick?.invoke() }
             .fillMaxWidth()
             .padding(16.dp)
     ) {
         Text(
-            text = "充电总结",
-            style = MaterialTheme.typography.titleMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            text = "当前记录" + if (record != null) {
+                if (record.type == RecordType.CHARGE) {
+                    " - 充电"
+                } else {
+                    " - 放电"
+                }
+            } else {
+                ""
+            },
+            style = MaterialTheme.typography.titleMedium
         )
 
-        if (summary != null) {
+        if (record != null) {
             Spacer(Modifier.height(12.dp))
-
-            StatRow("记录数", "${summary.recordCount} 次")
+            val stats = record.stats
 
             StatRow(
+                "开始时间",
+                formatDateTime(stats.startTime)
+            )
+            StatRow(
                 "平均功率", formatPower(
-                    powerW = summary.averagePower,
+                    powerW = stats.averagePower,
                     dualCellEnabled = dualCellEnabled,
                     calibrationValue = calibrationValue
                 )
             )
-
+            val capacityChange = if (record.type == RecordType.CHARGE) {
+                stats.endCapacity - stats.startCapacity
+            } else {
+                stats.startCapacity - stats.endCapacity
+            }
+            StatRow("电量变化", "${capacityChange}%")
+            StatRow("时长", formatDurationHours(stats.endTime - stats.startTime))
         } else {
             Spacer(Modifier.height(12.dp))
             Text(
-                text = "暂无数据",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-fun DischargeStatsCard(
-    summary: HistorySummary?,
-    modifier: Modifier = Modifier,
-    dualCellEnabled: Boolean,
-    calibrationValue: Int,
-    onClick: (() -> Unit)? = null
-) {
-    Column(
-        modifier = modifier
-            .clickable(enabled = onClick != null) { onClick?.invoke() }
-            .fillMaxWidth()
-            .padding(16.dp)
-    ) {
-        Text(
-            text = "放电总结",
-            style = MaterialTheme.typography.titleMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-
-        if (summary != null) {
-            Spacer(Modifier.height(12.dp))
-
-            StatRow("记录数", "${summary.recordCount} 次")
-
-            StatRow(
-                "平均功率", formatPower(
-                    powerW = summary.averagePower,
-                    dualCellEnabled = dualCellEnabled,
-                    calibrationValue = calibrationValue
-                )
-            )
-
-        } else {
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text = "暂无数据",
+                text = "暂无记录",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -111,7 +83,9 @@ fun DischargeStatsCard(
 @Composable
 private fun StatRow(label: String, value: String) {
     Row(
-        modifier = Modifier.padding(vertical = 4.dp),
+        modifier = Modifier
+            .padding(vertical = 4.dp)
+            .fillMaxWidth(0.45f),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
