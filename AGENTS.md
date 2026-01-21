@@ -1,32 +1,93 @@
-# Repository Guidelines
 
-## Project Structure & Module Organization
-- `app/` is the Android app (Kotlin + Jetpack Compose). UI lives under `app/src/main/java/yangfentuozi/batteryrecorder/ui/compose/`, resources in `app/src/main/res/`.
-- `server/` is the standalone service process (Kotlin/Java + JNI). Native code is in `server/src/main/jni/`, AIDL in `server/src/main/aidl/`.
-- `hiddenapi/stub/` provides hidden API stubs for compilation; `hiddenapi/compat/` wraps compatibility helpers.
-- Shared configuration is via Gradle Kotlin scripts: `build.gradle.kts`, module `*/build.gradle.kts`, and `gradle/libs.versions.toml`.
+## 项目概述
 
-## Build, Test, and Development Commands
-- `./gradlew assembleDebug` builds the debug APK for the app.
-- `./gradlew assembleRelease` builds the release APK.
-- `./gradlew :server:assembleDebug` builds only the server module (including JNI).
-- `./gradlew test` runs local JVM unit tests (if present).
-- `./gradlew connectedAndroidTest` runs instrumented tests on a device/emulator.
+BatteryRecorder 是一个 Android 电池功耗记录应用，通过 Shizuku/root 权限运行独立服务进程，实时采集电池功耗数据并按充电/放电状态分段存储。
 
-## Coding Style & Naming Conventions
-- Use Kotlin standard style (4-space indentation, trailing commas where it improves diffs).
-- Class names `UpperCamelCase`, functions/variables `lowerCamelCase`.
-- Resource names are `snake_case` (e.g., `ic_launcher_foreground.xml`).
-- AIDL files follow `IService.aidl`-style naming in `server/src/main/aidl/`.
+## 构建命令
 
-## Testing Guidelines
-- There are no dedicated test directories in this repo yet; add unit tests under `app/src/test/` and instrumented tests under `app/src/androidTest/`.
-- Prefer naming tests `*Test.kt` and keep feature scopes aligned with UI/viewmodel boundaries.
+```bash
+# 构建 Debug APK
+./gradlew assembleDebug
 
-## Commit & Pull Request Guidelines
-- Recent commits use conventional prefixes like `feat:` and `refactor:` with short, descriptive summaries (often in Chinese). Follow that pattern.
-- PRs should include: a clear description, verification steps (commands or manual checks), and UI screenshots or recordings when UI changes are involved.
+# 构建 Release APK
+./gradlew assembleRelease
 
-## Security & Configuration Tips
-- The service process relies on Shizuku/root permissions to read battery sysfs data; document any new permission requirements explicitly.
-- Runtime settings are stored in app preferences; avoid hardcoding values that should be configurable.
+# 仅编译 server 模块（含 JNI）
+./gradlew :server:assembleDebug
+```
+
+## 技术栈
+
+- Kotlin 2.3 + Jetpack Compose
+- Android SDK 31-36 (Android 12+)
+- NDK 29 + CMake 3.22.1 (JNI 读取功耗文件)
+- AIDL 跨进程通信
+
+## 架构
+
+### 模块结构
+
+```
+:app                    # 主应用 (Compose UI)
+:server                 # 独立服务进程 (以 shell/root 身份运行)
+:hiddenapi:stub         # Android 隐藏 API 存根 (编译时依赖)
+:hiddenapi:compat       # 隐藏 API 兼容层
+```
+
+### 核心通信机制
+
+Server 进程通过 `ContentProvider.call()` 向 App 传递 Binder：
+1. Server 监听前台应用变化 (`ITaskStackListener`)
+2. 当 App 进入前台时，Server 通过 `IActivityManager.getContentProviderExternal()` 获取 `BinderProvider`
+3. 调用 `provider.call("setBinder", ...)` 传递 `IService` Binder
+4. App 通过 `Service.kt` 单例持有 Binder 引用
+
+### 数据采集流程
+
+```
+Server.kt (主循环)
+  ↓ 定时采集 (mIntervalMillis)
+PowerUtil.kt → power_util.c (JNI)
+  ↓ 读取 /sys/class/power_supply/battery/*
+DataWriter.kt
+  ↓ 按充电/放电分段写入
+/data/user/0/yangfentuozi.batteryrecorder/power_data/{charge,discharge}/*.txt
+```
+
+### 关键类
+
+| 类 | 职责 |
+|---|---|
+| `server/Server.kt` | 服务主入口，注册系统回调，协调数据采集 |
+| `server/DataWriter.kt` | 数据分段写入，缓冲批量刷盘 |
+| `server/PowerUtil.kt` | JNI 桥接，读取电池状态 |
+| `app/Service.kt` | App 端 Binder 持有者 |
+| `app/provider/BinderProvider.kt` | 接收 Server 传递的 Binder |
+
+### 配置文件
+
+Server 读取 App 的 SharedPreferences XML：
+`/data/user/0/yangfentuozi.batteryrecorder/shared_prefs/yangfentuozi.batteryrecorder_preferences.xml`
+
+配置项：`interval`, `batch_size`, `flush_interval`, `record_screen_off`
+
+## AIDL 接口
+
+`IService.aidl` 定义了 App 与 Server 的通信接口：
+- `refreshConfig()` - 重新加载配置
+- `stopService()` - 停止服务
+- `writeToDatabaseImmediately()` - 立即刷盘
+
+## 数据存储
+
+数据文件路径：`/data/user/0/yangfentuozi.batteryrecorder/power_data/`
+- `charge/*.txt` - 充电记录
+- `discharge/*.txt` - 放电记录
+
+每条记录格式：时间戳、电量、电流、电压等（由 JNI 层读取）
+
+## 权限要求
+
+- Server 进程需以 `shell` 或 `root` 身份运行（通过 Shizuku）
+- App 需声明 `BinderProvider` 并设置 `android.permission.INTERACT_ACROSS_USERS_FULL` 权限
+- JNI 需读取 `/sys/class/power_supply/battery/*` 系统文件

@@ -45,7 +45,6 @@ fun RecordDetailScreen(
     recordName: String,
     viewModel: HistoryViewModel = viewModel(),
     settingsViewModel: SettingsViewModel = viewModel(),
-    onNavigateBack: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val record by viewModel.recordDetail.collectAsState()
@@ -65,12 +64,7 @@ fun RecordDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("记录详情") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = "返回")
-                    }
-                }
+                title = { Text("记录详情") }
             )
         }
     ) { paddingValues ->

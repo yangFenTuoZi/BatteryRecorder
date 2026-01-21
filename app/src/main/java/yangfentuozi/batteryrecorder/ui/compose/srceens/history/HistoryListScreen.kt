@@ -41,7 +41,6 @@ fun HistoryListScreen(
     recordType: RecordType,
     viewModel: HistoryViewModel = viewModel(),
     settingsViewModel: SettingsViewModel = viewModel(),
-    onNavigateBack: () -> Unit = {},
     onNavigateToRecordDetail: (RecordType, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
@@ -62,12 +61,7 @@ fun HistoryListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(title) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = "返回")
-                    }
-                }
+                title = { Text(title) }
             )
         }
     ) { paddingValues ->

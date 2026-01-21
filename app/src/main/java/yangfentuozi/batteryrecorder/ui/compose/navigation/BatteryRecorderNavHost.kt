@@ -128,7 +128,6 @@ fun BatteryRecorderNavHost(
             }
             HistoryListScreen(
                 recordType = recordType,
-                onNavigateBack = { navController.popBackStack() },
                 onNavigateToRecordDetail = { type, name ->
                     navController.navigate(
                         Screen.RecordDetail.createRoute(type.dirName, Uri.encode(name))
@@ -156,8 +155,7 @@ fun BatteryRecorderNavHost(
             }
             RecordDetailScreen(
                 recordType = recordType,
-                recordName = Uri.decode(nameArg),
-                onNavigateBack = { navController.popBackStack() }
+                recordName = Uri.decode(nameArg)
             )
         }
     }

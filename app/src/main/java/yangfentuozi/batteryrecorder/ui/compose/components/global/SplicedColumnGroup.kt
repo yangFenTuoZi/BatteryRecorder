@@ -3,7 +3,10 @@ package yangfentuozi.batteryrecorder.ui.compose.components.global
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -86,6 +89,7 @@ fun SplicedColumnGroup(
                             val visibleRowItems = itemData.rowItems.filter { it.visible }
 
                             Row(
+                                modifier = Modifier.height(IntrinsicSize.Max),
                                 horizontalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
                                 visibleRowItems.forEachIndexed { hIndex, rowItem ->
@@ -103,6 +107,7 @@ fun SplicedColumnGroup(
                                         Column(
                                             modifier = Modifier
                                                 .weight(1f)
+                                                .fillMaxHeight()
                                                 .clip(shape)
                                                 .background(MaterialTheme.colorScheme.surfaceBright)
                                         ) {
