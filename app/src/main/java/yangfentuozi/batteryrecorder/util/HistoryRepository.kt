@@ -1,7 +1,7 @@
 package yangfentuozi.batteryrecorder.util
 
 import android.content.Context
-import yangfentuozi.batteryrecorder.ui.compose.components.charts.ChartPoint
+import yangfentuozi.batteryrecorder.ui.components.charts.ChartPoint
 import java.io.File
 
 enum class RecordType(val dirName: String) {

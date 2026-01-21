@@ -55,7 +55,7 @@ DataWriter.kt
 ### UI 层结构 (app 模块)
 
 ```
-ui/compose/
+ui/
 ├── navigation/          # NavRoute, BatteryRecorderNavHost
 ├── screens/
 │   ├── home/           # HomeScreen + 卡片组件
