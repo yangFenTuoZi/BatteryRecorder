@@ -1,6 +1,7 @@
 package yangfentuozi.batteryrecorder.ui.compose.components.charts
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -98,6 +99,23 @@ fun PowerCapacityChart(
                             val maxTime = filteredPoints.maxOf { it.timestamp }
                             val timeRange = max(1L, maxTime - minTime).toDouble()
                             val x = (offset.x - paddingLeft).coerceIn(0f, chartWidth)
+                            val targetTime = minTime + (x / chartWidth * timeRange).toLong()
+                            selectedPointState.value = filteredPoints.minByOrNull {
+                                kotlin.math.abs(it.timestamp - targetTime)
+                            }
+                        }
+                    }
+                    .pointerInput(filteredPoints) {
+                        detectDragGestures { change, _ ->
+                            change.consume()
+                            val paddingLeft = 32.dp.toPx()
+                            val paddingRight = 32.dp.toPx()
+                            val chartWidth = size.width - paddingLeft - paddingRight
+                            if (chartWidth <= 0f) return@detectDragGestures
+                            val minTime = filteredPoints.minOf { it.timestamp }
+                            val maxTime = filteredPoints.maxOf { it.timestamp }
+                            val timeRange = max(1L, maxTime - minTime).toDouble()
+                            val x = (change.position.x - paddingLeft).coerceIn(0f, chartWidth)
                             val targetTime = minTime + (x / chartWidth * timeRange).toLong()
                             selectedPointState.value = filteredPoints.minByOrNull {
                                 kotlin.math.abs(it.timestamp - targetTime)
