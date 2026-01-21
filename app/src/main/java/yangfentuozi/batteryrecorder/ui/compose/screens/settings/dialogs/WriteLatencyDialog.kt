@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.ui.compose.srceens.settings.dialogs
+package yangfentuozi.batteryrecorder.ui.compose.screens.settings.dialogs
 
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth

@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.ui.compose.srceens.history
+package yangfentuozi.batteryrecorder.ui.compose.screens.history
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource

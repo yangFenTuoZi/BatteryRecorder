@@ -18,10 +18,10 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import yangfentuozi.batteryrecorder.ui.compose.srceens.history.HistoryListScreen
-import yangfentuozi.batteryrecorder.ui.compose.srceens.history.RecordDetailScreen
-import yangfentuozi.batteryrecorder.ui.compose.srceens.home.HomeScreen
-import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsScreen
+import yangfentuozi.batteryrecorder.ui.compose.screens.history.HistoryListScreen
+import yangfentuozi.batteryrecorder.ui.compose.screens.history.RecordDetailScreen
+import yangfentuozi.batteryrecorder.ui.compose.screens.home.HomeScreen
+import yangfentuozi.batteryrecorder.ui.compose.screens.settings.SettingsScreen
 import yangfentuozi.batteryrecorder.ui.compose.viewmodel.MainViewModel
 import yangfentuozi.batteryrecorder.ui.compose.viewmodel.SettingsViewModel
 import yangfentuozi.batteryrecorder.util.RecordType

@@ -1,17 +1,14 @@
-package yangfentuozi.batteryrecorder.ui.compose.srceens.settings
+package yangfentuozi.batteryrecorder.ui.compose.screens.settings
 
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -25,8 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.sections.CalibrationSection
-import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.sections.ServerSection
+import yangfentuozi.batteryrecorder.ui.compose.screens.settings.sections.CalibrationSection
+import yangfentuozi.batteryrecorder.ui.compose.screens.settings.sections.ServerSection
 import yangfentuozi.batteryrecorder.ui.compose.viewmodel.SettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)

@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.ui.compose.srceens.settings.sections
+package yangfentuozi.batteryrecorder.ui.compose.screens.settings.sections
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -10,10 +10,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.ui.compose.components.global.M3ESwitchWidget
 import yangfentuozi.batteryrecorder.ui.compose.components.global.SplicedColumnGroup
-import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.SettingsItem
-import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.dialogs.BatchSizeDialog
-import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.dialogs.IntervalDialog
-import yangfentuozi.batteryrecorder.ui.compose.srceens.settings.dialogs.WriteLatencyDialog
+import yangfentuozi.batteryrecorder.ui.compose.screens.settings.SettingsItem
+import yangfentuozi.batteryrecorder.ui.compose.screens.settings.dialogs.BatchSizeDialog
+import yangfentuozi.batteryrecorder.ui.compose.screens.settings.dialogs.IntervalDialog
+import yangfentuozi.batteryrecorder.ui.compose.screens.settings.dialogs.WriteLatencyDialog
 
 @Composable
 fun ServerSection(

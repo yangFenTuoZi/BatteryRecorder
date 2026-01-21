@@ -57,7 +57,7 @@ DataWriter.kt
 ```
 ui/compose/
 ├── navigation/          # NavRoute, BatteryRecorderNavHost
-├── srceens/
+├── screens/
 │   ├── home/           # HomeScreen + 卡片组件
 │   ├── history/        # HistoryListScreen, RecordDetailScreen
 │   └── settings/       # SettingsScreen + dialogs/sections

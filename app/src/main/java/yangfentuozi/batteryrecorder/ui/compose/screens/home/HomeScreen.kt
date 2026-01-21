@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.ui.compose.srceens.home
+package yangfentuozi.batteryrecorder.ui.compose.screens.home
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,10 +25,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import yangfentuozi.batteryrecorder.ui.compose.components.AboutDialog
 import yangfentuozi.batteryrecorder.ui.compose.components.BatteryRecorderTopAppBar
 import yangfentuozi.batteryrecorder.ui.compose.components.global.SplicedColumnGroup
-import yangfentuozi.batteryrecorder.ui.compose.srceens.home.items.ChargeStatsCard
-import yangfentuozi.batteryrecorder.ui.compose.srceens.home.items.CurrentRecordCard
-import yangfentuozi.batteryrecorder.ui.compose.srceens.home.items.DischargeStatsCard
-import yangfentuozi.batteryrecorder.ui.compose.srceens.home.items.StartServerCard
+import yangfentuozi.batteryrecorder.ui.compose.screens.home.items.ChargeStatsCard
+import yangfentuozi.batteryrecorder.ui.compose.screens.home.items.CurrentRecordCard
+import yangfentuozi.batteryrecorder.ui.compose.screens.home.items.DischargeStatsCard
+import yangfentuozi.batteryrecorder.ui.compose.screens.home.items.StartServerCard
 import yangfentuozi.batteryrecorder.ui.compose.viewmodel.MainViewModel
 import yangfentuozi.batteryrecorder.ui.compose.viewmodel.SettingsViewModel
 import yangfentuozi.batteryrecorder.util.RecordType
