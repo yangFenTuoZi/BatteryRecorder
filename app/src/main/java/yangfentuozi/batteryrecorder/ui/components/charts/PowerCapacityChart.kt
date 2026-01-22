@@ -103,11 +103,11 @@ fun PowerCapacityChart(
     } else {
         val density = LocalDensity.current
         val labelPaint = android.graphics.Paint().apply {
-            textSize = 18f
+            textSize = 24f
             isAntiAlias = true
         }
         with(density) {
-            val reservedPx = labelPaint.measureText(peakLabelText) + 12.dp.toPx()
+            val reservedPx = labelPaint.measureText(peakLabelText) + 8.dp.toPx()
             reservedPx.toDp().coerceAtLeast(32.dp)
         }
     }
@@ -340,13 +340,13 @@ fun PowerCapacityChart(
                         val label = powerLabelFormatter(displayPowerW)
                         val labelPaint = android.graphics.Paint().apply {
                             color = peakLineColor.toArgb()
-                            textSize = 18f
+                            textSize = 24f
                             isAntiAlias = true
                         }
 
                         val plotRight = paddingLeft + chartWidth
                         val labelWidth = labelPaint.measureText(label)
-                        val preferredX = plotRight + 8.dp.toPx()
+                        val preferredX = plotRight + 4.dp.toPx()
                         val maxX = size.width - labelWidth - 4.dp.toPx()
                         val labelX = preferredX.coerceAtMost(maxX).coerceAtLeast(plotRight + 2.dp.toPx())
                         val labelY = (peakY - 4.dp.toPx())
@@ -642,7 +642,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFixedPowerAxisL
 ) {
     val textPaint = android.graphics.Paint().apply {
         color = gridColor.toArgb()
-        textSize = 20f
+        textSize = 24f
         isAntiAlias = true
     }
 
@@ -686,7 +686,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawTimeAxisLabels(
 ) {
     val textPaint = android.graphics.Paint().apply {
         color = gridColor.toArgb()
-        textSize = 20f
+        textSize = 24f
         isAntiAlias = true
     }
     val cols = 3
@@ -798,7 +798,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawAxisLabels(
 ) {
     val textPaint = android.graphics.Paint().apply {
         color = gridColor.toArgb()
-        textSize = 20f
+        textSize = 24f
         isAntiAlias = true
     }
     val rows = 4
