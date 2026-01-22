@@ -256,6 +256,12 @@ class Server internal constructor() : IService.Stub() {
         }
     }
 
+    override fun getCurrent(): Long {
+        val current = Native.nativeGetCurrent()
+        Log.d(TAG, "getCurrent: $current")
+        return current
+    }
+
     private fun stopServiceImmediately() {
         monitor.stop()
 

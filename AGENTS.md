@@ -1,3 +1,6 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## 项目概述
 
@@ -73,6 +76,40 @@ ui/
 | `app/ipc/Service.kt` | App 端 Binder 持有者 |
 | `app/ipc/BinderProvider.kt` | 接收 Server 传递的 Binder |
 | `app/data/history/HistoryRepository.kt` | 历史记录数据读取 |
+| `app/ui/components/charts/PowerCapacityChart.kt` | 功率-电量双轴图表组件 |
+
+## 代码规范
+
+### 注释规范
+
+1. **方法注释**：使用标准 KDoc 格式
+   ```kotlin
+   /**
+    * 方法简述
+    *
+    * @param paramName 参数说明
+    * @return 返回值说明
+    */
+   fun methodName(paramName: Type): ReturnType
+   ```
+
+2. **行内注释**：仅在设计意图不明显处添加，描述"为什么"而非"做什么"
+   ```kotlin
+   // 预计算峰值标签文本，用于动态调整右侧 padding
+   val peakLabelText = remember(...) { ... }
+   ```
+
+3. **禁止**：
+   - 复述代码的注释
+   - 修改说明注释（由版本控制承载）
+   - 过度注释自解释代码
+
+### 代码简化原则
+
+1. **提取公共逻辑**：重复代码 ≥2 次时提取函数/类
+2. **消除魔法值**：使用命名常量或参数
+3. **简化条件**：合并重复判断，使用 when 表达式
+4. **减少嵌套**：提前返回，使用 `?.let` / `?.takeIf`
 
 ## 数据存储
 

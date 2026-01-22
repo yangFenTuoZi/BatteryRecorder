@@ -294,6 +294,7 @@ fun PowerCapacityChart(
                     )
                 )
 
+                // 滑动选择器
                 if (showPeakPowerLine) {
                     val peakPlotPowerW = filteredPoints.maxOfOrNull { powerValueSelector(it) }
                     if (peakPlotPowerW != null) {
@@ -337,8 +338,8 @@ fun PowerCapacityChart(
                         end = Offset(selectedX, paddingTop + chartHeight),
                         strokeWidth = 1.dp.toPx()
                     )
-                    drawCircle(powerColor, radius = 4.dp.toPx(), center = Offset(selectedX, powerY))
-                    drawCircle(capacityColor, radius = 4.dp.toPx(), center = Offset(selectedX, capacityY))
+                    drawCircle(powerColor, radius = 2.8.dp.toPx(), center = Offset(selectedX, powerY))
+                    drawCircle(capacityColor, radius = 2.8.dp.toPx(), center = Offset(selectedX, capacityY))
                 }
             }
         }

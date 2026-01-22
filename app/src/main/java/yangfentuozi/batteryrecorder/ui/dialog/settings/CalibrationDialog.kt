@@ -1,9 +1,11 @@
 package yangfentuozi.batteryrecorder.ui.dialog.settings
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -29,6 +31,8 @@ import yangfentuozi.batteryrecorder.ui.theme.AppShape
 @Composable
 fun CalibrationDialog(
     currentValue: Int,
+    rawCurrentMicroAmp: Long?,
+    serviceConnected: Boolean,
     onDismiss: () -> Unit,
     onSave: (Int) -> Unit,
     onReset: () -> Unit
@@ -40,54 +44,88 @@ fun CalibrationDialog(
         onDismissRequest = onDismiss,
         title = { Text("电流单位校准") },
         text = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        top = 4.dp,
-                        start = 8.dp,
-                        end = 8.dp
-                    ),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // 减小按钮
-                IconButton(
-                    onClick = {
-                        if (value < 0) value *= 10
-                        else value /= 10
-                        if (value == 0) value = -1
-                        if (value < -maxValue) value = -maxValue
-                    },
-                    modifier = Modifier.size(48.dp)
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            top = 4.dp,
+                            start = 8.dp,
+                            end = 8.dp
+                        ),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Remove, contentDescription = null)
+                    // 减小按钮
+                    IconButton(
+                        onClick = {
+                            if (value < 0) value *= 10
+                            else value /= 10
+                            if (value == 0) value = -1
+                            if (value < -maxValue) value = -maxValue
+                        },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(Icons.Default.Remove, contentDescription = null)
+                    }
+
+                    Spacer(modifier = Modifier.width(24.dp))
+
+                    Box(
+                        modifier = Modifier.weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = value.toString(),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(24.dp))
+
+                    // 增大按钮
+                    IconButton(
+                        onClick = {
+                            if (value > 0) value *= 10
+                            else value /= 10
+                            if (value == 0) value = 1
+                            if (value > maxValue) value = maxValue
+                        },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                    }
                 }
 
-                Spacer(modifier = Modifier.width(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                Box(
-                    modifier = Modifier.weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
+                if (serviceConnected && rawCurrentMicroAmp != null) {
+                    val displayMa = rawCurrentMicroAmp / value
+                    val sign = if (displayMa >= 0) "+" else ""
                     Text(
-                        text = value.toString(),
-                        style = MaterialTheme.typography.bodyLarge,
+                        text = "显示为 ${sign}${displayMa}mA",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
                     )
-                }
-
-                Spacer(modifier = Modifier.width(24.dp))
-
-                // 增大按钮
-                IconButton(
-                    onClick = {
-                        if (value > 0) value *= 10
-                        else value /= 10
-                        if (value == 0) value = 1
-                        if (value > maxValue) value = maxValue
-                    },
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "充电应显示为正数，放电应显示为负数",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                } else {
+                    Text(
+                        text = "显示为 --mA",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "请启动服务",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
                 }
             }
         },

@@ -4,4 +4,5 @@ interface IService {
     void refreshConfig();
     void stopService();
     void writeToDatabaseImmediately();
+    long getCurrent();
 }
