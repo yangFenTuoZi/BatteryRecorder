@@ -58,7 +58,7 @@ class SettingsViewModel : ViewModel() {
         _dualCellEnabled.value = prefs.getBoolean("dual_cell", false)
         _dischargeDisplayPositive.value = prefs.getBoolean("discharge_display_positive", true)
         _calibrationValue.value = prefs.getInt("current_unit_calibration", -1)
-        _intervalMs.value = prefs.getLong("interval", 900)
+        _intervalMs.value = prefs.getLong("interval", 1000)
         _writeLatencyMs.value = prefs.getLong("flush_interval", 30000)
         _batchSize.value = prefs.getInt("batch_size", 200)
         _recordScreenOff.value = prefs.getBoolean("record_screen_off", false)

@@ -30,7 +30,7 @@ fun CalibrationSection(
     ) {
         item {
             M3ESwitchWidget(
-                text = "双电池",
+                text = "串联双电芯",
                 checked = dualCellEnabled,
                 onCheckedChange = onDualCellChange
             )
