@@ -131,6 +131,9 @@ fun RecordDetailScreen(
                                 points = chartPoints,
                                 recordScreenOffEnabled = recordScreenOffEnabled,
                                 modifier = Modifier.fillMaxWidth(),
+                                useFixedPowerAxisSegments = detail.type == RecordType.CHARGE,
+                                showCapacityAxis = detail.type != RecordType.CHARGE,
+                                showCapacityMarkers = detail.type == RecordType.CHARGE,
                                 powerLabelFormatter = { value ->
                                     String.format(Locale.getDefault(), "%.1f W", value)
                                 },

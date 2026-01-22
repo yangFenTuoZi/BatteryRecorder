@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -45,6 +46,9 @@ fun PowerCapacityChart(
     screenOnColor: Color = Color(0xFF2E7D32),
     screenOffColor: Color = Color(0xFFD32F2F),
     showScreenStateLine: Boolean = true,
+    useFixedPowerAxisSegments: Boolean = false,
+    showCapacityAxis: Boolean = true,
+    showCapacityMarkers: Boolean = false,
     powerLabelFormatter: (Double) -> String = { value -> String.format("%.1f", value) },
     capacityLabelFormatter: (Int) -> String = { value -> "$value%" },
     timeLabelFormatter: (Long) -> String = { value -> value.toString() },
@@ -54,6 +58,21 @@ fun PowerCapacityChart(
 ) {
     val filteredPoints = normalizePoints(points, recordScreenOffEnabled)
     val rawPoints = points.sortedBy { it.timestamp }
+    val powerAxisConfig = remember(filteredPoints, useFixedPowerAxisSegments) {
+        if (!useFixedPowerAxisSegments) {
+            null
+        } else {
+            val maxObservedW = filteredPoints.maxOfOrNull { it.power } ?: 0.0
+            computeFixedPowerAxisConfig(maxObservedW)
+        }
+    }
+    val capacityMarkers = remember(filteredPoints, showCapacityMarkers) {
+        if (!showCapacityMarkers) {
+            emptyList()
+        } else {
+            computeCapacityMarkers(filteredPoints)
+        }
+    }
     val selectedPointState = remember { mutableStateOf<ChartPoint?>(null) }
 
     Column(modifier = modifier) {
@@ -127,8 +146,8 @@ fun PowerCapacityChart(
 
                 val minTime = filteredPoints.minOf { it.timestamp }
                 val maxTime = filteredPoints.maxOf { it.timestamp }
-                val minPower = filteredPoints.minOf { it.power }
-                val maxPower = filteredPoints.maxOf { it.power }
+                val minPower = powerAxisConfig?.minValue ?: filteredPoints.minOf { it.power }
+                val maxPower = powerAxisConfig?.maxValue ?: filteredPoints.maxOf { it.power }
                 val minCapacity = 0.0
                 val maxCapacity = 100.0
 
@@ -158,31 +177,75 @@ fun PowerCapacityChart(
                     valueSelector = { it.capacity.toDouble().coerceIn(minCapacity, maxCapacity) }
                 )
 
-                drawGrid(
-                    paddingLeft = paddingLeft,
-                    paddingTop = paddingTop,
-                    chartWidth = chartWidth,
-                    chartHeight = chartHeight,
-                    gridColor = gridColor
-                )
+                if (powerAxisConfig == null) {
+                    drawGrid(
+                        paddingLeft = paddingLeft,
+                        paddingTop = paddingTop,
+                        chartWidth = chartWidth,
+                        chartHeight = chartHeight,
+                        gridColor = gridColor
+                    )
 
-                drawAxisLabels(
-                    paddingLeft = paddingLeft,
-                    paddingTop = paddingTop,
-                    paddingRight = paddingRight,
-                    chartWidth = chartWidth,
-                    chartHeight = chartHeight,
-                    minTime = minTime,
-                    maxTime = maxTime,
-                    minPower = minPower,
-                    maxPower = maxPower,
-                    minCapacity = minCapacity,
-                    maxCapacity = maxCapacity,
-                    gridColor = gridColor,
-                    powerLabelFormatter = axisPowerLabelFormatter,
-                    capacityLabelFormatter = axisCapacityLabelFormatter,
-                    timeLabelFormatter = axisTimeLabelFormatter
-                )
+                    drawAxisLabels(
+                        paddingLeft = paddingLeft,
+                        paddingTop = paddingTop,
+                        paddingRight = paddingRight,
+                        chartWidth = chartWidth,
+                        chartHeight = chartHeight,
+                        minTime = minTime,
+                        maxTime = maxTime,
+                        minPower = minPower,
+                        maxPower = maxPower,
+                        minCapacity = minCapacity,
+                        maxCapacity = maxCapacity,
+                        gridColor = gridColor,
+                        showCapacityAxis = showCapacityAxis,
+                        powerLabelFormatter = axisPowerLabelFormatter,
+                        capacityLabelFormatter = axisCapacityLabelFormatter,
+                        timeLabelFormatter = axisTimeLabelFormatter
+                    )
+                } else {
+                    drawVerticalGridLines(
+                        paddingLeft = paddingLeft,
+                        paddingTop = paddingTop,
+                        chartWidth = chartWidth,
+                        chartHeight = chartHeight,
+                        gridColor = gridColor
+                    )
+                    drawFixedPowerGridLines(
+                        paddingLeft = paddingLeft,
+                        paddingTop = paddingTop,
+                        chartWidth = chartWidth,
+                        chartHeight = chartHeight,
+                        minPower = minPower,
+                        maxPower = maxPower,
+                        gridColor = gridColor,
+                        majorStepW = powerAxisConfig.majorStepW,
+                        minorStepW = powerAxisConfig.minorStepW
+                    )
+                    drawFixedPowerAxisLabels(
+                        paddingLeft = paddingLeft,
+                        paddingTop = paddingTop,
+                        chartWidth = chartWidth,
+                        chartHeight = chartHeight,
+                        minPower = minPower,
+                        maxPower = maxPower,
+                        gridColor = gridColor,
+                        majorStepW = powerAxisConfig.majorStepW,
+                        minorStepW = powerAxisConfig.minorStepW,
+                        powerLabelFormatter = axisPowerLabelFormatter
+                    )
+                    drawTimeAxisLabels(
+                        paddingLeft = paddingLeft,
+                        paddingTop = paddingTop,
+                        chartWidth = chartWidth,
+                        chartHeight = chartHeight,
+                        minTime = minTime,
+                        maxTime = maxTime,
+                        gridColor = gridColor,
+                        timeLabelFormatter = axisTimeLabelFormatter
+                    )
+                }
 
                 drawPath(
                     path = powerPath,
@@ -202,6 +265,19 @@ fun PowerCapacityChart(
                         join = StrokeJoin.Round
                     )
                 )
+
+                if (showCapacityMarkers && capacityMarkers.isNotEmpty()) {
+                    drawCapacityMarkers(
+                        markers = capacityMarkers,
+                        minTime = minTime,
+                        maxTime = maxTime,
+                        paddingLeft = paddingLeft,
+                        paddingTop = paddingTop,
+                        chartWidth = chartWidth,
+                        chartHeight = chartHeight * 0.9f,
+                        capacityColor = capacityColor
+                    )
+                }
 
                 if (showScreenStateLine && rawPoints.isNotEmpty()) {
                     drawScreenStateLine(
@@ -400,6 +476,145 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawGrid(
     }
 }
 
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawVerticalGridLines(
+    paddingLeft: Float,
+    paddingTop: Float,
+    chartWidth: Float,
+    chartHeight: Float,
+    gridColor: Color
+) {
+    val cols = 4
+    val colStep = chartWidth / cols
+    for (i in 0..cols) {
+        val x = paddingLeft + colStep * i
+        drawLine(
+            color = gridColor.copy(alpha = 0.3f),
+            start = Offset(x, paddingTop),
+            end = Offset(x, paddingTop + chartHeight),
+            strokeWidth = 1.dp.toPx()
+        )
+    }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFixedPowerGridLines(
+    paddingLeft: Float,
+    paddingTop: Float,
+    chartWidth: Float,
+    chartHeight: Float,
+    minPower: Double,
+    maxPower: Double,
+    gridColor: Color,
+    majorStepW: Int,
+    minorStepW: Int
+) {
+    val maxW = maxPower.roundToInt().coerceAtLeast(0)
+    val minor = minorStepW.coerceAtLeast(1)
+    val major = majorStepW.coerceAtLeast(minor)
+
+    val dashIntervals = floatArrayOf(6.dp.toPx(), 4.dp.toPx())
+    val dashEffect = PathEffect.dashPathEffect(dashIntervals, 0f)
+
+    var value = 0
+    while (value <= maxW) {
+        val isMajor = value % major == 0
+        val alpha = if (isMajor) 0.35f else 0.18f
+        val stroke = if (isMajor) 1.dp.toPx() else 0.8.dp.toPx()
+        val y = mapToY(
+            value = value.toDouble(),
+            minValue = minPower,
+            maxValue = maxPower,
+            paddingTop = paddingTop,
+            chartHeight = chartHeight
+        )
+        drawLine(
+            color = gridColor.copy(alpha = alpha),
+            start = Offset(paddingLeft, y),
+            end = Offset(paddingLeft + chartWidth, y),
+            strokeWidth = stroke,
+            pathEffect = if (isMajor) null else dashEffect
+        )
+        value += minor
+    }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFixedPowerAxisLabels(
+    paddingLeft: Float,
+    paddingTop: Float,
+    chartWidth: Float,
+    chartHeight: Float,
+    minPower: Double,
+    maxPower: Double,
+    gridColor: Color,
+    majorStepW: Int,
+    minorStepW: Int,
+    powerLabelFormatter: (Double) -> String,
+) {
+    val textPaint = android.graphics.Paint().apply {
+        color = gridColor.toArgb()
+        textSize = 20f
+        isAntiAlias = true
+    }
+
+    val maxW = maxPower.roundToInt().coerceAtLeast(0)
+    val minor = minorStepW.coerceAtLeast(1)
+    val major = majorStepW.coerceAtLeast(minor)
+
+    var value = 0
+    while (value <= maxW) {
+        if (value % major == 0) {
+            val y = mapToY(
+                value = value.toDouble(),
+                minValue = minPower,
+                maxValue = maxPower,
+                paddingTop = paddingTop,
+                chartHeight = chartHeight
+            )
+            val powerText = powerLabelFormatter(value.toDouble())
+            val powerWidth = textPaint.measureText(powerText)
+            drawContext.canvas.nativeCanvas.drawText(
+                powerText,
+                paddingLeft - powerWidth - 8.dp.toPx(),
+                y - 4.dp.toPx(),
+                textPaint
+            )
+        }
+        value += minor
+    }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawTimeAxisLabels(
+    paddingLeft: Float,
+    paddingTop: Float,
+    chartWidth: Float,
+    chartHeight: Float,
+    minTime: Long,
+    maxTime: Long,
+    gridColor: Color,
+    timeLabelFormatter: (Long) -> String
+) {
+    val textPaint = android.graphics.Paint().apply {
+        color = gridColor.toArgb()
+        textSize = 20f
+        isAntiAlias = true
+    }
+    val cols = 3
+    val colStep = chartWidth / cols
+    val timeRange = max(1L, maxTime - minTime).toDouble()
+
+    for (i in 0..cols) {
+        val x = paddingLeft + colStep * i
+        val timeValue = (timeRange * i / cols).toLong()
+        val text = timeLabelFormatter(timeValue)
+        val textWidth = textPaint.measureText(text)
+        drawContext.canvas.nativeCanvas.drawText(
+            text,
+            x - textWidth / 2f,
+            paddingTop + chartHeight + 24.dp.toPx(),
+            textPaint
+        )
+    }
+}
+
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawScreenStateLine(
     points: List<ChartPoint>,
     minTime: Long,
@@ -484,6 +699,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawAxisLabels(
     minCapacity: Double,
     maxCapacity: Double,
     gridColor: Color,
+    showCapacityAxis: Boolean,
     powerLabelFormatter: (Double) -> String,
     capacityLabelFormatter: (Int) -> String,
     timeLabelFormatter: (Long) -> String
@@ -513,13 +729,15 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawAxisLabels(
             y - 4.dp.toPx(),
             textPaint
         )
-        val capacityText = capacityLabelFormatter(capacityValue.roundToInt())
-        drawContext.canvas.nativeCanvas.drawText(
-            capacityText,
-            paddingLeft + chartWidth + 8.dp.toPx(),
-            y - 4.dp.toPx(),
-            textPaint
-        )
+        if (showCapacityAxis) {
+            val capacityText = capacityLabelFormatter(capacityValue.roundToInt())
+            drawContext.canvas.nativeCanvas.drawText(
+                capacityText,
+                paddingLeft + chartWidth + 8.dp.toPx(),
+                y - 4.dp.toPx(),
+                textPaint
+            )
+        }
     }
 
     for (i in 0..cols) {
@@ -531,6 +749,163 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawAxisLabels(
             text,
             x - textWidth / 2f,
             paddingTop + chartHeight + 24.dp.toPx(),
+            textPaint
+        )
+    }
+}
+
+private data class FixedPowerAxisConfig(
+    val minValue: Double,
+    val maxValue: Double,
+    val majorStepW: Int,
+    val minorStepW: Int,
+)
+
+private fun computeFixedPowerAxisConfig(maxObservedW: Double): FixedPowerAxisConfig {
+    val axisMaxW = when {
+        maxObservedW > 200 -> 240
+        maxObservedW >= 150 -> 210
+        maxObservedW >= 120 -> 150
+        maxObservedW >= 100 -> 120
+        maxObservedW >= 80 -> 100
+        maxObservedW >= 60 -> 80
+        maxObservedW >= 45 -> 60
+        maxObservedW >= 30 -> 45
+        maxObservedW > 15 -> 30
+        maxObservedW > 10 -> 15
+        else -> 10
+    }
+
+    val majorStepW = when (axisMaxW) {
+        10 -> 5
+        15 -> 5
+        30 -> 10
+        45 -> 15
+        60, 80, 100, 120 -> 20
+        150, 210, 240 -> 30
+        else -> 20
+    }
+
+    val minorStepW = when {
+        axisMaxW <= 15 -> 1
+        axisMaxW <= 60 -> 5
+        else -> 10
+    }
+
+    return FixedPowerAxisConfig(
+        minValue = 0.0,
+        maxValue = axisMaxW.toDouble(),
+        majorStepW = majorStepW,
+        minorStepW = minorStepW
+    )
+}
+
+private data class CapacityMarker(
+    val timestamp: Long,
+    val capacity: Int,
+    val label: String,
+)
+
+private fun computeCapacityMarkers(points: List<ChartPoint>): List<CapacityMarker> {
+    if (points.isEmpty()) return emptyList()
+    val sorted = points.sortedBy { it.timestamp }
+    val startCapacity = sorted.first().capacity
+    val endCapacity = sorted.last().capacity
+    val delta = kotlin.math.abs(endCapacity - startCapacity)
+    val step = if (delta <= 30) 5 else 10
+
+    val minCap = minOf(startCapacity, endCapacity)
+    val maxCap = maxOf(startCapacity, endCapacity)
+
+    val targets = LinkedHashSet<Int>()
+    targets.add(startCapacity)
+    targets.add(endCapacity)
+
+    val firstMultiple = ((minCap + step - 1) / step) * step
+    val lastMultiple = (maxCap / step) * step
+    var value = firstMultiple
+    while (value <= lastMultiple) {
+        targets.add(value)
+        value += step
+    }
+
+    val usedTimestamps = HashSet<Long>()
+    val markers = ArrayList<CapacityMarker>(targets.size)
+    for (target in targets.toList().sorted()) {
+        val nearest = sorted.minByOrNull { kotlin.math.abs(it.capacity - target) } ?: continue
+        if (!usedTimestamps.add(nearest.timestamp)) continue
+        markers.add(
+            CapacityMarker(
+                timestamp = nearest.timestamp,
+                capacity = nearest.capacity,
+                label = "$target%"
+            )
+        )
+    }
+    return markers
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCapacityMarkers(
+    markers: List<CapacityMarker>,
+    minTime: Long,
+    maxTime: Long,
+    paddingLeft: Float,
+    paddingTop: Float,
+    chartWidth: Float,
+    chartHeight: Float,
+    capacityColor: Color
+) {
+    val textPaint = android.graphics.Paint().apply {
+        color = capacityColor.toArgb()
+        textSize = 20f
+        isAntiAlias = true
+    }
+
+    val timeRange = max(1L, maxTime - minTime).toDouble()
+    val padding = 6.dp.toPx()
+    val fontMetrics = textPaint.fontMetrics
+    val textHeight = -fontMetrics.ascent
+    val chartRight = paddingLeft + chartWidth
+    val chartBottom = paddingTop + chartHeight
+
+    markers.forEach { marker ->
+        val x = paddingLeft + ((marker.timestamp - minTime) / timeRange).toFloat() * chartWidth
+        val y = mapToY(
+            value = marker.capacity.toDouble(),
+            minValue = 0.0,
+            maxValue = 100.0,
+            paddingTop = paddingTop,
+            chartHeight = chartHeight
+        )
+
+        drawCircle(
+            color = capacityColor,
+            radius = 3.dp.toPx(),
+            center = Offset(x, y)
+        )
+
+        val labelWidth = textPaint.measureText(marker.label)
+
+        var textX = x + padding
+        if (textX + labelWidth > chartRight) {
+            textX = x - padding - labelWidth
+        }
+        if (textX < paddingLeft) {
+            textX = paddingLeft
+        }
+
+        var textY = y - padding
+        if (textY - textHeight < paddingTop) {
+            textY = y + textHeight + padding
+        }
+        if (textY > chartBottom) {
+            textY = chartBottom
+        }
+
+        drawContext.canvas.nativeCanvas.drawText(
+            marker.label,
+            textX,
+            textY,
             textPaint
         )
     }
