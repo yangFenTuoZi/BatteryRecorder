@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import yangfentuozi.batteryrecorder.data.history.RecordType
+import yangfentuozi.batteryrecorder.ui.components.charts.FixedPowerAxisMode
 import yangfentuozi.batteryrecorder.ui.components.charts.PowerCapacityChart
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
 import yangfentuozi.batteryrecorder.ui.viewmodel.HistoryViewModel
@@ -46,6 +47,7 @@ fun RecordDetailScreen(
     val record by viewModel.recordDetail.collectAsState()
     val points by viewModel.recordPoints.collectAsState()
     val dualCellEnabled by settingsViewModel.dualCellEnabled.collectAsState()
+    val dischargeDisplayPositive by settingsViewModel.dischargeDisplayPositive.collectAsState()
     val calibrationValue by settingsViewModel.calibrationValue.collectAsState()
     val recordScreenOffEnabled by settingsViewModel.recordScreenOff.collectAsState()
 
@@ -131,9 +133,14 @@ fun RecordDetailScreen(
                                 points = chartPoints,
                                 recordScreenOffEnabled = recordScreenOffEnabled,
                                 modifier = Modifier.fillMaxWidth(),
-                                useFixedPowerAxisSegments = detail.type == RecordType.CHARGE,
-                                showCapacityAxis = detail.type != RecordType.CHARGE,
-                                showCapacityMarkers = detail.type == RecordType.CHARGE,
+                                useFixedPowerAxisSegments = true,
+                                fixedPowerAxisMode = if (detail.type == RecordType.DISCHARGE && !dischargeDisplayPositive) {
+                                    FixedPowerAxisMode.NegativeOnly
+                                } else {
+                                    FixedPowerAxisMode.PositiveOnly
+                                },
+                                showCapacityAxis = false,
+                                showCapacityMarkers = true,
                                 powerLabelFormatter = { value ->
                                     String.format(Locale.getDefault(), "%.1f W", value)
                                 },

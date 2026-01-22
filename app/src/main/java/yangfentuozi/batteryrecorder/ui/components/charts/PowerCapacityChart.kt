@@ -47,6 +47,7 @@ fun PowerCapacityChart(
     screenOffColor: Color = Color(0xFFD32F2F),
     showScreenStateLine: Boolean = true,
     useFixedPowerAxisSegments: Boolean = false,
+    fixedPowerAxisMode: FixedPowerAxisMode = FixedPowerAxisMode.PositiveOnly,
     showCapacityAxis: Boolean = true,
     showCapacityMarkers: Boolean = false,
     powerLabelFormatter: (Double) -> String = { value -> String.format("%.1f", value) },
@@ -58,12 +59,15 @@ fun PowerCapacityChart(
 ) {
     val filteredPoints = normalizePoints(points, recordScreenOffEnabled)
     val rawPoints = points.sortedBy { it.timestamp }
-    val powerAxisConfig = remember(filteredPoints, useFixedPowerAxisSegments) {
+    val powerAxisConfig = remember(filteredPoints, useFixedPowerAxisSegments, fixedPowerAxisMode) {
         if (!useFixedPowerAxisSegments) {
             null
         } else {
-            val maxObservedW = filteredPoints.maxOfOrNull { it.power } ?: 0.0
-            computeFixedPowerAxisConfig(maxObservedW)
+            val maxObservedAbsW = when (fixedPowerAxisMode) {
+                FixedPowerAxisMode.PositiveOnly -> filteredPoints.maxOfOrNull { it.power } ?: 0.0
+                FixedPowerAxisMode.NegativeOnly -> kotlin.math.abs(filteredPoints.minOfOrNull { it.power } ?: 0.0)
+            }
+            computeFixedPowerAxisConfig(maxObservedAbsW, fixedPowerAxisMode)
         }
     }
     val capacityMarkers = remember(filteredPoints, showCapacityMarkers) {
@@ -151,6 +155,17 @@ fun PowerCapacityChart(
                 val minCapacity = 0.0
                 val maxCapacity = 100.0
 
+                val powerValueSelector: (ChartPoint) -> Double = when {
+                    powerAxisConfig == null -> {
+                        { it.power }
+                    }
+                    fixedPowerAxisMode == FixedPowerAxisMode.NegativeOnly -> {
+                        { (-it.power).coerceIn(minPower, maxPower) }
+                    }
+                    else -> {
+                        { it.power.coerceIn(minPower, maxPower) }
+                    }
+                }
                 val powerPath = buildPath(
                     points = filteredPoints,
                     minTime = minTime,
@@ -161,7 +176,7 @@ fun PowerCapacityChart(
                     paddingTop = paddingTop,
                     chartWidth = chartWidth,
                     chartHeight = chartHeight,
-                    valueSelector = { it.power }
+                    valueSelector = powerValueSelector
                 )
                 val capacityPath = buildPath(
                     points = filteredPoints,
@@ -233,6 +248,7 @@ fun PowerCapacityChart(
                         gridColor = gridColor,
                         majorStepW = powerAxisConfig.majorStepW,
                         minorStepW = powerAxisConfig.minorStepW,
+                        labelSignMultiplier = if (fixedPowerAxisMode == FixedPowerAxisMode.NegativeOnly) -1 else 1,
                         powerLabelFormatter = axisPowerLabelFormatter
                     )
                     drawTimeAxisLabels(
@@ -299,7 +315,7 @@ fun PowerCapacityChart(
                     val selectedX = paddingLeft +
                             ((selectedPoint.timestamp - minTime) / timeRange).toFloat() * chartWidth
                     val powerY = mapToY(
-                        value = selectedPoint.power,
+                        value = powerValueSelector(selectedPoint),
                         minValue = minPower,
                         maxValue = maxPower,
                         paddingTop = paddingTop,
@@ -507,14 +523,15 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFixedPowerGridL
     majorStepW: Int,
     minorStepW: Int
 ) {
-    val maxW = maxPower.roundToInt().coerceAtLeast(0)
+    val minW = minPower.roundToInt()
+    val maxW = maxPower.roundToInt()
     val minor = minorStepW.coerceAtLeast(1)
     val major = majorStepW.coerceAtLeast(minor)
 
     val dashIntervals = floatArrayOf(6.dp.toPx(), 4.dp.toPx())
     val dashEffect = PathEffect.dashPathEffect(dashIntervals, 0f)
 
-    var value = 0
+    var value = minW
     while (value <= maxW) {
         val isMajor = value % major == 0
         val alpha = if (isMajor) 0.35f else 0.18f
@@ -547,6 +564,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFixedPowerAxisL
     gridColor: Color,
     majorStepW: Int,
     minorStepW: Int,
+    labelSignMultiplier: Int,
     powerLabelFormatter: (Double) -> String,
 ) {
     val textPaint = android.graphics.Paint().apply {
@@ -555,11 +573,12 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFixedPowerAxisL
         isAntiAlias = true
     }
 
-    val maxW = maxPower.roundToInt().coerceAtLeast(0)
+    val minW = minPower.roundToInt()
+    val maxW = maxPower.roundToInt()
     val minor = minorStepW.coerceAtLeast(1)
     val major = majorStepW.coerceAtLeast(minor)
 
-    var value = 0
+    var value = minW
     while (value <= maxW) {
         if (value % major == 0) {
             val y = mapToY(
@@ -569,7 +588,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFixedPowerAxisL
                 paddingTop = paddingTop,
                 chartHeight = chartHeight
             )
-            val powerText = powerLabelFormatter(value.toDouble())
+            val powerText = powerLabelFormatter((value * labelSignMultiplier).toDouble())
             val powerWidth = textPaint.measureText(powerText)
             drawContext.canvas.nativeCanvas.drawText(
                 powerText,
@@ -761,18 +780,26 @@ private data class FixedPowerAxisConfig(
     val minorStepW: Int,
 )
 
-private fun computeFixedPowerAxisConfig(maxObservedW: Double): FixedPowerAxisConfig {
+enum class FixedPowerAxisMode {
+    PositiveOnly,
+    NegativeOnly,
+}
+
+private fun computeFixedPowerAxisConfig(
+    maxObservedAbsW: Double,
+    mode: FixedPowerAxisMode
+): FixedPowerAxisConfig {
     val axisMaxW = when {
-        maxObservedW > 200 -> 240
-        maxObservedW >= 150 -> 210
-        maxObservedW >= 120 -> 150
-        maxObservedW >= 100 -> 120
-        maxObservedW >= 80 -> 100
-        maxObservedW >= 60 -> 80
-        maxObservedW >= 45 -> 60
-        maxObservedW >= 30 -> 45
-        maxObservedW > 15 -> 30
-        maxObservedW > 10 -> 15
+        maxObservedAbsW > 200 -> 240
+        maxObservedAbsW >= 150 -> 210
+        maxObservedAbsW >= 120 -> 150
+        maxObservedAbsW >= 100 -> 120
+        maxObservedAbsW >= 80 -> 100
+        maxObservedAbsW >= 60 -> 80
+        maxObservedAbsW >= 45 -> 60
+        maxObservedAbsW >= 30 -> 45
+        maxObservedAbsW > 15 -> 30
+        maxObservedAbsW > 10 -> 15
         else -> 10
     }
 
@@ -792,9 +819,12 @@ private fun computeFixedPowerAxisConfig(maxObservedW: Double): FixedPowerAxisCon
         else -> 10
     }
 
+    val minValue = 0.0
+    val maxValue = axisMaxW.toDouble()
+
     return FixedPowerAxisConfig(
-        minValue = 0.0,
-        maxValue = axisMaxW.toDouble(),
+        minValue = minValue,
+        maxValue = maxValue,
         majorStepW = majorStepW,
         minorStepW = minorStepW
     )
@@ -842,7 +872,7 @@ private fun computeCapacityMarkers(points: List<ChartPoint>): List<CapacityMarke
             )
         )
     }
-    return markers
+    return markers.sortedBy { it.timestamp }
 }
 
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCapacityMarkers(
