@@ -1,5 +1,6 @@
 package yangfentuozi.batteryrecorder.ui.components.charts
 
+import android.graphics.Paint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -24,6 +25,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
@@ -32,9 +34,85 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.data.model.ChartPoint
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
 
+/**
+ * 创建标准文本画笔
+ */
+private fun createTextPaint(color: Int, textSize: Float = 24f) = Paint().apply {
+    this.color = color
+    this.textSize = textSize
+    isAntiAlias = true
+}
+
+/**
+ * 图表坐标系统，封装坐标转换逻辑
+ */
+private class ChartCoordinates(
+    val paddingLeft: Float,
+    val paddingTop: Float,
+    val chartWidth: Float,
+    val chartHeight: Float,
+    val minTime: Long,
+    val maxTime: Long,
+    val minPower: Double,
+    val maxPower: Double,
+) {
+    val timeRange = max(1L, maxTime - minTime).toDouble()
+    private val powerRange = max(1e-6, maxPower - minPower)
+
+    fun timeToX(timestamp: Long): Float =
+        paddingLeft + ((timestamp - minTime) / timeRange).toFloat() * chartWidth
+
+    fun powerToY(value: Double): Float {
+        val normalized = ((value - minPower) / powerRange).toFloat()
+        return paddingTop + (1f - normalized) * chartHeight
+    }
+
+    fun capacityToY(capacity: Double, scale: Float = 0.9f): Float {
+        val normalized = (capacity / 100.0).toFloat()
+        return paddingTop + (1f - normalized) * chartHeight * scale
+    }
+
+    /**
+     * 根据 X 坐标查找最近的数据点
+     */
+    fun findPointAtX(offsetX: Float, points: List<ChartPoint>): ChartPoint? {
+        if (chartWidth <= 0f) return null
+        val x = (offsetX - paddingLeft).coerceIn(0f, chartWidth)
+        val targetTime = minTime + (x / chartWidth * timeRange).toLong()
+        return points.minByOrNull { abs(it.timestamp - targetTime) }
+    }
+}
+
+/**
+ * 功率-电量双轴图表，支持交互选点、峰值线、屏幕状态线等功能
+ *
+ * @param points 数据点列表
+ * @param recordScreenOffEnabled 是否记录息屏数据
+ * @param modifier 修饰符
+ * @param powerColor 功率曲线颜色
+ * @param capacityColor 电量曲线颜色
+ * @param gridColor 网格线颜色
+ * @param strokeWidth 曲线宽度
+ * @param screenOnColor 亮屏状态线颜色
+ * @param screenOffColor 息屏状态线颜色
+ * @param peakLineColor 峰值线颜色
+ * @param showPeakPowerLine 是否显示峰值线
+ * @param showScreenStateLine 是否显示屏幕状态线
+ * @param useFixedPowerAxisSegments 是否使用固定功率轴刻度
+ * @param fixedPowerAxisMode 固定功率轴模式
+ * @param showCapacityAxis 是否显示电量轴
+ * @param showCapacityMarkers 是否显示电量标记点
+ * @param powerLabelFormatter 功率标签格式化器
+ * @param capacityLabelFormatter 电量标签格式化器
+ * @param timeLabelFormatter 时间标签格式化器
+ * @param axisPowerLabelFormatter 功率轴标签格式化器
+ * @param axisCapacityLabelFormatter 电量轴标签格式化器
+ * @param axisTimeLabelFormatter 时间轴标签格式化器
+ */
 @Composable
 fun PowerCapacityChart(
     points: List<ChartPoint>,
@@ -62,6 +140,8 @@ fun PowerCapacityChart(
 ) {
     val filteredPoints = normalizePoints(points, recordScreenOffEnabled)
     val rawPoints = points.sortedBy { it.timestamp }
+
+    // 计算固定功率轴配置（根据最大功率值自动选择刻度范围）
     val powerAxisConfig = remember(filteredPoints, useFixedPowerAxisSegments, fixedPowerAxisMode) {
         if (!useFixedPowerAxisSegments) {
             null
@@ -81,33 +161,23 @@ fun PowerCapacityChart(
         }
     }
     val selectedPointState = remember { mutableStateOf<ChartPoint?>(null) }
-    val peakLabelText = remember(filteredPoints, showPeakPowerLine, fixedPowerAxisMode, powerLabelFormatter) {
-        if (!showPeakPowerLine) {
-            null
-        } else {
-            val peakPlotPowerW = when (fixedPowerAxisMode) {
-                FixedPowerAxisMode.NegativeOnly -> filteredPoints.maxOfOrNull { (-it.power).coerceAtLeast(0.0) }
-                FixedPowerAxisMode.PositiveOnly -> filteredPoints.maxOfOrNull { it.power }
-            } ?: return@remember null
+    val isNegativeMode = fixedPowerAxisMode == FixedPowerAxisMode.NegativeOnly
 
-            val displayPowerW = if (fixedPowerAxisMode == FixedPowerAxisMode.NegativeOnly) {
-                -peakPlotPowerW
-            } else {
-                peakPlotPowerW
-            }
-            powerLabelFormatter(displayPowerW)
-        }
+    // 预计算峰值标签文本，用于动态调整右侧 padding
+    val peakLabelText = remember(filteredPoints, showPeakPowerLine, isNegativeMode, powerLabelFormatter) {
+        if (!showPeakPowerLine) return@remember null
+        val peakPlotPowerW = filteredPoints.maxOfOrNull {
+            if (isNegativeMode) (-it.power).coerceAtLeast(0.0) else it.power
+        } ?: return@remember null
+        powerLabelFormatter(if (isNegativeMode) -peakPlotPowerW else peakPlotPowerW)
     }
-    val paddingRightDp = if (peakLabelText == null) {
-        32.dp
-    } else {
-        val density = LocalDensity.current
-        val labelPaint = android.graphics.Paint().apply {
-            textSize = 24f
-            isAntiAlias = true
-        }
-        with(density) {
-            val reservedPx = labelPaint.measureText(peakLabelText) + 8.dp.toPx()
+
+    val density = LocalDensity.current
+    // 根据峰值标签宽度动态计算右侧 padding
+    val paddingRightDp = remember(peakLabelText) {
+        if (peakLabelText == null) 32.dp
+        else with(density) {
+            val reservedPx = createTextPaint(0).measureText(peakLabelText) + 8.dp.toPx()
             reservedPx.toDp().coerceAtLeast(32.dp)
         }
     }
@@ -139,37 +209,25 @@ fun PowerCapacityChart(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(240.dp)
-                    .pointerInput(filteredPoints) {
+                    .pointerInput(filteredPoints, paddingRightDp) {
+                        val paddingLeft = 32.dp.toPx()
+                        val chartWidth = size.width - paddingLeft - paddingRightDp.toPx()
+                        val minTime = filteredPoints.minOf { it.timestamp }
+                        val maxTime = filteredPoints.maxOf { it.timestamp }
+                        val coords = ChartCoordinates(paddingLeft, 0f, chartWidth, 0f, minTime, maxTime, 0.0, 0.0)
                         detectTapGestures { offset ->
-                            val paddingLeft = 32.dp.toPx()
-                            val paddingRight = paddingRightDp.toPx()
-                            val chartWidth = size.width - paddingLeft - paddingRight
-                            if (chartWidth <= 0f) return@detectTapGestures
-                            val minTime = filteredPoints.minOf { it.timestamp }
-                            val maxTime = filteredPoints.maxOf { it.timestamp }
-                            val timeRange = max(1L, maxTime - minTime).toDouble()
-                            val x = (offset.x - paddingLeft).coerceIn(0f, chartWidth)
-                            val targetTime = minTime + (x / chartWidth * timeRange).toLong()
-                            selectedPointState.value = filteredPoints.minByOrNull {
-                                kotlin.math.abs(it.timestamp - targetTime)
-                            }
+                            selectedPointState.value = coords.findPointAtX(offset.x, filteredPoints)
                         }
                     }
-                    .pointerInput(filteredPoints) {
+                    .pointerInput(filteredPoints, paddingRightDp) {
+                        val paddingLeft = 32.dp.toPx()
+                        val chartWidth = size.width - paddingLeft - paddingRightDp.toPx()
+                        val minTime = filteredPoints.minOf { it.timestamp }
+                        val maxTime = filteredPoints.maxOf { it.timestamp }
+                        val coords = ChartCoordinates(paddingLeft, 0f, chartWidth, 0f, minTime, maxTime, 0.0, 0.0)
                         detectDragGestures { change, _ ->
                             change.consume()
-                            val paddingLeft = 32.dp.toPx()
-                            val paddingRight = paddingRightDp.toPx()
-                            val chartWidth = size.width - paddingLeft - paddingRight
-                            if (chartWidth <= 0f) return@detectDragGestures
-                            val minTime = filteredPoints.minOf { it.timestamp }
-                            val maxTime = filteredPoints.maxOf { it.timestamp }
-                            val timeRange = max(1L, maxTime - minTime).toDouble()
-                            val x = (change.position.x - paddingLeft).coerceIn(0f, chartWidth)
-                            val targetTime = minTime + (x / chartWidth * timeRange).toLong()
-                            selectedPointState.value = filteredPoints.minByOrNull {
-                                kotlin.math.abs(it.timestamp - targetTime)
-                            }
+                            selectedPointState.value = coords.findPointAtX(change.position.x, filteredPoints)
                         }
                     }
             ) {
@@ -185,115 +243,36 @@ fun PowerCapacityChart(
                 val maxTime = filteredPoints.maxOf { it.timestamp }
                 val minPower = powerAxisConfig?.minValue ?: filteredPoints.minOf { it.power }
                 val maxPower = powerAxisConfig?.maxValue ?: filteredPoints.maxOf { it.power }
-                val minCapacity = 0.0
-                val maxCapacity = 100.0
 
+                val coords = ChartCoordinates(
+                    paddingLeft, paddingTop, chartWidth, chartHeight,
+                    minTime, maxTime, minPower, maxPower
+                )
+
+                // 根据模式选择功率值转换策略
                 val powerValueSelector: (ChartPoint) -> Double = when {
-                    powerAxisConfig == null -> {
-                        { it.power }
-                    }
-                    fixedPowerAxisMode == FixedPowerAxisMode.NegativeOnly -> {
-                        { (-it.power).coerceIn(minPower, maxPower) }
-                    }
-                    else -> {
-                        { it.power.coerceIn(minPower, maxPower) }
-                    }
+                    powerAxisConfig == null -> { p -> p.power }
+                    isNegativeMode -> { p -> (-p.power).coerceIn(minPower, maxPower) }
+                    else -> { p -> p.power.coerceIn(minPower, maxPower) }
                 }
-                val powerPath = buildPath(
-                    points = filteredPoints,
-                    minTime = minTime,
-                    maxTime = maxTime,
-                    minValue = minPower,
-                    maxValue = maxPower,
-                    paddingLeft = paddingLeft,
-                    paddingTop = paddingTop,
-                    chartWidth = chartWidth,
-                    chartHeight = chartHeight,
-                    valueSelector = powerValueSelector
-                )
-                val capacityPath = buildPath(
-                    points = filteredPoints,
-                    minTime = minTime,
-                    maxTime = maxTime,
-                    minValue = minCapacity,
-                    maxValue = maxCapacity,
-                    paddingLeft = paddingLeft,
-                    paddingTop = paddingTop,
-                    chartWidth = chartWidth,
-                    chartHeight = chartHeight,
-                    chartHeightScale = 0.9f,
-                    valueSelector = { it.capacity.toDouble().coerceIn(minCapacity, maxCapacity) }
-                )
+                val powerPath = buildPath(filteredPoints, coords, powerValueSelector)
+                val capacityPath = buildCapacityPath(filteredPoints, coords) { it.capacity.toDouble() }
 
+                // 绘制网格和坐标轴（根据是否使用固定轴选择不同绘制策略）
                 if (powerAxisConfig == null) {
-                    drawGrid(
-                        paddingLeft = paddingLeft,
-                        paddingTop = paddingTop,
-                        chartWidth = chartWidth,
-                        chartHeight = chartHeight,
-                        gridColor = gridColor
-                    )
-
+                    drawGrid(coords, gridColor)
                     drawAxisLabels(
-                        paddingLeft = paddingLeft,
-                        paddingTop = paddingTop,
-                        paddingRight = paddingRight,
-                        chartWidth = chartWidth,
-                        chartHeight = chartHeight,
-                        minTime = minTime,
-                        maxTime = maxTime,
-                        minPower = minPower,
-                        maxPower = maxPower,
-                        minCapacity = minCapacity,
-                        maxCapacity = maxCapacity,
-                        gridColor = gridColor,
-                        showCapacityAxis = showCapacityAxis,
-                        powerLabelFormatter = axisPowerLabelFormatter,
-                        capacityLabelFormatter = axisCapacityLabelFormatter,
-                        timeLabelFormatter = axisTimeLabelFormatter
+                        coords, paddingRight, gridColor, showCapacityAxis,
+                        axisPowerLabelFormatter, axisCapacityLabelFormatter, axisTimeLabelFormatter
                     )
                 } else {
-                    drawVerticalGridLines(
-                        paddingLeft = paddingLeft,
-                        paddingTop = paddingTop,
-                        chartWidth = chartWidth,
-                        chartHeight = chartHeight,
-                        gridColor = gridColor
-                    )
-                    drawFixedPowerGridLines(
-                        paddingLeft = paddingLeft,
-                        paddingTop = paddingTop,
-                        chartWidth = chartWidth,
-                        chartHeight = chartHeight,
-                        minPower = minPower,
-                        maxPower = maxPower,
-                        gridColor = gridColor,
-                        majorStepW = powerAxisConfig.majorStepW,
-                        minorStepW = powerAxisConfig.minorStepW
-                    )
+                    drawVerticalGridLines(coords, gridColor)
+                    drawFixedPowerGridLines(coords, gridColor, powerAxisConfig.majorStepW, powerAxisConfig.minorStepW)
                     drawFixedPowerAxisLabels(
-                        paddingLeft = paddingLeft,
-                        paddingTop = paddingTop,
-                        chartWidth = chartWidth,
-                        chartHeight = chartHeight,
-                        minPower = minPower,
-                        maxPower = maxPower,
-                        gridColor = gridColor,
-                        majorStepW = powerAxisConfig.majorStepW,
-                        minorStepW = powerAxisConfig.minorStepW,
-                        labelSignMultiplier = if (fixedPowerAxisMode == FixedPowerAxisMode.NegativeOnly) -1 else 1,
-                        powerLabelFormatter = axisPowerLabelFormatter
+                        coords, gridColor, powerAxisConfig.majorStepW, powerAxisConfig.minorStepW,
+                        if (isNegativeMode) -1 else 1, axisPowerLabelFormatter
                     )
-                    drawTimeAxisLabels(
-                        paddingLeft = paddingLeft,
-                        paddingTop = paddingTop,
-                        chartWidth = chartWidth,
-                        chartHeight = chartHeight,
-                        minTime = minTime,
-                        maxTime = maxTime,
-                        gridColor = gridColor,
-                        timeLabelFormatter = axisTimeLabelFormatter
-                    )
+                    drawTimeAxisLabels(coords, gridColor, axisTimeLabelFormatter)
                 }
 
                 drawPath(
@@ -318,13 +297,7 @@ fun PowerCapacityChart(
                 if (showPeakPowerLine) {
                     val peakPlotPowerW = filteredPoints.maxOfOrNull { powerValueSelector(it) }
                     if (peakPlotPowerW != null) {
-                        val peakY = mapToY(
-                            value = peakPlotPowerW,
-                            minValue = minPower,
-                            maxValue = maxPower,
-                            paddingTop = paddingTop,
-                            chartHeight = chartHeight
-                        )
+                        val peakY = coords.powerToY(peakPlotPowerW)
                         drawLine(
                             color = peakLineColor.copy(alpha = 0.9f),
                             start = Offset(paddingLeft, peakY),
@@ -332,23 +305,13 @@ fun PowerCapacityChart(
                             strokeWidth = 1.dp.toPx()
                         )
 
-                        val displayPowerW = if (fixedPowerAxisMode == FixedPowerAxisMode.NegativeOnly) {
-                            -peakPlotPowerW
-                        } else {
-                            peakPlotPowerW
-                        }
-                        val label = powerLabelFormatter(displayPowerW)
-                        val labelPaint = android.graphics.Paint().apply {
-                            color = peakLineColor.toArgb()
-                            textSize = 24f
-                            isAntiAlias = true
-                        }
-
-                        val plotRight = paddingLeft + chartWidth
+                        val label = powerLabelFormatter(if (isNegativeMode) -peakPlotPowerW else peakPlotPowerW)
+                        val labelPaint = createTextPaint(peakLineColor.toArgb())
                         val labelWidth = labelPaint.measureText(label)
-                        val preferredX = plotRight + 4.dp.toPx()
-                        val maxX = size.width - labelWidth - 4.dp.toPx()
-                        val labelX = preferredX.coerceAtMost(maxX).coerceAtLeast(plotRight + 2.dp.toPx())
+                        val plotRight = paddingLeft + chartWidth
+                        val labelX = (plotRight + 4.dp.toPx())
+                            .coerceAtMost(size.width - labelWidth - 4.dp.toPx())
+                            .coerceAtLeast(plotRight + 2.dp.toPx())
                         val labelY = (peakY - 4.dp.toPx())
                             .coerceIn(paddingTop + 12.dp.toPx(), paddingTop + chartHeight - 4.dp.toPx())
                         drawContext.canvas.nativeCanvas.drawText(label, labelX, labelY, labelPaint)
@@ -356,51 +319,18 @@ fun PowerCapacityChart(
                 }
 
                 if (showCapacityMarkers && capacityMarkers.isNotEmpty()) {
-                    drawCapacityMarkers(
-                        markers = capacityMarkers,
-                        minTime = minTime,
-                        maxTime = maxTime,
-                        paddingLeft = paddingLeft,
-                        paddingTop = paddingTop,
-                        chartWidth = chartWidth,
-                        chartHeight = chartHeight * 0.9f,
-                        capacityColor = capacityColor
-                    )
+                    drawCapacityMarkers(capacityMarkers, coords, capacityColor)
                 }
 
                 if (showScreenStateLine && rawPoints.isNotEmpty()) {
-                    drawScreenStateLine(
-                        points = rawPoints,
-                        minTime = minTime,
-                        maxTime = maxTime,
-                        paddingLeft = paddingLeft,
-                        paddingTop = paddingTop,
-                        chartWidth = chartWidth,
-                        chartHeight = chartHeight,
-                        screenOnColor = screenOnColor,
-                        screenOffColor = screenOffColor,
-                        strokeWidth = 4.dp
-                    )
+                    drawScreenStateLine(rawPoints, coords, screenOnColor, screenOffColor, 4.dp)
                 }
 
                 selectedPointState.value?.let { selectedPoint ->
-                    val timeRange = max(1L, maxTime - minTime).toDouble()
-                    val selectedX = paddingLeft +
-                            ((selectedPoint.timestamp - minTime) / timeRange).toFloat() * chartWidth
-                    val powerY = mapToY(
-                        value = powerValueSelector(selectedPoint),
-                        minValue = minPower,
-                        maxValue = maxPower,
-                        paddingTop = paddingTop,
-                        chartHeight = chartHeight
-                    )
-                    val capacityY = mapToY(
-                        value = selectedPoint.capacity.toDouble(),
-                        minValue = minCapacity,
-                        maxValue = maxCapacity,
-                        paddingTop = paddingTop,
-                        chartHeight = chartHeight * 0.9f
-                    )
+                    val selectedX = coords.timeToX(selectedPoint.timestamp)
+                    val powerY = coords.powerToY(powerValueSelector(selectedPoint))
+                    val capacityY = coords.capacityToY(selectedPoint.capacity.toDouble())
+
                     drawLine(
                         color = gridColor.copy(alpha = 0.6f),
                         start = Offset(selectedX, paddingTop),
@@ -408,11 +338,7 @@ fun PowerCapacityChart(
                         strokeWidth = 1.dp.toPx()
                     )
                     drawCircle(powerColor, radius = 4.dp.toPx(), center = Offset(selectedX, powerY))
-                    drawCircle(
-                        capacityColor,
-                        radius = 4.dp.toPx(),
-                        center = Offset(selectedX, capacityY)
-                    )
+                    drawCircle(capacityColor, radius = 4.dp.toPx(), center = Offset(selectedX, capacityY))
                 }
             }
         }
@@ -433,6 +359,9 @@ fun PowerCapacityChart(
     }
 }
 
+/**
+ * 显示选中数据点的详细信息
+ */
 @Composable
 private fun SelectedPointInfo(
     selected: ChartPoint?,
@@ -452,6 +381,9 @@ private fun SelectedPointInfo(
     )
 }
 
+/**
+ * 图例项：圆点 + 标签
+ */
 @Composable
 private fun LegendItem(label: String, color: Color) {
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -467,6 +399,9 @@ private fun LegendItem(label: String, color: Color) {
     }
 }
 
+/**
+ * 过滤息屏期间的孤立数据点（前后均为亮屏时跳过）
+ */
 private fun normalizePoints(
     points: List<ChartPoint>,
     recordScreenOffEnabled: Boolean
@@ -478,6 +413,7 @@ private fun normalizePoints(
     val result = ArrayList<ChartPoint>(sorted.size)
     for (index in sorted.indices) {
         val current = sorted[index]
+        // 跳过前后均为亮屏的孤立息屏点
         if (!current.isDisplayOn) {
             val prev = sorted.getOrNull(index - 1)
             val next = sorted.getOrNull(index + 1)
@@ -490,182 +426,134 @@ private fun normalizePoints(
     return result
 }
 
+/**
+ * 构建功率曲线路径
+ */
 private fun buildPath(
     points: List<ChartPoint>,
-    minTime: Long,
-    maxTime: Long,
-    minValue: Double,
-    maxValue: Double,
-    paddingLeft: Float,
-    paddingTop: Float,
-    chartWidth: Float,
-    chartHeight: Float,
-    chartHeightScale: Float = 1f,
+    coords: ChartCoordinates,
     valueSelector: (ChartPoint) -> Double
 ): Path {
     val path = Path()
-    val timeRange = max(1L, maxTime - minTime).toDouble()
-    val valueRange = max(1e-6, maxValue - minValue)
-
     points.forEachIndexed { index, point ->
-        val x = paddingLeft + ((point.timestamp - minTime) / timeRange).toFloat() * chartWidth
-        val normalized = ((valueSelector(point) - minValue) / valueRange).toFloat()
-        val y = paddingTop + (1f - normalized) * chartHeight * chartHeightScale
-
-        if (index == 0) {
-            path.moveTo(x, y)
-        } else {
-            path.lineTo(x, y)
-        }
+        val x = coords.timeToX(point.timestamp)
+        val y = coords.powerToY(valueSelector(point))
+        if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
     }
     return path
 }
 
-private fun mapToY(
-    value: Double,
-    minValue: Double,
-    maxValue: Double,
-    paddingTop: Float,
-    chartHeight: Float
-): Float {
-    val valueRange = max(1e-6, maxValue - minValue)
-    val normalized = ((value - minValue) / valueRange).toFloat()
-    return paddingTop + (1f - normalized) * chartHeight
+/**
+ * 构建电量曲线路径（固定 0.9 缩放，避免与底部时间轴重叠）
+ */
+private fun buildCapacityPath(
+    points: List<ChartPoint>,
+    coords: ChartCoordinates,
+    valueSelector: (ChartPoint) -> Double
+): Path {
+    val path = Path()
+    points.forEachIndexed { index, point ->
+        val x = coords.timeToX(point.timestamp)
+        val y = coords.capacityToY(valueSelector(point), 0.9f)
+        if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+    }
+    return path
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawGrid(
-    paddingLeft: Float,
-    paddingTop: Float,
-    chartWidth: Float,
-    chartHeight: Float,
-    gridColor: Color
-) {
+/**
+ * 绘制网格线（水平+垂直）
+ */
+private fun DrawScope.drawGrid(coords: ChartCoordinates, gridColor: Color) {
     val rows = 4
     val cols = 4
-    val rowStep = chartHeight / rows
-    val colStep = chartWidth / cols
+    val rowStep = coords.chartHeight / rows
+    val colStep = coords.chartWidth / cols
+    val lineColor = gridColor.copy(alpha = 0.3f)
+    val stroke = 1.dp.toPx()
 
     for (i in 0..rows) {
-        val y = paddingTop + rowStep * i
-        drawLine(
-            color = gridColor.copy(alpha = 0.3f),
-            start = Offset(paddingLeft, y),
-            end = Offset(paddingLeft + chartWidth, y),
-            strokeWidth = 1.dp.toPx()
-        )
+        val y = coords.paddingTop + rowStep * i
+        drawLine(lineColor, Offset(coords.paddingLeft, y), Offset(coords.paddingLeft + coords.chartWidth, y), stroke)
     }
     for (i in 0..cols) {
-        val x = paddingLeft + colStep * i
-        drawLine(
-            color = gridColor.copy(alpha = 0.3f),
-            start = Offset(x, paddingTop),
-            end = Offset(x, paddingTop + chartHeight),
-            strokeWidth = 1.dp.toPx()
-        )
+        val x = coords.paddingLeft + colStep * i
+        drawLine(lineColor, Offset(x, coords.paddingTop), Offset(x, coords.paddingTop + coords.chartHeight), stroke)
     }
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawVerticalGridLines(
-    paddingLeft: Float,
-    paddingTop: Float,
-    chartWidth: Float,
-    chartHeight: Float,
-    gridColor: Color
-) {
+/**
+ * 仅绘制垂直网格线
+ */
+private fun DrawScope.drawVerticalGridLines(coords: ChartCoordinates, gridColor: Color) {
     val cols = 4
-    val colStep = chartWidth / cols
+    val colStep = coords.chartWidth / cols
+    val lineColor = gridColor.copy(alpha = 0.3f)
+    val stroke = 1.dp.toPx()
+
     for (i in 0..cols) {
-        val x = paddingLeft + colStep * i
-        drawLine(
-            color = gridColor.copy(alpha = 0.3f),
-            start = Offset(x, paddingTop),
-            end = Offset(x, paddingTop + chartHeight),
-            strokeWidth = 1.dp.toPx()
-        )
+        val x = coords.paddingLeft + colStep * i
+        drawLine(lineColor, Offset(x, coords.paddingTop), Offset(x, coords.paddingTop + coords.chartHeight), stroke)
     }
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFixedPowerGridLines(
-    paddingLeft: Float,
-    paddingTop: Float,
-    chartWidth: Float,
-    chartHeight: Float,
-    minPower: Double,
-    maxPower: Double,
+/**
+ * 绘制固定功率轴的水平网格线（主刻度实线，次刻度虚线）
+ */
+private fun DrawScope.drawFixedPowerGridLines(
+    coords: ChartCoordinates,
     gridColor: Color,
     majorStepW: Int,
     minorStepW: Int
 ) {
-    val minW = minPower.roundToInt()
-    val maxW = maxPower.roundToInt()
+    val minW = coords.minPower.roundToInt()
+    val maxW = coords.maxPower.roundToInt()
     val minor = minorStepW.coerceAtLeast(1)
     val major = majorStepW.coerceAtLeast(minor)
+    val dashEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()), 0f)
 
-    val dashIntervals = floatArrayOf(6.dp.toPx(), 4.dp.toPx())
-    val dashEffect = PathEffect.dashPathEffect(dashIntervals, 0f)
-
+    // 绘制主刻度（实线）和次刻度（虚线）
     var value = minW
     while (value <= maxW) {
         val isMajor = value % major == 0
-        val alpha = if (isMajor) 0.35f else 0.18f
-        val stroke = if (isMajor) 1.dp.toPx() else 0.8.dp.toPx()
-        val y = mapToY(
-            value = value.toDouble(),
-            minValue = minPower,
-            maxValue = maxPower,
-            paddingTop = paddingTop,
-            chartHeight = chartHeight
-        )
+        val y = coords.powerToY(value.toDouble())
         drawLine(
-            color = gridColor.copy(alpha = alpha),
-            start = Offset(paddingLeft, y),
-            end = Offset(paddingLeft + chartWidth, y),
-            strokeWidth = stroke,
+            color = gridColor.copy(alpha = if (isMajor) 0.35f else 0.18f),
+            start = Offset(coords.paddingLeft, y),
+            end = Offset(coords.paddingLeft + coords.chartWidth, y),
+            strokeWidth = if (isMajor) 1.dp.toPx() else 0.8.dp.toPx(),
             pathEffect = if (isMajor) null else dashEffect
         )
         value += minor
     }
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFixedPowerAxisLabels(
-    paddingLeft: Float,
-    paddingTop: Float,
-    chartWidth: Float,
-    chartHeight: Float,
-    minPower: Double,
-    maxPower: Double,
+/**
+ * 绘制固定功率轴的刻度标签
+ */
+private fun DrawScope.drawFixedPowerAxisLabels(
+    coords: ChartCoordinates,
     gridColor: Color,
     majorStepW: Int,
     minorStepW: Int,
     labelSignMultiplier: Int,
-    powerLabelFormatter: (Double) -> String,
+    powerLabelFormatter: (Double) -> String
 ) {
-    val textPaint = android.graphics.Paint().apply {
-        color = gridColor.toArgb()
-        textSize = 24f
-        isAntiAlias = true
-    }
-
-    val minW = minPower.roundToInt()
-    val maxW = maxPower.roundToInt()
+    val textPaint = createTextPaint(gridColor.toArgb())
+    val minW = coords.minPower.roundToInt()
+    val maxW = coords.maxPower.roundToInt()
     val minor = minorStepW.coerceAtLeast(1)
     val major = majorStepW.coerceAtLeast(minor)
 
+    // 仅绘制主刻度标签
     var value = minW
     while (value <= maxW) {
         if (value % major == 0) {
-            val y = mapToY(
-                value = value.toDouble(),
-                minValue = minPower,
-                maxValue = maxPower,
-                paddingTop = paddingTop,
-                chartHeight = chartHeight
-            )
+            val y = coords.powerToY(value.toDouble())
             val powerText = powerLabelFormatter((value * labelSignMultiplier).toDouble())
             val powerWidth = textPaint.measureText(powerText)
             drawContext.canvas.nativeCanvas.drawText(
                 powerText,
-                paddingLeft - powerWidth - 8.dp.toPx(),
+                coords.paddingLeft - powerWidth - 8.dp.toPx(),
                 y - 4.dp.toPx(),
                 textPaint
             )
@@ -674,61 +562,50 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFixedPowerAxisL
     }
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawTimeAxisLabels(
-    paddingLeft: Float,
-    paddingTop: Float,
-    chartWidth: Float,
-    chartHeight: Float,
-    minTime: Long,
-    maxTime: Long,
+/**
+ * 绘制时间轴刻度标签
+ */
+private fun DrawScope.drawTimeAxisLabels(
+    coords: ChartCoordinates,
     gridColor: Color,
     timeLabelFormatter: (Long) -> String
 ) {
-    val textPaint = android.graphics.Paint().apply {
-        color = gridColor.toArgb()
-        textSize = 24f
-        isAntiAlias = true
-    }
+    val textPaint = createTextPaint(gridColor.toArgb())
     val cols = 3
-    val colStep = chartWidth / cols
-    val timeRange = max(1L, maxTime - minTime).toDouble()
+    val colStep = coords.chartWidth / cols
 
     for (i in 0..cols) {
-        val x = paddingLeft + colStep * i
-        val timeValue = (timeRange * i / cols).toLong()
+        val x = coords.paddingLeft + colStep * i
+        val timeValue = (coords.timeRange * i / cols).toLong()
         val text = timeLabelFormatter(timeValue)
         val textWidth = textPaint.measureText(text)
         drawContext.canvas.nativeCanvas.drawText(
             text,
             x - textWidth / 2f,
-            paddingTop + chartHeight + 24.dp.toPx(),
+            coords.paddingTop + coords.chartHeight + 24.dp.toPx(),
             textPaint
         )
     }
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawScreenStateLine(
+/**
+ * 绘制屏幕状态线（亮屏/息屏分色显示）
+ */
+private fun DrawScope.drawScreenStateLine(
     points: List<ChartPoint>,
-    minTime: Long,
-    maxTime: Long,
-    paddingLeft: Float,
-    paddingTop: Float,
-    chartWidth: Float,
-    chartHeight: Float,
+    coords: ChartCoordinates,
     screenOnColor: Color,
     screenOffColor: Color,
     strokeWidth: Dp
 ) {
-    val timeRange = max(1L, maxTime - minTime).toDouble()
-    val y = paddingTop + chartHeight + 8.dp.toPx()
-
     if (points.isEmpty()) return
+    val y = coords.paddingTop + coords.chartHeight + 8.dp.toPx()
 
     if (points.size == 1) {
         drawLine(
             color = if (points[0].isDisplayOn) screenOnColor else screenOffColor,
-            start = Offset(paddingLeft, y),
-            end = Offset(paddingLeft + chartWidth, y),
+            start = Offset(coords.paddingLeft, y),
+            end = Offset(coords.paddingLeft + coords.chartWidth, y),
             strokeWidth = strokeWidth.toPx()
         )
         return
@@ -742,90 +619,61 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawScreenStateLine
     for (i in 0 until points.size - 1) {
         val current = points[i]
         val next = points[i + 1]
-        val startX = paddingLeft + ((current.timestamp - minTime) / timeRange).toFloat() * chartWidth
-        val endX = paddingLeft + ((next.timestamp - minTime) / timeRange).toFloat() * chartWidth
+        val startX = coords.timeToX(current.timestamp)
+        val endX = coords.timeToX(next.timestamp)
 
         if (current.isDisplayOn) {
-            if (!onPathStarted) {
-                screenOnPath.moveTo(startX, y)
-                onPathStarted = true
-            }
+            if (!onPathStarted) { screenOnPath.moveTo(startX, y); onPathStarted = true }
             screenOnPath.lineTo(startX, y)
             screenOnPath.lineTo(endX, y)
         } else {
-            if (!offPathStarted) {
-                screenOffPath.moveTo(startX, y)
-                offPathStarted = true
-            }
+            if (!offPathStarted) { screenOffPath.moveTo(startX, y); offPathStarted = true }
             screenOffPath.lineTo(startX, y)
             screenOffPath.lineTo(endX, y)
         }
     }
 
-    if (onPathStarted) {
-        drawPath(
-            path = screenOnPath,
-            color = screenOnColor,
-            style = Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Butt)
-        )
-    }
-    if (offPathStarted) {
-        drawPath(
-            path = screenOffPath,
-            color = screenOffColor,
-            style = Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Butt)
-        )
-    }
+    val stroke = Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Butt)
+    if (onPathStarted) drawPath(screenOnPath, screenOnColor, style = stroke)
+    if (offPathStarted) drawPath(screenOffPath, screenOffColor, style = stroke)
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawAxisLabels(
-    paddingLeft: Float,
-    paddingTop: Float,
+/**
+ * 绘制动态轴刻度标签（功率、电量、时间）
+ */
+private fun DrawScope.drawAxisLabels(
+    coords: ChartCoordinates,
     paddingRight: Float,
-    chartWidth: Float,
-    chartHeight: Float,
-    minTime: Long,
-    maxTime: Long,
-    minPower: Double,
-    maxPower: Double,
-    minCapacity: Double,
-    maxCapacity: Double,
     gridColor: Color,
     showCapacityAxis: Boolean,
     powerLabelFormatter: (Double) -> String,
     capacityLabelFormatter: (Int) -> String,
     timeLabelFormatter: (Long) -> String
 ) {
-    val textPaint = android.graphics.Paint().apply {
-        color = gridColor.toArgb()
-        textSize = 24f
-        isAntiAlias = true
-    }
+    val textPaint = createTextPaint(gridColor.toArgb())
     val rows = 4
     val cols = 3
-    val rowStep = chartHeight / rows
-    val colStep = chartWidth / cols
-    val powerRange = max(1e-6, maxPower - minPower)
-    val capacityRange = max(1e-6, maxCapacity - minCapacity)
-    val timeRange = max(1L, maxTime - minTime).toDouble()
+    val rowStep = coords.chartHeight / rows
+    val colStep = coords.chartWidth / cols
+    val powerRange = max(1e-6, coords.maxPower - coords.minPower)
 
     for (i in 0..rows) {
-        val y = paddingTop + rowStep * i
-        val powerValue = maxPower - (powerRange * i / rows)
-        val capacityValue = maxCapacity - (capacityRange * i / rows)
+        val y = coords.paddingTop + rowStep * i
+        val powerValue = coords.maxPower - (powerRange * i / rows)
+        val capacityValue = 100 - (100 * i / rows)
         val powerText = powerLabelFormatter(powerValue)
         val powerWidth = textPaint.measureText(powerText)
         drawContext.canvas.nativeCanvas.drawText(
             powerText,
-            paddingLeft - powerWidth - 8.dp.toPx(),
+            coords.paddingLeft - powerWidth - 8.dp.toPx(),
             y - 4.dp.toPx(),
             textPaint
         )
         if (showCapacityAxis) {
-            val capacityText = capacityLabelFormatter(capacityValue.roundToInt())
+            val capacityText = capacityLabelFormatter(capacityValue)
             drawContext.canvas.nativeCanvas.drawText(
                 capacityText,
-                paddingLeft + chartWidth + 8.dp.toPx(),
+                coords.paddingLeft + coords.chartWidth + 8.dp.toPx(),
                 y - 4.dp.toPx(),
                 textPaint
             )
@@ -833,19 +681,22 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawAxisLabels(
     }
 
     for (i in 0..cols) {
-        val x = paddingLeft + colStep * i
-        val timeValue = (timeRange * i / cols).toLong()
+        val x = coords.paddingLeft + colStep * i
+        val timeValue = (coords.timeRange * i / cols).toLong()
         val text = timeLabelFormatter(timeValue)
         val textWidth = textPaint.measureText(text)
         drawContext.canvas.nativeCanvas.drawText(
             text,
             x - textWidth / 2f,
-            paddingTop + chartHeight + 24.dp.toPx(),
+            coords.paddingTop + coords.chartHeight + 24.dp.toPx(),
             textPaint
         )
     }
 }
 
+/**
+ * 固定功率轴配置
+ */
 private data class FixedPowerAxisConfig(
     val minValue: Double,
     val maxValue: Double,
@@ -853,11 +704,17 @@ private data class FixedPowerAxisConfig(
     val minorStepW: Int,
 )
 
+/**
+ * 固定功率轴模式：正值（充电）或负值（放电）
+ */
 enum class FixedPowerAxisMode {
     PositiveOnly,
     NegativeOnly,
 }
 
+/**
+ * 根据最大功率值计算固定轴配置（自动选择合适的刻度范围）
+ */
 private fun computeFixedPowerAxisConfig(
     maxObservedAbsW: Double,
     mode: FixedPowerAxisMode
@@ -903,12 +760,18 @@ private fun computeFixedPowerAxisConfig(
     )
 }
 
+/**
+ * 电量标记点
+ */
 private data class CapacityMarker(
     val timestamp: Long,
     val capacity: Int,
     val label: String,
 )
 
+/**
+ * 计算电量标记点（起止点 + 整数倍刻度）
+ */
 private fun computeCapacityMarkers(points: List<ChartPoint>): List<CapacityMarker> {
     if (points.isEmpty()) return emptyList()
     val sorted = points.sortedBy { it.timestamp }
@@ -920,6 +783,7 @@ private fun computeCapacityMarkers(points: List<ChartPoint>): List<CapacityMarke
     val minCap = minOf(startCapacity, endCapacity)
     val maxCap = maxOf(startCapacity, endCapacity)
 
+    // 收集目标电量值：起止点 + 整数倍刻度
     val targets = LinkedHashSet<Int>()
     targets.add(startCapacity)
     targets.add(endCapacity)
@@ -932,6 +796,7 @@ private fun computeCapacityMarkers(points: List<ChartPoint>): List<CapacityMarke
         value += step
     }
 
+    // 为每个目标电量值找到最近的数据点，避免重复时间戳
     val usedTimestamps = HashSet<Long>()
     val markers = ArrayList<CapacityMarker>(targets.size)
     for (target in targets.toList().sorted()) {
@@ -948,72 +813,44 @@ private fun computeCapacityMarkers(points: List<ChartPoint>): List<CapacityMarke
     return markers.sortedBy { it.timestamp }
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCapacityMarkers(
+/**
+ * 绘制电量标记点及标签
+ */
+private fun DrawScope.drawCapacityMarkers(
     markers: List<CapacityMarker>,
-    minTime: Long,
-    maxTime: Long,
-    paddingLeft: Float,
-    paddingTop: Float,
-    chartWidth: Float,
-    chartHeight: Float,
+    coords: ChartCoordinates,
     capacityColor: Color
 ) {
-    val textPaint = android.graphics.Paint().apply {
-        color = capacityColor.toArgb()
-        textSize = 20f
-        isAntiAlias = true
-    }
-
-    val timeRange = max(1L, maxTime - minTime).toDouble()
+    val textPaint = createTextPaint(capacityColor.toArgb(), 20f)
     val padding = 6.dp.toPx()
-    val fontMetrics = textPaint.fontMetrics
-    val textHeight = -fontMetrics.ascent
-    val chartRight = paddingLeft + chartWidth
-    val chartBottom = paddingTop + chartHeight
+    val textHeight = -textPaint.fontMetrics.ascent
+    val chartRight = coords.paddingLeft + coords.chartWidth
+    val scaledChartHeight = coords.chartHeight * 0.9f
+    val chartBottom = coords.paddingTop + scaledChartHeight
 
     markers.forEach { marker ->
-        val x = paddingLeft + ((marker.timestamp - minTime) / timeRange).toFloat() * chartWidth
-        val y = mapToY(
-            value = marker.capacity.toDouble(),
-            minValue = 0.0,
-            maxValue = 100.0,
-            paddingTop = paddingTop,
-            chartHeight = chartHeight
-        )
+        val x = coords.timeToX(marker.timestamp)
+        val y = coords.capacityToY(marker.capacity.toDouble())
 
-        drawCircle(
-            color = capacityColor,
-            radius = 3.dp.toPx() * 0.65f,
-            center = Offset(x, y)
-        )
+        drawCircle(capacityColor, radius = 3.dp.toPx() * 0.65f, center = Offset(x, y))
 
+        // 智能定位标签：优先右侧，超出边界则左侧
         val labelWidth = textPaint.measureText(marker.label)
-
         var textX = x + padding
-        if (textX + labelWidth > chartRight) {
-            textX = x - padding - labelWidth
-        }
-        if (textX < paddingLeft) {
-            textX = paddingLeft
-        }
+        if (textX + labelWidth > chartRight) textX = x - padding - labelWidth
+        if (textX < coords.paddingLeft) textX = coords.paddingLeft
 
         var textY = y - padding
-        if (textY - textHeight < paddingTop) {
-            textY = y + textHeight + padding
-        }
-        if (textY > chartBottom) {
-            textY = chartBottom
-        }
+        if (textY - textHeight < coords.paddingTop) textY = y + textHeight + padding
+        if (textY > chartBottom) textY = chartBottom
 
-        drawContext.canvas.nativeCanvas.drawText(
-            marker.label,
-            textX,
-            textY,
-            textPaint
-        )
+        drawContext.canvas.nativeCanvas.drawText(marker.label, textX, textY, textPaint)
     }
 }
 
+/**
+ * 格式化相对时间（如 1h30m）
+ */
 private fun formatRelativeTime(offsetMs: Long): String {
     val totalMinutes = max(0, (offsetMs / 60000L).toInt())
     val hours = totalMinutes / 60
