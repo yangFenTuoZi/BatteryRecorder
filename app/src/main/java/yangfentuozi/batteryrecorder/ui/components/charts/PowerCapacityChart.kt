@@ -41,7 +41,7 @@ fun PowerCapacityChart(
     recordScreenOffEnabled: Boolean,
     modifier: Modifier = Modifier,
     powerColor: Color = MaterialTheme.colorScheme.primary,
-    capacityColor: Color = MaterialTheme.colorScheme.tertiary,
+    capacityColor: Color = Color(0xFFFFB300),
     gridColor: Color = MaterialTheme.colorScheme.outlineVariant,
     strokeWidth: Dp = 1.3.dp,
     screenOnColor: Color = Color(0xFF2E7D32),
