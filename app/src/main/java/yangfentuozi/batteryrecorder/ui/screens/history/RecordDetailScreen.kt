@@ -109,7 +109,7 @@ fun RecordDetailScreen(
                             InfoRow("电量变化", "${capacityChange}%")
                             InfoRow("亮屏", formatDurationHours(stats.screenOnTimeMs))
                             InfoRow("息屏", formatDurationHours(stats.screenOffTimeMs))
-                            InfoRow("文件名", detail.name)
+                            InfoRow("记录ID", detail.name.dropLast(4))
                         }
                     }
                 }
