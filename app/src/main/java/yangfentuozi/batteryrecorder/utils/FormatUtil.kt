@@ -46,7 +46,7 @@ fun formatPower(
     // cellMultiplier: 双电芯为2，单电芯为1
     // 纳瓦转瓦特: ÷ 1000000000
     val finalValue = (if (dualCellEnabled) 2 else 1) * calibrationValue * (powerW / 1000000000)
-    return String.format(Locale.getDefault(), "%.1f W", finalValue)
+    return String.format(Locale.getDefault(), "%.2f W", finalValue)
 }
 
 /**

@@ -131,7 +131,7 @@ fun PowerCapacityChart(
     fixedPowerAxisMode: FixedPowerAxisMode = FixedPowerAxisMode.PositiveOnly,
     showCapacityAxis: Boolean = true,
     showCapacityMarkers: Boolean = false,
-    powerLabelFormatter: (Double) -> String = { value -> String.format("%.1f", value) },
+    powerLabelFormatter: (Double) -> String = { value -> String.format("%.2f", value) },
     capacityLabelFormatter: (Int) -> String = { value -> "$value%" },
     timeLabelFormatter: (Long) -> String = { value -> value.toString() },
     axisPowerLabelFormatter: (Double) -> String = { value -> value.roundToInt().toString() },

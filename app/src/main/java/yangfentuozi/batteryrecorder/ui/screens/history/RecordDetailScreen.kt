@@ -143,7 +143,7 @@ fun RecordDetailScreen(
                                 showCapacityMarkers = true,
                                 showPeakPowerLine = true,
                                 powerLabelFormatter = { value ->
-                                    String.format(Locale.getDefault(), "%.1f W", value)
+                                    String.format(Locale.getDefault(), "%.2f W", value)
                                 },
                                 capacityLabelFormatter = { value -> "$value%" },
                                 timeLabelFormatter = { value ->
