@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.ui.format
+package yangfentuozi.batteryrecorder.utils
 
 import java.text.SimpleDateFormat
 import java.util.Date

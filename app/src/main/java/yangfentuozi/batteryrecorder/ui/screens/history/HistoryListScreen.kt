@@ -36,11 +36,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import yangfentuozi.batteryrecorder.data.history.HistoryRecord
 import yangfentuozi.batteryrecorder.data.history.RecordType
 import yangfentuozi.batteryrecorder.ui.components.global.SwipeRevealRow
-import yangfentuozi.batteryrecorder.ui.format.formatDateTime
-import yangfentuozi.batteryrecorder.ui.format.formatDurationHours
-import yangfentuozi.batteryrecorder.ui.format.formatPower
 import yangfentuozi.batteryrecorder.ui.viewmodel.HistoryViewModel
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
+import yangfentuozi.batteryrecorder.utils.formatDateTime
+import yangfentuozi.batteryrecorder.utils.formatDurationHours
+import yangfentuozi.batteryrecorder.utils.formatPower
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

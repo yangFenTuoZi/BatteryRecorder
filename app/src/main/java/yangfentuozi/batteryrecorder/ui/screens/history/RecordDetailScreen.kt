@@ -27,12 +27,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import yangfentuozi.batteryrecorder.data.history.RecordType
 import yangfentuozi.batteryrecorder.ui.components.charts.PowerCapacityChart
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
-import yangfentuozi.batteryrecorder.ui.format.formatDateTime
-import yangfentuozi.batteryrecorder.ui.format.formatDurationHours
-import yangfentuozi.batteryrecorder.ui.format.formatPower
-import yangfentuozi.batteryrecorder.ui.format.formatPowerInt
 import yangfentuozi.batteryrecorder.ui.viewmodel.HistoryViewModel
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
+import yangfentuozi.batteryrecorder.utils.formatDateTime
+import yangfentuozi.batteryrecorder.utils.formatDurationHours
+import yangfentuozi.batteryrecorder.utils.formatPower
+import yangfentuozi.batteryrecorder.utils.formatPowerInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
