@@ -32,7 +32,7 @@ import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
 import yangfentuozi.batteryrecorder.utils.formatDateTime
 import yangfentuozi.batteryrecorder.utils.formatDurationHours
 import yangfentuozi.batteryrecorder.utils.formatPower
-import yangfentuozi.batteryrecorder.utils.formatPowerInt
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -117,17 +117,22 @@ fun RecordDetailScreen(
                 SplicedColumnGroup(title = "功耗/电量曲线") {
                     item {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            val chartPoints = if (detail.type == RecordType.CHARGE) {
-                                points.map { it.copy(power = it.power) }
-                            } else {
-                                points
+                            val cellMultiplier = if (dualCellEnabled) 2 else 1
+                            val chartPoints = points.map { point ->
+                                val displayPowerW = cellMultiplier * calibrationValue * (point.power / 1000000000.0)
+                                val powerForChart = if (detail.type == RecordType.CHARGE && displayPowerW < 0) {
+                                    0.0
+                                } else {
+                                    displayPowerW
+                                }
+                                point.copy(power = powerForChart)
                             }
                             PowerCapacityChart(
                                 points = chartPoints,
                                 recordScreenOffEnabled = recordScreenOffEnabled,
                                 modifier = Modifier.fillMaxWidth(),
                                 powerLabelFormatter = { value ->
-                                    formatPower(value, dualCellEnabled, calibrationValue)
+                                    String.format(Locale.getDefault(), "%.1f W", value)
                                 },
                                 capacityLabelFormatter = { value -> "$value%" },
                                 timeLabelFormatter = { value ->
@@ -135,7 +140,7 @@ fun RecordDetailScreen(
                                     formatRelativeOffset(offset)
                                 },
                                 axisPowerLabelFormatter = { value ->
-                                    formatPowerInt(value, dualCellEnabled, calibrationValue)
+                                    String.format(Locale.getDefault(), "%.0f W", value)
                                 },
                                 axisCapacityLabelFormatter = { value -> "$value%" },
                                 axisTimeLabelFormatter = { value -> formatRelativeOffset(value) }
