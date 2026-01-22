@@ -116,8 +116,22 @@ fun BatteryRecorderNavHost(
             route = Screen.HistoryList.route,
             arguments = listOf(navArgument("type") { type = NavType.StringType }),
             enterTransition = { defaultEnterTransition },
-            exitTransition = { defaultExitTransition },
-            popEnterTransition = { defaultPopEnterTransition },
+            exitTransition = {
+                if (targetState.destination.route == Screen.RecordDetail.route) {
+                    slideOutHorizontally(targetOffsetX = { fullWidth -> -fullWidth / 4 }) +
+                            fadeOut()
+                } else {
+                    defaultExitTransition
+                }
+            },
+            popEnterTransition = {
+                if (initialState.destination.route == Screen.RecordDetail.route) {
+                    slideInHorizontally(initialOffsetX = { fullWidth -> -fullWidth / 4 }) +
+                            fadeIn()
+                } else {
+                    defaultPopEnterTransition
+                }
+            },
             popExitTransition = { defaultPopExitTransition }
         ) { backStackEntry ->
             val typeArg = backStackEntry.arguments?.getString("type") ?: RecordType.CHARGE.dirName
