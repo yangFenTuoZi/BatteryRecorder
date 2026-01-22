@@ -118,7 +118,7 @@ fun RecordDetailScreen(
                     item {
                         Column(modifier = Modifier.padding(16.dp)) {
                             val chartPoints = if (detail.type == RecordType.CHARGE) {
-                                points.map { it.copy(power = -it.power) }
+                                points.map { it.copy(power = it.power) }
                             } else {
                                 points
                             }

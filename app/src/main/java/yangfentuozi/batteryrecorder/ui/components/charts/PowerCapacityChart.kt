@@ -278,11 +278,7 @@ private fun SelectedPointInfo(
     val text = if (selected == null) {
         "点击图表查看该时间点数据"
     } else {
-        "时间 ${timeLabelFormatter(selected.timestamp)} · 功耗 ${powerLabelFormatter(selected.power)} · 电量 ${
-            capacityLabelFormatter(
-                selected.capacity
-            )
-        }"
+        "时间 ${timeLabelFormatter(selected.timestamp)} · 功耗 ${powerLabelFormatter(selected.power)} · 电量 ${capacityLabelFormatter(selected.capacity)}"
     }
     Text(
         text = text,
