@@ -118,7 +118,7 @@ fun RecordDetailScreen(
 
                 SplicedColumnGroup(title = "功耗/电量曲线") {
                     item {
-                        Column(modifier = Modifier.padding(16.dp)) {
+                        Column(modifier = Modifier.padding(12.dp)) {
                             val cellMultiplier = if (dualCellEnabled) 2 else 1
                             val chartPoints = points.map { point ->
                                 val displayPowerW = cellMultiplier * calibrationValue * (point.power / 1000000000.0)
@@ -141,6 +141,7 @@ fun RecordDetailScreen(
                                 },
                                 showCapacityAxis = false,
                                 showCapacityMarkers = true,
+                                showPeakPowerLine = true,
                                 powerLabelFormatter = { value ->
                                     String.format(Locale.getDefault(), "%.1f W", value)
                                 },

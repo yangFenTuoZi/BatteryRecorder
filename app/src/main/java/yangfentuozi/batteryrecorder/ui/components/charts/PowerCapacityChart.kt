@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.data.model.ChartPoint
@@ -42,9 +43,11 @@ fun PowerCapacityChart(
     powerColor: Color = MaterialTheme.colorScheme.primary,
     capacityColor: Color = MaterialTheme.colorScheme.tertiary,
     gridColor: Color = MaterialTheme.colorScheme.outlineVariant,
-    strokeWidth: Dp = 2.dp,
+    strokeWidth: Dp = 1.3.dp,
     screenOnColor: Color = Color(0xFF2E7D32),
     screenOffColor: Color = Color(0xFFD32F2F),
+    peakLineColor: Color = MaterialTheme.colorScheme.error,
+    showPeakPowerLine: Boolean = false,
     showScreenStateLine: Boolean = true,
     useFixedPowerAxisSegments: Boolean = false,
     fixedPowerAxisMode: FixedPowerAxisMode = FixedPowerAxisMode.PositiveOnly,
@@ -78,6 +81,36 @@ fun PowerCapacityChart(
         }
     }
     val selectedPointState = remember { mutableStateOf<ChartPoint?>(null) }
+    val peakLabelText = remember(filteredPoints, showPeakPowerLine, fixedPowerAxisMode, powerLabelFormatter) {
+        if (!showPeakPowerLine) {
+            null
+        } else {
+            val peakPlotPowerW = when (fixedPowerAxisMode) {
+                FixedPowerAxisMode.NegativeOnly -> filteredPoints.maxOfOrNull { (-it.power).coerceAtLeast(0.0) }
+                FixedPowerAxisMode.PositiveOnly -> filteredPoints.maxOfOrNull { it.power }
+            } ?: return@remember null
+
+            val displayPowerW = if (fixedPowerAxisMode == FixedPowerAxisMode.NegativeOnly) {
+                -peakPlotPowerW
+            } else {
+                peakPlotPowerW
+            }
+            powerLabelFormatter(displayPowerW)
+        }
+    }
+    val paddingRightDp = if (peakLabelText == null) {
+        32.dp
+    } else {
+        val density = LocalDensity.current
+        val labelPaint = android.graphics.Paint().apply {
+            textSize = 18f
+            isAntiAlias = true
+        }
+        with(density) {
+            val reservedPx = labelPaint.measureText(peakLabelText) + 12.dp.toPx()
+            reservedPx.toDp().coerceAtLeast(32.dp)
+        }
+    }
 
     Column(modifier = modifier) {
         if (filteredPoints.size < 2) {
@@ -109,7 +142,7 @@ fun PowerCapacityChart(
                     .pointerInput(filteredPoints) {
                         detectTapGestures { offset ->
                             val paddingLeft = 32.dp.toPx()
-                            val paddingRight = 32.dp.toPx()
+                            val paddingRight = paddingRightDp.toPx()
                             val chartWidth = size.width - paddingLeft - paddingRight
                             if (chartWidth <= 0f) return@detectTapGestures
                             val minTime = filteredPoints.minOf { it.timestamp }
@@ -126,7 +159,7 @@ fun PowerCapacityChart(
                         detectDragGestures { change, _ ->
                             change.consume()
                             val paddingLeft = 32.dp.toPx()
-                            val paddingRight = 32.dp.toPx()
+                            val paddingRight = paddingRightDp.toPx()
                             val chartWidth = size.width - paddingLeft - paddingRight
                             if (chartWidth <= 0f) return@detectDragGestures
                             val minTime = filteredPoints.minOf { it.timestamp }
@@ -141,7 +174,7 @@ fun PowerCapacityChart(
                     }
             ) {
                 val paddingLeft = 32.dp.toPx()
-                val paddingRight = 32.dp.toPx()
+                val paddingRight = paddingRightDp.toPx()
                 val paddingTop = 6.dp.toPx()
                 val paddingBottom = 24.dp.toPx()
                 val chartWidth = size.width - paddingLeft - paddingRight
@@ -281,6 +314,46 @@ fun PowerCapacityChart(
                         join = StrokeJoin.Round
                     )
                 )
+
+                if (showPeakPowerLine) {
+                    val peakPlotPowerW = filteredPoints.maxOfOrNull { powerValueSelector(it) }
+                    if (peakPlotPowerW != null) {
+                        val peakY = mapToY(
+                            value = peakPlotPowerW,
+                            minValue = minPower,
+                            maxValue = maxPower,
+                            paddingTop = paddingTop,
+                            chartHeight = chartHeight
+                        )
+                        drawLine(
+                            color = peakLineColor.copy(alpha = 0.9f),
+                            start = Offset(paddingLeft, peakY),
+                            end = Offset(paddingLeft + chartWidth, peakY),
+                            strokeWidth = 1.dp.toPx()
+                        )
+
+                        val displayPowerW = if (fixedPowerAxisMode == FixedPowerAxisMode.NegativeOnly) {
+                            -peakPlotPowerW
+                        } else {
+                            peakPlotPowerW
+                        }
+                        val label = powerLabelFormatter(displayPowerW)
+                        val labelPaint = android.graphics.Paint().apply {
+                            color = peakLineColor.toArgb()
+                            textSize = 18f
+                            isAntiAlias = true
+                        }
+
+                        val plotRight = paddingLeft + chartWidth
+                        val labelWidth = labelPaint.measureText(label)
+                        val preferredX = plotRight + 8.dp.toPx()
+                        val maxX = size.width - labelWidth - 4.dp.toPx()
+                        val labelX = preferredX.coerceAtMost(maxX).coerceAtLeast(plotRight + 2.dp.toPx())
+                        val labelY = (peakY - 4.dp.toPx())
+                            .coerceIn(paddingTop + 12.dp.toPx(), paddingTop + chartHeight - 4.dp.toPx())
+                        drawContext.canvas.nativeCanvas.drawText(label, labelX, labelY, labelPaint)
+                    }
+                }
 
                 if (showCapacityMarkers && capacityMarkers.isNotEmpty()) {
                     drawCapacityMarkers(
@@ -910,7 +983,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCapacityMarkers
 
         drawCircle(
             color = capacityColor,
-            radius = 3.dp.toPx(),
+            radius = 3.dp.toPx() * 0.65f,
             center = Offset(x, y)
         )
 
