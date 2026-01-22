@@ -26,10 +26,21 @@ data class HistorySummary(
 )
 
 object HistoryRepository {
+    private const val PREFS_NAME = "yangfentuozi.batteryrecorder_preferences"
+    private const val KEY_DISCHARGE_DISPLAY_POSITIVE = "discharge_display_positive"
+
+    private fun getPowerMultiplier(context: Context, type: RecordType): Double {
+        if (type != RecordType.DISCHARGE) return 1.0
+        val enabled = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_DISCHARGE_DISPLAY_POSITIVE, true)
+        return if (enabled) -1.0 else 1.0
+    }
+
     fun loadRecords(context: Context, type: RecordType): List<HistoryRecord> {
         val dataDir = getDataDir(context, type)
         if (!dataDir.exists() || !dataDir.isDirectory) return emptyList()
 
+        val powerMultiplier = getPowerMultiplier(context, type)
         val files = dataDir.listFiles()?.filter { it.isFile }?.sortedByDescending { it.lastModified() }
             ?: return emptyList()
         val latestFileName = files.firstOrNull()?.name
@@ -48,7 +59,7 @@ object HistoryRepository {
             HistoryRecord(
                 name = file.name,
                 type = type,
-                stats = stats,
+                stats = stats.copy(averagePower = stats.averagePower * powerMultiplier),
                 lastModified = file.lastModified()
             )
         }
@@ -58,6 +69,7 @@ object HistoryRepository {
         val dataDir = getDataDir(context, type)
         if (!dataDir.exists() || !dataDir.isDirectory) return null
 
+        val powerMultiplier = getPowerMultiplier(context, type)
         val file = File(dataDir, name)
         if (!file.exists() || !file.isFile) return null
 
@@ -76,7 +88,7 @@ object HistoryRepository {
         return HistoryRecord(
             name = file.name,
             type = type,
-            stats = stats,
+            stats = stats.copy(averagePower = stats.averagePower * powerMultiplier),
             lastModified = file.lastModified()
         )
     }
@@ -92,6 +104,7 @@ object HistoryRepository {
         val file = File(dataDir, name)
         if (!file.exists() || !file.isFile) return emptyList()
 
+        val powerMultiplier = getPowerMultiplier(context, type)
         return file.readLines()
             .asSequence()
             .filter { it.isNotBlank() }
@@ -104,7 +117,7 @@ object HistoryRepository {
                 val isDisplayOn = parts[4].toIntOrNull() ?: return@mapNotNull null
                 ChartPoint(
                     timestamp = timestamp,
-                    power = power,
+                    power = power * powerMultiplier,
                     capacity = capacity,
                     isDisplayOn = isDisplayOn == 1
                 )

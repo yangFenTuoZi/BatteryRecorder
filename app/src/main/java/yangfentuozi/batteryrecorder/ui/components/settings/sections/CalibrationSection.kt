@@ -17,6 +17,8 @@ import yangfentuozi.batteryrecorder.ui.dialog.settings.CalibrationDialog
 fun CalibrationSection(
     dualCellEnabled: Boolean,
     onDualCellChange: (Boolean) -> Unit,
+    dischargeDisplayPositive: Boolean,
+    onDischargeDisplayPositiveChange: (Boolean) -> Unit,
     calibrationValue: Int,
     onCalibrationChange: (Int) -> Unit
 ) {
@@ -31,6 +33,14 @@ fun CalibrationSection(
                 text = "双电池",
                 checked = dualCellEnabled,
                 onCheckedChange = onDualCellChange
+            )
+        }
+
+        item {
+            M3ESwitchWidget(
+                text = "放电也显示正值",
+                checked = dischargeDisplayPositive,
+                onCheckedChange = onDischargeDisplayPositiveChange
             )
         }
 

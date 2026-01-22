@@ -18,6 +18,9 @@ class SettingsViewModel : ViewModel() {
     private val _dualCellEnabled = MutableStateFlow(false)
     val dualCellEnabled: StateFlow<Boolean> = _dualCellEnabled.asStateFlow()
 
+    private val _dischargeDisplayPositive = MutableStateFlow(true)
+    val dischargeDisplayPositive: StateFlow<Boolean> = _dischargeDisplayPositive.asStateFlow()
+
     // 电流校准值
     private val _calibrationValue = MutableStateFlow(-1)
     val calibrationValue: StateFlow<Int> = _calibrationValue.asStateFlow()
@@ -53,6 +56,7 @@ class SettingsViewModel : ViewModel() {
      */
     private fun loadSettings() {
         _dualCellEnabled.value = prefs.getBoolean("dual_cell", false)
+        _dischargeDisplayPositive.value = prefs.getBoolean("discharge_display_positive", true)
         _calibrationValue.value = prefs.getInt("current_unit_calibration", -1)
         _intervalMs.value = prefs.getLong("interval", 900)
         _writeLatencyMs.value = prefs.getLong("flush_interval", 30000)
@@ -73,6 +77,13 @@ class SettingsViewModel : ViewModel() {
     /**
      * 更新校准值
      */
+    fun setDischargeDisplayPositiveEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            prefs.edit { putBoolean("discharge_display_positive", enabled) }
+            _dischargeDisplayPositive.value = enabled
+        }
+    }
+
     fun setCalibrationValue(value: Int) {
         viewModelScope.launch {
             prefs.edit { putInt("current_unit_calibration", value) }

@@ -41,6 +41,7 @@ fun SettingsScreen(
 
     // 读取设置值
     val dualCellEnabled by settingsViewModel.dualCellEnabled.collectAsState()
+    val dischargeDisplayPositive by settingsViewModel.dischargeDisplayPositive.collectAsState()
     val calibrationValue by settingsViewModel.calibrationValue.collectAsState()
     val intervalMs by settingsViewModel.intervalMs.collectAsState()
     val writeLatencyMs by settingsViewModel.writeLatencyMs.collectAsState()
@@ -74,6 +75,8 @@ fun SettingsScreen(
                 CalibrationSection(
                     dualCellEnabled = dualCellEnabled,
                     onDualCellChange = settingsViewModel::setDualCellEnabled,
+                    dischargeDisplayPositive = dischargeDisplayPositive,
+                    onDischargeDisplayPositiveChange = settingsViewModel::setDischargeDisplayPositiveEnabled,
                     calibrationValue = calibrationValue,
                     onCalibrationChange = settingsViewModel::setCalibrationValue
                 )
