@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.ui.components
+package yangfentuozi.batteryrecorder.ui.dialog.home
 
 import android.content.Intent
 import androidx.compose.foundation.clickable

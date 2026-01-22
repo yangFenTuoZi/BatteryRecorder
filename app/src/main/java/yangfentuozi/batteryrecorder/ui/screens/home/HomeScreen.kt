@@ -23,13 +23,13 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import yangfentuozi.batteryrecorder.data.history.RecordType
-import yangfentuozi.batteryrecorder.ui.components.AboutDialog
-import yangfentuozi.batteryrecorder.ui.components.BatteryRecorderTopAppBar
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
-import yangfentuozi.batteryrecorder.ui.screens.home.items.ChargeStatsCard
-import yangfentuozi.batteryrecorder.ui.screens.home.items.CurrentRecordCard
-import yangfentuozi.batteryrecorder.ui.screens.home.items.DischargeStatsCard
-import yangfentuozi.batteryrecorder.ui.screens.home.items.StartServerCard
+import yangfentuozi.batteryrecorder.ui.components.home.BatteryRecorderTopAppBar
+import yangfentuozi.batteryrecorder.ui.components.home.ChargeStatsCard
+import yangfentuozi.batteryrecorder.ui.components.home.CurrentRecordCard
+import yangfentuozi.batteryrecorder.ui.components.home.DischargeStatsCard
+import yangfentuozi.batteryrecorder.ui.components.home.StartServerCard
+import yangfentuozi.batteryrecorder.ui.dialog.home.AboutDialog
 import yangfentuozi.batteryrecorder.ui.viewmodel.MainViewModel
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
 

@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.ui.screens.settings.sections
+package yangfentuozi.batteryrecorder.ui.components.settings.sections
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -10,10 +10,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.ui.components.global.M3ESwitchWidget
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
-import yangfentuozi.batteryrecorder.ui.screens.settings.SettingsItem
-import yangfentuozi.batteryrecorder.ui.screens.settings.dialogs.BatchSizeDialog
-import yangfentuozi.batteryrecorder.ui.screens.settings.dialogs.IntervalDialog
-import yangfentuozi.batteryrecorder.ui.screens.settings.dialogs.WriteLatencyDialog
+import yangfentuozi.batteryrecorder.ui.components.settings.SettingsItem
+import yangfentuozi.batteryrecorder.ui.dialog.settings.BatchSizeDialog
+import yangfentuozi.batteryrecorder.ui.dialog.settings.IntervalDialog
+import yangfentuozi.batteryrecorder.ui.dialog.settings.WriteLatencyDialog
+import kotlin.math.round
 
 @Composable
 fun ServerSection(
@@ -70,7 +71,7 @@ fun ServerSection(
             currentValueMs = intervalMs,
             onDismiss = { showIntervalDialog = false },
             onSave = { value ->
-                val roundedValue = (kotlin.math.round(value / 100.0) * 100).toLong()
+                val roundedValue = (round(value / 100.0) * 100).toLong()
                 onIntervalChange(roundedValue)
                 showIntervalDialog = false
             },
@@ -87,7 +88,7 @@ fun ServerSection(
             currentValueMs = writeLatencyMs,
             onDismiss = { showWriteLatencyDialog = false },
             onSave = { value ->
-                val roundedValue = (kotlin.math.round(value / 100.0) * 100).toLong()
+                val roundedValue = (round(value / 100.0) * 100).toLong()
                 onWriteLatencyChange(roundedValue)
                 showWriteLatencyDialog = false
             },

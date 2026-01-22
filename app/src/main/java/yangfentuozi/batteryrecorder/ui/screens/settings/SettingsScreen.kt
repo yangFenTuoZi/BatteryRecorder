@@ -22,8 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import yangfentuozi.batteryrecorder.ui.screens.settings.sections.CalibrationSection
-import yangfentuozi.batteryrecorder.ui.screens.settings.sections.ServerSection
+import yangfentuozi.batteryrecorder.ui.components.settings.sections.CalibrationSection
+import yangfentuozi.batteryrecorder.ui.components.settings.sections.ServerSection
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)

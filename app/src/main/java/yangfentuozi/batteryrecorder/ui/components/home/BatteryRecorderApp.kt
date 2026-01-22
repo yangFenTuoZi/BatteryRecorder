@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.ui.components
+package yangfentuozi.batteryrecorder.ui.components.home
 
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.viewmodel.compose.viewModel

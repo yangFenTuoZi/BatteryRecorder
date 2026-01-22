@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.ui.components
+package yangfentuozi.batteryrecorder.ui.components.home
 
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons

@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.ui.screens.home.items
+package yangfentuozi.batteryrecorder.ui.components.home
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row

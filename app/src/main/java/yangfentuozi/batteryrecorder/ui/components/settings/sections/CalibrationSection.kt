@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.ui.screens.settings.sections
+package yangfentuozi.batteryrecorder.ui.components.settings.sections
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -10,8 +10,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.ui.components.global.M3ESwitchWidget
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
-import yangfentuozi.batteryrecorder.ui.screens.settings.SettingsItem
-import yangfentuozi.batteryrecorder.ui.screens.settings.dialogs.CalibrationDialog
+import yangfentuozi.batteryrecorder.ui.components.settings.SettingsItem
+import yangfentuozi.batteryrecorder.ui.dialog.settings.CalibrationDialog
 
 @Composable
 fun CalibrationSection(
