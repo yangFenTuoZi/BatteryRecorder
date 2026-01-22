@@ -353,8 +353,8 @@ fun PowerCapacityChart(
             LegendItem(label = "功耗", color = powerColor)
             LegendItem(label = "电量", color = capacityColor)
             if (showScreenStateLine) {
-                LegendItem(label = "亮屏线", color = screenOnColor)
-                LegendItem(label = "息屏线", color = screenOffColor)
+                LegendItem(label = "亮屏", color = screenOnColor)
+                LegendItem(label = "息屏", color = screenOffColor)
             }
         }
     }
