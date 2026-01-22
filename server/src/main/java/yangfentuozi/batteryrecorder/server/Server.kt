@@ -52,40 +52,68 @@ class Server internal constructor() : IService.Stub() {
     private val displayCallback: IDisplayManagerCallback = object : IDisplayManagerCallback.Stub() {
         override fun onDisplayEvent(displayId: Int, event: Int) {
             isInteractive = iPowerManager.isInteractive
-            if (isInteractive && !mMonitorHandler!!.hasCallbacks(mMonitorRunnable)) {
-                startMonitoring()
+            if (isInteractive && monitor.paused) {
+                monitor.notifz()
             }
         }
     }
 
-    private var mMonitorThread: HandlerThread? = null
-    private var mMonitorHandler: Handler? = null
-    private val mMonitorRunnable = object : Runnable {
-        override fun run() {
-            try {
-                val timestamp = System.currentTimeMillis()
-                writer!!.write(
-                    DataWriter.PowerRecord(
-                        timestamp,
-                        Native.power,
-                        currForegroundApp,
-                        Native.capacity,
-                        if (isInteractive) 1 else 0,
-                        Native.status
-                    )
-                )
-            } catch (e: IOException) {
-                Log.e(TAG, "Error reading power data", e)
-            } finally {
-                if (isInteractive || recordScreenOff) {
-                    mMonitorHandler!!.postDelayed(this, mIntervalMillis)
+    private val monitor = Monitor()
+
+    private inner class Monitor {
+        var paused = false
+            private set
+        var stopped = false
+            private set
+        private val lock = Object()
+        private var thread = Thread({
+            synchronized(lock) {
+                while (!stopped) {
+                    try {
+                        val timestamp = System.currentTimeMillis()
+                        writer!!.write(
+                            DataWriter.PowerRecord(
+                                timestamp,
+                                Native.power,
+                                currForegroundApp,
+                                Native.capacity,
+                                if (isInteractive) 1 else 0,
+                                Native.status
+                            )
+                        )
+                    } catch (e: IOException) {
+                        Log.e(TAG, "Error reading power data", e)
+                    }
+
+                    if (isInteractive || recordScreenOff) {
+                        paused = false
+                        lock.wait(mIntervalMillis)
+                    } else {
+                        paused = true
+                        lock.wait()
+                    }
                 }
             }
+        }, "MonitorThread")
+
+        fun start() {
+            thread.start()
+        }
+
+        fun stop() {
+            stopped = true
+            thread.interrupt()
+        }
+
+        fun notifz() {
+            lock.notifyAll()
         }
     }
+
     private var mIntervalMillis: Long = 900
 
     private var writer: DataWriter? = null
+    private val writerThread = HandlerThread("WriterThread")
     private var currForegroundApp: String? = null
     private var isInteractive: Boolean
     private var recordScreenOff: Boolean = false
@@ -121,18 +149,15 @@ class Server internal constructor() : IService.Stub() {
             throw RuntimeException(e)
         }
 
-        mMonitorThread = HandlerThread("MonitorThread")
-        mMonitorThread!!.start()
-        mMonitorHandler = Handler(mMonitorThread!!.getLooper())
-
         try {
-            writer = DataWriter(mMonitorThread!!.getLooper())
+            writerThread.start()
+            writer = DataWriter(writerThread.looper)
         } catch (e: IOException) {
             throw RuntimeException(e)
         }
         refreshConfig()
 
-        startMonitoring()
+        monitor.start()
 
         Thread({
             try {
@@ -147,10 +172,6 @@ class Server internal constructor() : IService.Stub() {
             } catch (_: Throwable) {
             }
         }, "InputHandler").start()
-    }
-
-    private fun startMonitoring() {
-        mMonitorHandler!!.postDelayed(mMonitorRunnable, mIntervalMillis)
     }
 
     fun onFocusedAppChanged(taskInfo: TaskInfo) {
@@ -236,10 +257,7 @@ class Server internal constructor() : IService.Stub() {
     }
 
     private fun stopServiceImmediately() {
-        if (mMonitorThread != null) {
-            mMonitorThread!!.quitSafely()
-            mMonitorThread!!.interrupt()
-        }
+        monitor.stop()
 
         try {
             writer!!.flushBuffer()
