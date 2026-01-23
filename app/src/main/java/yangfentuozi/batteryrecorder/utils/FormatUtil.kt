@@ -5,14 +5,15 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * 将毫秒时长格式化为小时字符串
+ * 将毫秒时长格式化为小时分钟字符串
  * @param durationMs 时长（毫秒），如 7200000 表示 2 小时
- * @return 格式化后的字符串，如 "2.0h"
+ * @return 格式化后的字符串，如 "2h0m"；小时为0时只显示分钟，如 "30m"
  */
 fun formatDurationHours(durationMs: Long): String {
-    // 1小时 = 3600000毫秒，转换为小数小时数
-    val hours = durationMs / 3600000.0
-    return String.format(Locale.getDefault(), "%.1fh", hours)
+    val totalMinutes = durationMs / 60000
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return if (hours > 0) "${hours}h${minutes}m" else "${minutes}m"
 }
 
 /**
