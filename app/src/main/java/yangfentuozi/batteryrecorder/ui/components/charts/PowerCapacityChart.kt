@@ -614,8 +614,8 @@ private fun DrawScope.drawScreenStateLine(
 
     val screenOnPath = Path()
     val screenOffPath = Path()
-    var onPathStarted = false
-    var offPathStarted = false
+    var lastOnX = Float.NaN
+    var lastOffX = Float.NaN
 
     for (i in 0 until points.size - 1) {
         val current = points[i]
@@ -624,19 +624,19 @@ private fun DrawScope.drawScreenStateLine(
         val endX = coords.timeToX(next.timestamp)
 
         if (current.isDisplayOn) {
-            if (!onPathStarted) { screenOnPath.moveTo(startX, y); onPathStarted = true }
-            screenOnPath.lineTo(startX, y)
+            if (startX != lastOnX) screenOnPath.moveTo(startX, y)
             screenOnPath.lineTo(endX, y)
+            lastOnX = endX
         } else {
-            if (!offPathStarted) { screenOffPath.moveTo(startX, y); offPathStarted = true }
-            screenOffPath.lineTo(startX, y)
+            if (startX != lastOffX) screenOffPath.moveTo(startX, y)
             screenOffPath.lineTo(endX, y)
+            lastOffX = endX
         }
     }
 
     val stroke = Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Butt)
-    if (onPathStarted) drawPath(screenOnPath, screenOnColor, style = stroke)
-    if (offPathStarted) drawPath(screenOffPath, screenOffColor, style = stroke)
+    if (!lastOnX.isNaN()) drawPath(screenOnPath, screenOnColor, style = stroke)
+    if (!lastOffX.isNaN()) drawPath(screenOffPath, screenOffColor, style = stroke)
 }
 
 /**
