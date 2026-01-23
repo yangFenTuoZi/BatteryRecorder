@@ -200,6 +200,7 @@ class Server internal constructor() : IService.Stub() {
                 var batchSize = 200  // 保留兼容性
                 var flushIntervalMs = 30000L  // 默认5秒
                 var recordScreenOff = false
+                var segmentDurationMin = 1440L  // 默认24小时
 
                 while (eventType != XmlPullParser.END_DOCUMENT) {
                     if (eventType == XmlPullParser.START_TAG) {
@@ -218,6 +219,9 @@ class Server internal constructor() : IService.Stub() {
                             "record_screen_off" -> {
                                 recordScreenOff = valueAttr == "true"
                             }
+
+                            "segment_duration" ->
+                                segmentDurationMin = valueAttr.toLongOrNull() ?: 1440L
                         }
                     }
                     eventType = parser.next()
@@ -228,9 +232,11 @@ class Server internal constructor() : IService.Stub() {
                 else if (batchSize > 1000) batchSize = 1000
                 if (flushIntervalMs < 100) flushIntervalMs = 100L  // 最小100ms
                 else if (flushIntervalMs > 60000) flushIntervalMs = 60000L  // 最大60秒
+                if (segmentDurationMin < 0) segmentDurationMin = 0
 
                 writer!!.batchSize = batchSize
                 writer!!.flushIntervalMs = flushIntervalMs
+                writer!!.maxSegmentDurationMs = segmentDurationMin * 60 * 1000
 
                 this.recordScreenOff = recordScreenOff
             }

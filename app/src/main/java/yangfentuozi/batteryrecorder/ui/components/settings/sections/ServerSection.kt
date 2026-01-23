@@ -13,6 +13,7 @@ import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
 import yangfentuozi.batteryrecorder.ui.components.settings.SettingsItem
 import yangfentuozi.batteryrecorder.ui.dialog.settings.BatchSizeDialog
 import yangfentuozi.batteryrecorder.ui.dialog.settings.IntervalDialog
+import yangfentuozi.batteryrecorder.ui.dialog.settings.SegmentDurationDialog
 import yangfentuozi.batteryrecorder.ui.dialog.settings.WriteLatencyDialog
 import kotlin.math.round
 
@@ -25,11 +26,14 @@ fun ServerSection(
     batchSize: Int,
     onBatchSizeChange: (Int) -> Unit,
     recordScreenOffEnabled: Boolean,
-    onRecordScreenOffChange: (Boolean) -> Unit
+    onRecordScreenOffChange: (Boolean) -> Unit,
+    segmentDurationMin: Long,
+    onSegmentDurationChange: (Long) -> Unit
 ) {
     var showIntervalDialog by remember { mutableStateOf(false) }
     var showWriteLatencyDialog by remember { mutableStateOf(false) }
     var showBatchSizeDialog by remember { mutableStateOf(false) }
+    var showSegmentDurationDialog by remember { mutableStateOf(false) }
 
     SplicedColumnGroup(
         title = "服务端",
@@ -62,6 +66,18 @@ fun ServerSection(
                 title = "批量大小",
                 summary = "$batchSize 条"
             ) { showBatchSizeDialog = true }
+        }
+
+        item {
+            val summary = if (segmentDurationMin == 0L) {
+                "不按时间分段"
+            } else {
+                "$segmentDurationMin 分钟"
+            }
+            SettingsItem(
+                title = "分段时间",
+                summary = summary
+            ) { showSegmentDurationDialog = true }
         }
     }
 
@@ -111,6 +127,22 @@ fun ServerSection(
             onReset = {
                 onBatchSizeChange(200)
                 showBatchSizeDialog = false
+            }
+        )
+    }
+
+    // 分段时间对话框
+    if (showSegmentDurationDialog) {
+        SegmentDurationDialog(
+            currentValueMin = segmentDurationMin,
+            onDismiss = { showSegmentDurationDialog = false },
+            onSave = { value ->
+                onSegmentDurationChange(value)
+                showSegmentDurationDialog = false
+            },
+            onReset = {
+                onSegmentDurationChange(1440)
+                showSegmentDurationDialog = false
             }
         )
     }

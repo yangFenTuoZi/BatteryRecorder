@@ -47,6 +47,7 @@ fun SettingsScreen(
     val writeLatencyMs by settingsViewModel.writeLatencyMs.collectAsState()
     val batchSize by settingsViewModel.batchSize.collectAsState()
     val recordScreenOffEnabled by settingsViewModel.recordScreenOff.collectAsState()
+    val segmentDurationMin by settingsViewModel.segmentDurationMin.collectAsState()
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
@@ -93,6 +94,8 @@ fun SettingsScreen(
                     onBatchSizeChange = settingsViewModel::setBatchSize,
                     recordScreenOffEnabled = recordScreenOffEnabled,
                     onRecordScreenOffChange = settingsViewModel::setRecordScreenOffEnabled,
+                    segmentDurationMin = segmentDurationMin,
+                    onSegmentDurationChange = settingsViewModel::setSegmentDurationMin,
                 )
             }
         }

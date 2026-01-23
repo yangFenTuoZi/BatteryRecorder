@@ -21,6 +21,7 @@ class DataWriter(val looper: Looper) {
 
     var batchSize = 200
     var flushIntervalMs = 30 * 1000L
+    var maxSegmentDurationMs = 24 * 60 * 60 * 1000L
 
     init {
         fun makeSureExists(file: File) {
@@ -65,9 +66,9 @@ class DataWriter(val looper: Looper) {
 
     inner class ChargeDataWriter(dir: File) : BaseWriter(dir) {
         override fun needStartNewSegment(justChangedStatus: Boolean, nowTime: Long): Boolean {
-            //          case1 记录超过 24 小时
-            return (nowTime - startTime > 24 * 60 * 60 * 1000) ||
-                    //  case2 允许短时间内续接之前记录
+            // case1 记录超过最大分段时间（0 表示不按时间分段）
+            return (maxSegmentDurationMs > 0 && nowTime - startTime > maxSegmentDurationMs) ||
+                    // case2 允许短时间内续接之前记录
                     (justChangedStatus && nowTime - lastTime > 30 * 1000)
         }
 
@@ -78,9 +79,9 @@ class DataWriter(val looper: Looper) {
 
     inner class DischargeDataWriter(dir: File) : BaseWriter(dir) {
         override fun needStartNewSegment(justChangedStatus: Boolean, nowTime: Long): Boolean {
-            //          case1 记录超过 24 小时
-            return (nowTime - startTime > 24 * 60 * 60 * 1000) ||
-                    //  case2 允许短时间内续接之前记录
+            // case1 记录超过最大分段时间（0 表示不按时间分段）
+            return (maxSegmentDurationMs > 0 && nowTime - startTime > maxSegmentDurationMs) ||
+                    // case2 允许短时间内续接之前记录
                     (justChangedStatus && nowTime - lastTime > 10 * 60 * 1000)
         }
 

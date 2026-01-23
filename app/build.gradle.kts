@@ -3,7 +3,22 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
+val gitCommitCount: Int =
+    listOf("git", "rev-list", "--count", "HEAD").execute(project.rootDir).trim().toInt()
 
+fun List<String>.execute(workingDir: File): String {
+    return try {
+        ProcessBuilder(this)
+            .directory(workingDir)
+            .redirectOutput(ProcessBuilder.Redirect.PIPE)
+            .redirectError(ProcessBuilder.Redirect.PIPE)
+            .start()
+            .inputStream.bufferedReader().use { it.readText() }
+    } catch (e: Exception) {
+        logger.warn("Failed to execute git command: ${e.message}")
+        "unknown" // fallback value
+    }
+}
 android {
     namespace = "yangfentuozi.batteryrecorder"
     compileSdk = 36
@@ -12,7 +27,7 @@ android {
         applicationId = "yangfentuozi.batteryrecorder"
         minSdk = 31
         targetSdk = 36
-        versionCode = 1
+        versionCode = gitCommitCount
         versionName = "1.0"
     }
 

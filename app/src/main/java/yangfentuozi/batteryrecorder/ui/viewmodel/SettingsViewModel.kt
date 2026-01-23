@@ -41,6 +41,10 @@ class SettingsViewModel : ViewModel() {
     private val _recordScreenOff = MutableStateFlow(false)
     val recordScreenOff: StateFlow<Boolean> = _recordScreenOff.asStateFlow()
 
+    // 分段时间 (分钟)
+    private val _segmentDurationMin = MutableStateFlow(1440L)
+    val segmentDurationMin: StateFlow<Long> = _segmentDurationMin.asStateFlow()
+
     /**
      * 初始化 SharedPreferences
      */
@@ -62,6 +66,7 @@ class SettingsViewModel : ViewModel() {
         _writeLatencyMs.value = prefs.getLong("flush_interval", 30000)
         _batchSize.value = prefs.getInt("batch_size", 200)
         _recordScreenOff.value = prefs.getBoolean("record_screen_off", false)
+        _segmentDurationMin.value = prefs.getLong("segment_duration", 1440)
     }
 
     /**
@@ -128,6 +133,14 @@ class SettingsViewModel : ViewModel() {
         viewModelScope.launch {
             prefs.edit { putBoolean("record_screen_off", enabled) }
             _recordScreenOff.value = enabled
+            Service.service?.refreshConfig()
+        }
+    }
+
+    fun setSegmentDurationMin(value: Long) {
+        viewModelScope.launch {
+            prefs.edit { putLong("segment_duration", value) }
+            _segmentDurationMin.value = value
             Service.service?.refreshConfig()
         }
     }
