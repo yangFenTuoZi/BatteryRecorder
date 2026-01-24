@@ -30,6 +30,7 @@ import yangfentuozi.batteryrecorder.ui.components.home.CurrentRecordCard
 import yangfentuozi.batteryrecorder.ui.components.home.DischargeStatsCard
 import yangfentuozi.batteryrecorder.ui.components.home.StartServerCard
 import yangfentuozi.batteryrecorder.ui.dialog.home.AboutDialog
+import yangfentuozi.batteryrecorder.ui.viewmodel.LiveRecordViewModel
 import yangfentuozi.batteryrecorder.ui.viewmodel.MainViewModel
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
 
@@ -37,6 +38,7 @@ import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
 @Composable
 fun HomeScreen(
     viewModel: MainViewModel = viewModel(),
+    liveRecordViewModel: LiveRecordViewModel = viewModel(),
     settingsViewModel: SettingsViewModel = viewModel(),
     onNavigateToSettings: () -> Unit = {},
     onNavigateToHistoryList: (RecordType) -> Unit = {},
@@ -49,16 +51,23 @@ fun HomeScreen(
     val chargeSummary by viewModel.chargeSummary.collectAsState()
     val dischargeSummary by viewModel.dischargeSummary.collectAsState()
     val currentRecord by viewModel.currentRecord.collectAsState()
+    val livePoints by liveRecordViewModel.livePoints.collectAsState()
 
     // 读取设置值
     val dualCellEnabled by settingsViewModel.dualCellEnabled.collectAsState()
     val calibrationValue by settingsViewModel.calibrationValue.collectAsState()
+    val intervalMs by settingsViewModel.intervalMs.collectAsState()
+    val dischargeDisplayPositive by settingsViewModel.dischargeDisplayPositive.collectAsState()
 
     val lifecycleOwner = LocalLifecycleOwner.current
 
     // 初始化设置 ViewModel
     LaunchedEffect(Unit) {
         settingsViewModel.init(context)
+    }
+
+    LaunchedEffect(intervalMs) {
+        liveRecordViewModel.updateIntervalMs(intervalMs)
     }
 
     // 监听生命周期事件
@@ -112,6 +121,8 @@ fun HomeScreen(
                             record = currentRecord,
                             dualCellEnabled = dualCellEnabled,
                             calibrationValue = calibrationValue,
+                            livePoints = livePoints,
+                            dischargeDisplayPositive = dischargeDisplayPositive,
                             onClick = {
                                 currentRecord?.let { record ->
                                     onNavigateToRecordDetail(record.type, record.name)
