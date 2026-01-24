@@ -19,6 +19,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.IPowerManager
 import android.os.Looper
+import android.os.RemoteCallbackList
 import android.os.RemoteException
 import android.os.ServiceManager
 import android.system.ErrnoException
@@ -58,6 +59,8 @@ class Server internal constructor() : IService.Stub() {
         }
     }
 
+    private val callbacks: RemoteCallbackList<IRecordListener> = RemoteCallbackList()
+
     private val monitor = Monitor()
 
     private inner class Monitor {
@@ -71,16 +74,29 @@ class Server internal constructor() : IService.Stub() {
                 while (!stopped) {
                     try {
                         val timestamp = System.currentTimeMillis()
-                        writer!!.write(
+                        val power = Native.power
+                        val status = Native.status
+                        writer.write(
                             DataWriter.PowerRecord(
                                 timestamp,
-                                Native.power,
+                                power,
                                 currForegroundApp,
                                 Native.capacity,
                                 if (isInteractive) 1 else 0,
-                                Native.status
+                                status
                             )
                         )
+
+                        // 回调 app
+                        val n: Int = callbacks.beginBroadcast()
+                        for (i in 0..<n) {
+                            try {
+                                callbacks.getBroadcastItem(i).onRecord(timestamp, power, status.value)
+                            } catch (e: RemoteException) {
+                                Log.e(TAG, "Failed to call back", e)
+                            }
+                        }
+                        callbacks.finishBroadcast()
                     } catch (e: IOException) {
                         Log.e(TAG, "Error reading power data", e)
                     }
@@ -112,7 +128,7 @@ class Server internal constructor() : IService.Stub() {
 
     private var mIntervalMillis: Long = 900
 
-    private var writer: DataWriter? = null
+    private lateinit var writer: DataWriter
     private val writerThread = HandlerThread("WriterThread")
     private var currForegroundApp: String? = null
     private var isInteractive: Boolean
@@ -234,9 +250,9 @@ class Server internal constructor() : IService.Stub() {
                 else if (flushIntervalMs > 60000) flushIntervalMs = 60000L  // 最大60秒
                 if (segmentDurationMin < 0) segmentDurationMin = 0
 
-                writer!!.batchSize = batchSize
-                writer!!.flushIntervalMs = flushIntervalMs
-                writer!!.maxSegmentDurationMs = segmentDurationMin * 60 * 1000
+                writer.batchSize = batchSize
+                writer.flushIntervalMs = flushIntervalMs
+                writer.maxSegmentDurationMs = segmentDurationMin * 60 * 1000
 
                 this.recordScreenOff = recordScreenOff
             }
@@ -256,28 +272,30 @@ class Server internal constructor() : IService.Stub() {
     @Throws(RemoteException::class)
     override fun writeToDatabaseImmediately() {
         try {
-            writer!!.flushBuffer()
+            writer.flushBuffer()
         } catch (e: IOException) {
             throw RemoteException(Log.getStackTraceString(e))
         }
     }
 
-    override fun getCurrent(): Long {
-        val current = Native.nativeGetCurrent()
-        Log.d(TAG, "getCurrent: $current")
-        return current
+    override fun registerRecordListener(listener: IRecordListener) {
+        callbacks.register(listener)
+    }
+
+    override fun unregisterRecordListener(listener: IRecordListener) {
+        callbacks.unregister(listener)
     }
 
     private fun stopServiceImmediately() {
         monitor.stop()
 
         try {
-            writer!!.flushBuffer()
+            writer.flushBuffer()
         } catch (e: IOException) {
             Log.e(TAG, Log.getStackTraceString(e))
         }
 
-        writer!!.close()
+        writer.close()
 
         try {
             iActivityTaskManager.unregisterTaskStackListener(taskStackListener)

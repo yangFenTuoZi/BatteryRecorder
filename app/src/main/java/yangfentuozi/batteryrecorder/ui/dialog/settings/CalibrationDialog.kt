@@ -19,25 +19,72 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import yangfentuozi.batteryrecorder.ipc.Service
+import yangfentuozi.batteryrecorder.server.IRecordListener
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
+import yangfentuozi.batteryrecorder.utils.formatPower
 
 @Composable
 fun CalibrationDialog(
     currentValue: Int,
-    rawCurrentMicroAmp: Long?,
+    dualCellEnabled: Boolean,
     serviceConnected: Boolean,
     onDismiss: () -> Unit,
     onSave: (Int) -> Unit,
     onReset: () -> Unit
 ) {
     var value by remember(currentValue) { mutableIntStateOf(currentValue) }
+    var rawPower by remember { mutableStateOf<Long?>(null) }
+
+    val scope = rememberCoroutineScope()
+    val listener = remember {
+        object : IRecordListener.Stub() {
+            override fun onRecord(timestamp: Long, power: Long, status: Int) {
+                scope.launch(Dispatchers.Main.immediate) {
+                    rawPower = power
+                }
+            }
+        }
+    }
+
+    // 监听生命周期事件
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> {
+                    Service.service?.registerRecordListener(listener)
+                }
+
+                Lifecycle.Event.ON_STOP -> {
+                    Service.service?.unregisterRecordListener(listener)
+                }
+
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            Service.service?.unregisterRecordListener(listener)
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
     val maxValue = 100000000
 
     AlertDialog(
@@ -98,11 +145,18 @@ fun CalibrationDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                if (serviceConnected && rawCurrentMicroAmp != null) {
-                    val displayMa = rawCurrentMicroAmp / value
-                    val sign = if (displayMa >= 0) "+" else ""
+                if (serviceConnected && rawPower != null) {
+                    val power = rawPower!!
+                    val displayW = power / value
+                    val sign = if (displayW >= 0) "+" else ""
                     Text(
-                        text = "显示为 ${sign}${displayMa}mA",
+                        text = "显示为 ${sign}${
+                            formatPower(
+                                power.toDouble(),
+                                dualCellEnabled,
+                                value
+                            )
+                        }",
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.align(Alignment.CenterHorizontally)
                     )
@@ -115,7 +169,7 @@ fun CalibrationDialog(
                     )
                 } else {
                     Text(
-                        text = "显示为 --mA",
+                        text = "显示为 --W",
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.align(Alignment.CenterHorizontally)
                     )
