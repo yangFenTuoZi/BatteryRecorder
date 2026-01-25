@@ -37,7 +37,25 @@ import kotlinx.coroutines.launch
 import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.server.IRecordListener
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
-import yangfentuozi.batteryrecorder.utils.formatPower
+import kotlin.math.abs
+
+// 校准值范围上限
+private const val MAX_CALIBRATION_VALUE = 100_000_000
+
+/** 调整校准值：decrease=true 时减小（负向），否则增大（正向） */
+private fun adjustCalibrationValue(current: Int, decrease: Boolean): Int {
+    val next = if (decrease) {
+        if (current < 0) current * 10 else current / 10
+    } else {
+        if (current > 0) current * 10 else current / 10
+    }
+    return when {
+        next == 0 -> if (decrease) -1 else 1
+        next < -MAX_CALIBRATION_VALUE -> -MAX_CALIBRATION_VALUE
+        next > MAX_CALIBRATION_VALUE -> MAX_CALIBRATION_VALUE
+        else -> next
+    }
+}
 
 @Composable
 fun CalibrationDialog(
@@ -62,30 +80,21 @@ fun CalibrationDialog(
         }
     }
 
-    // 监听生命周期事件
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_START -> {
-                    Service.service?.registerRecordListener(listener)
-                }
-
-                Lifecycle.Event.ON_STOP -> {
-                    Service.service?.unregisterRecordListener(listener)
-                }
-
+                Lifecycle.Event.ON_START -> Service.service?.registerRecordListener(listener)
+                Lifecycle.Event.ON_STOP -> Service.service?.unregisterRecordListener(listener)
                 else -> {}
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-
         onDispose {
             Service.service?.unregisterRecordListener(listener)
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
-    val maxValue = 100000000
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -102,14 +111,8 @@ fun CalibrationDialog(
                         ),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 减小按钮
                     IconButton(
-                        onClick = {
-                            if (value < 0) value *= 10
-                            else value /= 10
-                            if (value == 0) value = -1
-                            if (value < -maxValue) value = -maxValue
-                        },
+                        onClick = { value = adjustCalibrationValue(value, decrease = true) },
                         modifier = Modifier.size(48.dp)
                     ) {
                         Icon(Icons.Default.Remove, contentDescription = null)
@@ -129,14 +132,8 @@ fun CalibrationDialog(
 
                     Spacer(modifier = Modifier.width(24.dp))
 
-                    // 增大按钮
                     IconButton(
-                        onClick = {
-                            if (value > 0) value *= 10
-                            else value /= 10
-                            if (value == 0) value = 1
-                            if (value > maxValue) value = maxValue
-                        },
+                        onClick = { value = adjustCalibrationValue(value, decrease = false) },
                         modifier = Modifier.size(48.dp)
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null)
@@ -147,16 +144,13 @@ fun CalibrationDialog(
 
                 if (serviceConnected && rawPower != null) {
                     val power = rawPower!!
-                    val displayW = power / value
-                    val sign = if (displayW >= 0) "+" else ""
+                    val finalW = run {
+                        val cellMultiplier = if (dualCellEnabled) 2 else 1
+                        val valueW = cellMultiplier * value * (power / 1_000_000_000.0)
+                        if (abs(valueW) < 0.005) 0.0 else valueW
+                    }
                     Text(
-                        text = "显示为 ${sign}${
-                            formatPower(
-                                power.toDouble(),
-                                dualCellEnabled,
-                                value
-                            )
-                        }",
+                        text = "显示为 ${String.format("%+.2f W", finalW)}",
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.align(Alignment.CenterHorizontally)
                     )

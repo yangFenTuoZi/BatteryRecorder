@@ -75,8 +75,9 @@ class LiveRecordViewModel : ViewModel() {
 
     private fun registerListenerIfNeeded() {
         if (isListenerRegistered) return
-        Service.service?.registerRecordListener(listener)
-        isListenerRegistered = Service.service != null
+        val service = Service.service ?: return
+        service.registerRecordListener(listener)
+        isListenerRegistered = true
     }
 
     private fun unregisterListener() {

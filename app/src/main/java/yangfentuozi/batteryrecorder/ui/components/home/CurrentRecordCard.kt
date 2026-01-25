@@ -43,7 +43,23 @@ import yangfentuozi.batteryrecorder.ui.viewmodel.LivePowerPoint
 import yangfentuozi.batteryrecorder.utils.formatDateTime
 import yangfentuozi.batteryrecorder.utils.formatDurationHours
 import yangfentuozi.batteryrecorder.utils.formatPower
+import kotlin.math.abs
 import kotlin.math.max
+
+// 图表绘制常量
+private const val GLOW_MAX_ALPHA = 0.25f                    // 渐变填充区域最大透明度
+private const val GLOW_CLIP_TOLERANCE_PX = 5f               // 发光效果裁剪容差（像素）
+private const val OUTER_GLOW_STROKE_MULTIPLIER = 2.8f       // 外层发光描边宽度倍数
+private const val OUTER_GLOW_ALPHA = 0.16f                  // 外层发光透明度
+private const val OUTER_GLOW_BLUR_MULTIPLIER = 2.2f         // 外层发光模糊半径倍数
+private const val INNER_GLOW_STROKE_MULTIPLIER = 1.9f       // 内层发光描边宽度倍数
+private const val INNER_GLOW_ALPHA = 0.26f                  // 内层发光透明度
+private const val INNER_GLOW_BLUR_MULTIPLIER = 1.4f         // 内层发光模糊半径倍数
+private const val LINE_STROKE_WIDTH_MULTIPLIER = 0.8f       // 主线条描边宽度倍数
+private const val LAST_POINT_OUTER_RADIUS = 20f             // 最新数据点外圈半径
+private const val LAST_POINT_INNER_RADIUS = 12f             // 最新数据点内圈半径
+private const val LAST_POINT_OUTER_ALPHA = 0.6f             // 最新数据点外圈透明度
+private const val LAST_POINT_INNER_ALPHA = 0.9f             // 最新数据点内圈透明度
 
 @Composable
 fun CurrentRecordCard(
@@ -188,8 +204,7 @@ private fun LivePowerChart(
     calibrationValue: Int,
     dischargeDisplayPositive: Boolean,
     modifier: Modifier = Modifier,
-    lineColor: Color = MaterialTheme.colorScheme.primary,
-    gridColor: Color = MaterialTheme.colorScheme.outlineVariant
+    lineColor: Color = MaterialTheme.colorScheme.primary
 ) {
     Box(modifier = modifier) {
         if (points.size < 2) {
@@ -267,14 +282,13 @@ private fun LivePowerChart(
                     }
                 }
 
-                val glowMaxAlpha = 0.25f
                 clipRect(left = left, top = top, right = right, bottom = bottom) {
                     forEachNonGapRun { run ->
                         val smoothedPath = buildSmoothedPath(run)
                         val runTop = run.minOf { it.y }
                         val glowBrush = Brush.verticalGradient(
                             colorStops = arrayOf(
-                                0f to lineColor.copy(alpha = glowMaxAlpha),
+                                0f to lineColor.copy(alpha = GLOW_MAX_ALPHA),
                                 1.0f to Color.Transparent
                             ),
                             startY = runTop,
@@ -291,7 +305,7 @@ private fun LivePowerChart(
                 }
 
                 val dashEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()), 0f)
-                val lineStrokeWidth = 3.dp.toPx() * 0.8f
+                val lineStrokeWidth = 3.dp.toPx() * LINE_STROKE_WIDTH_MULTIPLIER
                 val solidStroke = Stroke(width = lineStrokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
                 val dashStroke = Stroke(
                     width = lineStrokeWidth,
@@ -312,13 +326,12 @@ private fun LivePowerChart(
                 }
 
                 clipRect(left = left, top = top, right = right, bottom = bottom) {
-                    val glowClipTolerancePx = 5f
                     forEachNonGapRun { run ->
                         val path = buildSmoothedPath(run)
                         val androidPath = path.asAndroidPath()
                         val baseColor = lineColor.toArgb()
 
-                        val clipBoundaryPath = buildSmoothedPath(run, yOffsetPx = -glowClipTolerancePx)
+                        val clipBoundaryPath = buildSmoothedPath(run, yOffsetPx = -GLOW_CLIP_TOLERANCE_PX)
                         val underClipPath = Path().apply {
                             addPath(clipBoundaryPath)
                             lineTo(run.last().x, bottom)
@@ -333,10 +346,10 @@ private fun LivePowerChart(
                                     style = android.graphics.Paint.Style.STROKE
                                     strokeCap = android.graphics.Paint.Cap.ROUND
                                     strokeJoin = android.graphics.Paint.Join.ROUND
-                                    strokeWidth = lineStrokeWidth * 2.8f
+                                    strokeWidth = lineStrokeWidth * OUTER_GLOW_STROKE_MULTIPLIER
                                     color = baseColor
-                                    alpha = (255 * 0.16f).toInt().coerceIn(0, 255)
-                                    maskFilter = BlurMaskFilter(lineStrokeWidth * 2.2f, BlurMaskFilter.Blur.NORMAL)
+                                    alpha = (255 * OUTER_GLOW_ALPHA).toInt().coerceIn(0, 255)
+                                    maskFilter = BlurMaskFilter(lineStrokeWidth * OUTER_GLOW_BLUR_MULTIPLIER, BlurMaskFilter.Blur.NORMAL)
                                 }
                                 canvas.nativeCanvas.drawPath(androidPath, outerPaint)
 
@@ -345,10 +358,10 @@ private fun LivePowerChart(
                                     style = android.graphics.Paint.Style.STROKE
                                     strokeCap = android.graphics.Paint.Cap.ROUND
                                     strokeJoin = android.graphics.Paint.Join.ROUND
-                                    strokeWidth = lineStrokeWidth * 1.9f
+                                    strokeWidth = lineStrokeWidth * INNER_GLOW_STROKE_MULTIPLIER
                                     color = baseColor
-                                    alpha = (255 * 0.26f).toInt().coerceIn(0, 255)
-                                    maskFilter = BlurMaskFilter(lineStrokeWidth * 1.4f, BlurMaskFilter.Blur.NORMAL)
+                                    alpha = (255 * INNER_GLOW_ALPHA).toInt().coerceIn(0, 255)
+                                    maskFilter = BlurMaskFilter(lineStrokeWidth * INNER_GLOW_BLUR_MULTIPLIER, BlurMaskFilter.Blur.NORMAL)
                                 }
                                 canvas.nativeCanvas.drawPath(androidPath, innerPaint)
                             }
@@ -364,13 +377,13 @@ private fun LivePowerChart(
                 val lastSolidPoint = chartPoints.asReversed().firstOrNull { !it.isGap }
                 if (lastSolidPoint != null) {
                     drawCircle(
-                        color = lineColor.copy(alpha = 0.6f),
-                        radius = 20f,
+                        color = lineColor.copy(alpha = LAST_POINT_OUTER_ALPHA),
+                        radius = LAST_POINT_OUTER_RADIUS,
                         center = Offset(lastSolidPoint.x, lastSolidPoint.y)
                     )
                     drawCircle(
-                        color = lineColor.copy(alpha = 0.9f),
-                        radius = 12f,
+                        color = lineColor.copy(alpha = LAST_POINT_INNER_ALPHA),
+                        radius = LAST_POINT_INNER_RADIUS,
                         center = Offset(lastSolidPoint.x, lastSolidPoint.y)
                     )
                 }
@@ -396,13 +409,11 @@ private fun applyDischargeSignForDisplay(
     status: Int?,
     dischargeDisplayPositive: Boolean
 ): Double {
-    if (status == BatteryStatus.Discharging.value) {
-        val absPower = kotlin.math.abs(rawPowerNw)
-        return if (dischargeDisplayPositive) -absPower else absPower
-    }
-    return rawPowerNw
+    if (status != BatteryStatus.Discharging.value) return rawPowerNw
+    val absPower = abs(rawPowerNw)
+    return if (dischargeDisplayPositive) -absPower else absPower
 }
 
 private fun applyDischargeSignForPlot(rawPowerW: Double, status: Int?): Double {
-    return if (status == BatteryStatus.Discharging.value) kotlin.math.abs(rawPowerW) else rawPowerW
+    return if (status == BatteryStatus.Discharging.value) abs(rawPowerW) else rawPowerW
 }
