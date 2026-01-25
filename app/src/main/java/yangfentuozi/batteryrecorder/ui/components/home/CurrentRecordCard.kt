@@ -370,7 +370,7 @@ private fun LivePowerChart(
                     )
                     drawCircle(
                         color = lineColor.copy(alpha = 0.9f),
-                        radius = 10f,
+                        radius = 12f,
                         center = Offset(lastSolidPoint.x, lastSolidPoint.y)
                     )
                 }
