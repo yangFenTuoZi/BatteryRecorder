@@ -61,7 +61,7 @@ fun CurrentRecordCard(
     ) {
         Text(
             text = "当前记录" + if (record != null) {
-                if (record.type == RecordType.CHARGE) {
+                if (livePoints.lastOrNull()?.status != BatteryStatus.Discharging.value) {
                     " - 充电"
                 } else {
                     " - 放电"
