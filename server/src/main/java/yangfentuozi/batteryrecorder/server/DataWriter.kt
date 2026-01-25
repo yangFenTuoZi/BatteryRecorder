@@ -117,19 +117,32 @@ class DataWriter(val looper: Looper) {
             record: PowerRecord,
             justChangedStatus: Boolean
         ) {
-            startNewSegmentIfNeed(justChangedStatus)
-            lastTime = record.timestamp
+            var startedNewSegment = false
 
             // 选择性丢弃一些干扰数据
             if (justChangedStatus) lastChangedStatusTime = record.timestamp
             if (record.timestamp - lastChangedStatusTime < 2 * 1000L) {
                 if ((record.power > 0) != (record.status == Discharging)) {
+                    if (justChangedStatus) {
+                        closeCurrentSegment()
+                    }
                     return
                 }
             }
 
+            startedNewSegment = startNewSegmentIfNeed(justChangedStatus)
+            lastTime = record.timestamp
+
             buffer.append(record).append("\n")
             batchCount++
+
+            if (startedNewSegment) {
+                flushBuffer()
+                if (handler.hasCallbacks(writingRunnable)) {
+                    handler.removeCallbacks(writingRunnable)
+                }
+                return
+            }
 
             if (batchCount >= batchSize) {
                 flushBuffer()
@@ -145,7 +158,7 @@ class DataWriter(val looper: Looper) {
 
         private fun startNewSegmentIfNeed(
             justChangedStatus: Boolean
-        ) {
+        ): Boolean {
             val nowTime = System.currentTimeMillis()
             if (needStartNewSegment(justChangedStatus, nowTime) ||
                 // case 还没记录过
@@ -161,7 +174,9 @@ class DataWriter(val looper: Looper) {
                 }
                 changeOwner(segmentFile!!)
                 outputStream = FileOutputStream(segmentFile!!, true)
+                return true
             }
+            return false
         }
 
         abstract fun needStartNewSegment(

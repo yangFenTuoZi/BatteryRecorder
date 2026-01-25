@@ -6,8 +6,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -53,6 +55,11 @@ fun CurrentRecordCard(
     dischargeDisplayPositive: Boolean,
     onClick: (() -> Unit)? = null
 ) {
+    val isDischargingNow = livePoints.lastOrNull()?.status == BatteryStatus.Discharging.value
+    val chargeStatusText = if (isDischargingNow) "放电" else "充电"
+    val averageLabel = if (isDischargingNow) "平均功耗" else "平均功率"
+    val currentLabel = if (isDischargingNow) "当前功耗" else "当前功率"
+
     Column(
         modifier = modifier
             .clickable(enabled = record != null && onClick != null) { onClick?.invoke() }
@@ -60,15 +67,7 @@ fun CurrentRecordCard(
             .padding(16.dp)
     ) {
         Text(
-            text = "当前记录" + if (record != null) {
-                if (livePoints.lastOrNull()?.status != BatteryStatus.Discharging.value) {
-                    " - 充电"
-                } else {
-                    " - 放电"
-                }
-            } else {
-                ""
-            },
+            text = "当前记录" + if (record != null) " - $chargeStatusText" else "",
             style = MaterialTheme.typography.titleMedium
         )
 
@@ -77,41 +76,36 @@ fun CurrentRecordCard(
             val stats = record.stats
             val latestPoint = livePoints.lastOrNull()
             val latestPower = latestPoint?.powerNw
+            val capacityChange = if (record.type == RecordType.CHARGE) {
+                stats.endCapacity - stats.startCapacity
+            } else {
+                stats.startCapacity - stats.endCapacity
+            }
+
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.Top
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f, fill = true)
+                        .fillMaxHeight()
+                        .padding(vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    StatRow("开始时间", formatDateTime(stats.startTime))
                     StatRow(
-                        "开始时间",
-                        formatDateTime(stats.startTime)
-                    )
-                    StatRow(
-                        "平均功率", formatPower(
+                        averageLabel,
+                        formatPower(
                             powerW = stats.averagePower,
                             dualCellEnabled = dualCellEnabled,
                             calibrationValue = calibrationValue
                         )
                     )
-                    val capacityChange = if (record.type == RecordType.CHARGE) {
-                        stats.endCapacity - stats.startCapacity
-                    } else {
-                        stats.startCapacity - stats.endCapacity
-                    }
                     StatRow("电量变化", "${capacityChange}%")
-                    StatRow("时长", formatDurationHours(stats.endTime - stats.startTime))
-                    StatRow(
-                        "当前功耗", if (latestPower != null) formatPower(
-                            powerW = applyDischargeSignForDisplay(
-                                rawPowerNw = latestPower.toDouble(),
-                                status = latestPoint.status,
-                                dischargeDisplayPositive = dischargeDisplayPositive
-                            ),
-                            dualCellEnabled = dualCellEnabled,
-                            calibrationValue = calibrationValue
-                        ) else "--W"
-                    )
                 }
 
                 LivePowerChart(
@@ -120,9 +114,39 @@ fun CurrentRecordCard(
                     calibrationValue = calibrationValue,
                     dischargeDisplayPositive = dischargeDisplayPositive,
                     modifier = Modifier
-                        .weight(1f)
-                        .height(84.dp)
+                        .weight(1f, fill = true)
+                        .fillMaxHeight()
                 )
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f, fill = true)) {
+                    StatRow("时长", formatDurationHours(stats.endTime - stats.startTime))
+                }
+                Column(modifier = Modifier.weight(1f, fill = true)) {
+                    StatRow(
+                        currentLabel,
+                        if (latestPower != null && latestPoint != null) {
+                            formatPower(
+                                powerW = applyDischargeSignForDisplay(
+                                    rawPowerNw = latestPower.toDouble(),
+                                    status = latestPoint.status,
+                                    dischargeDisplayPositive = dischargeDisplayPositive
+                                ),
+                                dualCellEnabled = dualCellEnabled,
+                                calibrationValue = calibrationValue
+                            )
+                        } else {
+                            "--W"
+                        }
+                    )
+                }
             }
         } else {
             Spacer(Modifier.height(12.dp))
@@ -139,7 +163,6 @@ fun CurrentRecordCard(
 private fun StatRow(label: String, value: String) {
     Row(
         modifier = Modifier
-            .padding(vertical = 4.dp)
             .fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -347,7 +370,7 @@ private fun LivePowerChart(
                     )
                     drawCircle(
                         color = lineColor.copy(alpha = 0.9f),
-                        radius = 12f,
+                        radius = 10f,
                         center = Offset(lastSolidPoint.x, lastSolidPoint.y)
                     )
                 }

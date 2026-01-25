@@ -5,10 +5,12 @@ import android.os.Handler
 import android.os.Looper
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import yangfentuozi.batteryrecorder.data.history.HistoryRecord
 import yangfentuozi.batteryrecorder.data.history.HistoryRepository
 import yangfentuozi.batteryrecorder.data.history.HistorySummary
@@ -105,5 +107,13 @@ class MainViewModel : ViewModel() {
         _dischargeSummary.value = null
         _currentRecord.value = null
         loadStatistics(context)
+    }
+
+    fun refreshCurrentRecord(context: Context) {
+        viewModelScope.launch {
+            _currentRecord.value = withContext(Dispatchers.IO) {
+                HistoryRepository.loadLatestRecord(context)
+            }
+        }
     }
 }

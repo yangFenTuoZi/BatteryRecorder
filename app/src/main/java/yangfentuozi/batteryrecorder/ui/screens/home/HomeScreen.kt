@@ -22,7 +22,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import yangfentuozi.batteryrecorder.data.history.RecordType
+import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
 import yangfentuozi.batteryrecorder.ui.components.home.BatteryRecorderTopAppBar
 import yangfentuozi.batteryrecorder.ui.components.home.ChargeStatsCard
@@ -52,6 +56,7 @@ fun HomeScreen(
     val dischargeSummary by viewModel.dischargeSummary.collectAsState()
     val currentRecord by viewModel.currentRecord.collectAsState()
     val livePoints by liveRecordViewModel.livePoints.collectAsState()
+    val liveStatus = livePoints.lastOrNull()?.status
 
     // 读取设置值
     val dualCellEnabled by settingsViewModel.dualCellEnabled.collectAsState()
@@ -68,6 +73,24 @@ fun HomeScreen(
 
     LaunchedEffect(intervalMs) {
         liveRecordViewModel.updateIntervalMs(intervalMs)
+    }
+
+    LaunchedEffect(liveStatus) {
+        if (liveStatus == null) return@LaunchedEffect
+
+        withContext(Dispatchers.IO) {
+            runCatching { Service.service?.writeToDatabaseImmediately() }
+        }
+
+        val before = viewModel.currentRecord.value
+        delay((intervalMs * 2).coerceAtLeast(800L))
+
+        repeat(3) {
+            viewModel.refreshCurrentRecord(context)
+            delay(350L)
+            val after = viewModel.currentRecord.value
+            if (after?.name != before?.name || after?.type != before?.type) return@LaunchedEffect
+        }
     }
 
     // 监听生命周期事件
