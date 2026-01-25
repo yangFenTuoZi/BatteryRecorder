@@ -1,5 +1,6 @@
 package yangfentuozi.batteryrecorder.ui.components.home
 
+import android.graphics.BlurMaskFilter
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -17,13 +18,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.style.TextAlign
@@ -95,7 +101,6 @@ fun CurrentRecordCard(
                     }
                     StatRow("电量变化", "${capacityChange}%")
                     StatRow("时长", formatDurationHours(stats.endTime - stats.startTime))
-                    Spacer(Modifier.height(16.dp))
                     StatRow(
                         "当前功耗", if (latestPower != null) formatPower(
                             powerW = applyDischargeSignForDisplay(
@@ -116,7 +121,7 @@ fun CurrentRecordCard(
                     dischargeDisplayPositive = dischargeDisplayPositive,
                     modifier = Modifier
                         .weight(1f)
-                        .height(140.dp)
+                        .height(84.dp)
                 )
             }
         } else {
@@ -182,7 +187,7 @@ private fun LivePowerChart(
             }
 
             Canvas(modifier = Modifier.fillMaxSize()) {
-                val padding = 6.dp.toPx()
+                val padding = 4.dp.toPx()
                 val minTime = displayPoints.first().timestamp
                 val maxTime = displayPoints.last().timestamp
                 val timeRange = max(1L, maxTime - minTime).toDouble()
@@ -191,20 +196,7 @@ private fun LivePowerChart(
                 val maxPower = displayPoints.maxOf { it.power }
                 val powerRange = max(1e-6, maxPower - minPower)
 
-                val rows = 4
-                val cols = 4
-                val labelTextSize = 22f
-                val labelPaint = createLiveChartTextPaint(gridColor.toArgb(), labelTextSize)
-                val labelPadding = 6.dp.toPx()
-                val isDischarging = points.lastOrNull()?.status == BatteryStatus.Discharging.value
-                val labelSignMultiplier = if (isDischarging && !dischargeDisplayPositive) -1 else 1
-                val labelTexts = (0..rows).map { index ->
-                    val value = (maxPower - (powerRange * index / rows)) * labelSignMultiplier
-                    String.format("%.1f W", value)
-                }
-                val labelWidth = labelTexts.maxOf { labelPaint.measureText(it) }
-
-                val left = padding + labelWidth + labelPadding
+                val left = padding
                 val top = padding
                 val right = size.width - padding
                 val bottom = size.height - padding
@@ -212,64 +204,151 @@ private fun LivePowerChart(
                 val chartHeight = bottom - top
                 if (chartWidth <= 0f || chartHeight <= 0f) return@Canvas
 
-                val rowStep = chartHeight / rows
-                val colStep = chartWidth / cols
-                val gridStroke = 1.dp.toPx()
-                val gridLineColor = gridColor.copy(alpha = 0.3f)
+                val floorMarginPx = 8.dp.toPx()
+                val effectiveChartHeight = (chartHeight - floorMarginPx).coerceAtLeast(1f)
 
-                for (i in 0..rows) {
-                    val y = top + rowStep * i
-                    drawLine(
-                        color = gridLineColor,
-                        start = Offset(left, y),
-                        end = Offset(right, y),
-                        strokeWidth = gridStroke
-                    )
-                    val label = labelTexts[i]
-                    val labelX = left - labelPadding - labelPaint.measureText(label)
-                    val labelY = y - 4.dp.toPx()
-                    drawContext.canvas.nativeCanvas.drawText(label, labelX, labelY, labelPaint)
-                }
-                for (i in 0..cols) {
-                    val x = left + colStep * i
-                    drawLine(
-                        color = gridLineColor,
-                        start = Offset(x, top),
-                        end = Offset(x, bottom),
-                        strokeWidth = gridStroke
-                    )
+                val chartPoints = displayPoints.map { point ->
+                    val x = left + ((point.timestamp - minTime) / timeRange).toFloat() * chartWidth
+                    val y = top + (1f - ((point.power - minPower) / powerRange).toFloat()) * effectiveChartHeight
+                    LiveChartPoint(x, y, point.isGap)
                 }
 
-                drawRect(
-                    color = gridColor.copy(alpha = 0.6f),
-                    topLeft = Offset(left, top),
-                    size = Size(chartWidth, chartHeight),
-                    style = Stroke(width = 1.dp.toPx())
+                fun buildSmoothedPath(run: List<LiveChartPoint>, yOffsetPx: Float = 0f): Path {
+                    val path = Path().apply { moveTo(run.first().x, run.first().y + yOffsetPx) }
+                    for (i in 1 until run.size) {
+                        val previous = run[i - 1]
+                        val current = run[i]
+                        val midX = (previous.x + current.x) / 2f
+                        val midY = (previous.y + current.y) / 2f + yOffsetPx
+                        path.quadraticTo(previous.x, previous.y + yOffsetPx, midX, midY)
+                    }
+                    path.lineTo(run.last().x, run.last().y + yOffsetPx)
+                    return path
+                }
+
+                fun forEachNonGapRun(action: (List<LiveChartPoint>) -> Unit) {
+                    var runStart = -1
+                    for (index in chartPoints.indices) {
+                        val point = chartPoints[index]
+                        if (point.isGap) {
+                            if (runStart != -1 && index - runStart >= 2) {
+                                action(chartPoints.subList(runStart, index))
+                            }
+                            runStart = -1
+                            continue
+                        }
+                        if (runStart == -1) runStart = index
+                    }
+                    if (runStart != -1 && chartPoints.size - runStart >= 2) {
+                        action(chartPoints.subList(runStart, chartPoints.size))
+                    }
+                }
+
+                val glowMaxAlpha = 0.25f
+                clipRect(left = left, top = top, right = right, bottom = bottom) {
+                    forEachNonGapRun { run ->
+                        val smoothedPath = buildSmoothedPath(run)
+                        val runTop = run.minOf { it.y }
+                        val glowBrush = Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0f to lineColor.copy(alpha = glowMaxAlpha),
+                                1.0f to Color.Transparent
+                            ),
+                            startY = runTop,
+                            endY = bottom
+                        )
+                        val fillPath = Path().apply {
+                            addPath(smoothedPath)
+                            lineTo(run.last().x, bottom)
+                            lineTo(run.first().x, bottom)
+                            close()
+                        }
+                        drawPath(path = fillPath, brush = glowBrush)
+                    }
+                }
+
+                val dashEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()), 0f)
+                val lineStrokeWidth = 3.dp.toPx() * 0.8f
+                val solidStroke = Stroke(width = lineStrokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
+                val dashStroke = Stroke(
+                    width = lineStrokeWidth,
+                    cap = StrokeCap.Round,
+                    join = StrokeJoin.Round,
+                    pathEffect = dashEffect
                 )
 
-                val strokeWidth = 2.dp.toPx()
-                val dashEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()), 0f)
-                for (index in 1 until displayPoints.size) {
-                    val previous = displayPoints[index - 1]
-                    val current = displayPoints[index]
-                    val startX = left + ((previous.timestamp - minTime) / timeRange).toFloat() * chartWidth
-                    val startY = top + (1f - ((previous.power - minPower) / powerRange).toFloat()) * chartHeight
-                    val endX = left + ((current.timestamp - minTime) / timeRange).toFloat() * chartWidth
-                    val endY = top + (1f - ((current.power - minPower) / powerRange).toFloat()) * chartHeight
+                for (index in 1 until chartPoints.size) {
+                    val previous = chartPoints[index - 1]
+                    val current = chartPoints[index]
+                    if (!previous.isGap && !current.isGap) continue
                     val segmentPath = Path().apply {
-                        moveTo(startX, startY)
-                        lineTo(endX, endY)
+                        moveTo(previous.x, previous.y)
+                        lineTo(current.x, current.y)
                     }
-                    val isGapSegment = previous.isGap || current.isGap
-                    drawPath(
-                        path = segmentPath,
-                        color = lineColor,
-                        style = Stroke(
-                            width = strokeWidth,
-                            cap = StrokeCap.Round,
-                            join = StrokeJoin.Round,
-                            pathEffect = if (isGapSegment) dashEffect else null
-                        )
+                    drawPath(path = segmentPath, color = lineColor, style = dashStroke)
+                }
+
+                clipRect(left = left, top = top, right = right, bottom = bottom) {
+                    val glowClipTolerancePx = 5f
+                    forEachNonGapRun { run ->
+                        val path = buildSmoothedPath(run)
+                        val androidPath = path.asAndroidPath()
+                        val baseColor = lineColor.toArgb()
+
+                        val clipBoundaryPath = buildSmoothedPath(run, yOffsetPx = -glowClipTolerancePx)
+                        val underClipPath = Path().apply {
+                            addPath(clipBoundaryPath)
+                            lineTo(run.last().x, bottom)
+                            lineTo(run.first().x, bottom)
+                            close()
+                        }
+
+                        clipPath(path = underClipPath, clipOp = ClipOp.Intersect) {
+                            drawIntoCanvas { canvas ->
+                                val outerPaint = android.graphics.Paint().apply {
+                                    isAntiAlias = true
+                                    style = android.graphics.Paint.Style.STROKE
+                                    strokeCap = android.graphics.Paint.Cap.ROUND
+                                    strokeJoin = android.graphics.Paint.Join.ROUND
+                                    strokeWidth = lineStrokeWidth * 2.8f
+                                    color = baseColor
+                                    alpha = (255 * 0.16f).toInt().coerceIn(0, 255)
+                                    maskFilter = BlurMaskFilter(lineStrokeWidth * 2.2f, BlurMaskFilter.Blur.NORMAL)
+                                }
+                                canvas.nativeCanvas.drawPath(androidPath, outerPaint)
+
+                                val innerPaint = android.graphics.Paint().apply {
+                                    isAntiAlias = true
+                                    style = android.graphics.Paint.Style.STROKE
+                                    strokeCap = android.graphics.Paint.Cap.ROUND
+                                    strokeJoin = android.graphics.Paint.Join.ROUND
+                                    strokeWidth = lineStrokeWidth * 1.9f
+                                    color = baseColor
+                                    alpha = (255 * 0.26f).toInt().coerceIn(0, 255)
+                                    maskFilter = BlurMaskFilter(lineStrokeWidth * 1.4f, BlurMaskFilter.Blur.NORMAL)
+                                }
+                                canvas.nativeCanvas.drawPath(androidPath, innerPaint)
+                            }
+                        }
+                    }
+                }
+
+                forEachNonGapRun { run ->
+                    val path = buildSmoothedPath(run)
+                    drawPath(path = path, color = lineColor, style = solidStroke)
+                }
+
+                val lastSolidPoint = chartPoints.asReversed().firstOrNull { !it.isGap }
+                if (lastSolidPoint != null) {
+                    drawCircle(
+                        color = lineColor.copy(alpha = 0.6f),
+                        radius = 20f,
+                        center = Offset(lastSolidPoint.x, lastSolidPoint.y)
+                    )
+                    drawCircle(
+                        color = lineColor.copy(alpha = 0.9f),
+                        radius = 12f,
+                        center = Offset(lastSolidPoint.x, lastSolidPoint.y)
                     )
                 }
             }
@@ -280,6 +359,12 @@ private fun LivePowerChart(
 private data class LivePowerPointDisplay(
     val timestamp: Long,
     val power: Double,
+    val isGap: Boolean
+)
+
+private data class LiveChartPoint(
+    val x: Float,
+    val y: Float,
     val isGap: Boolean
 )
 
@@ -298,10 +383,3 @@ private fun applyDischargeSignForDisplay(
 private fun applyDischargeSignForPlot(rawPowerW: Double, status: Int?): Double {
     return if (status == BatteryStatus.Discharging.value) kotlin.math.abs(rawPowerW) else rawPowerW
 }
-
-private fun createLiveChartTextPaint(color: Int, textSizePx: Float) =
-    android.graphics.Paint().apply {
-        this.color = color
-        this.textSize = textSizePx
-        isAntiAlias = true
-    }
