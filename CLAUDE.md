@@ -136,6 +136,7 @@ Server 读取 App 的 SharedPreferences：
 - `refreshConfig()` - 重新加载配置
 - `stopService()` - 停止服务
 - `writeToDatabaseImmediately()` - 立即刷盘
+- `getCurrent()` - 获取当前电流值
 
 ## 权限要求
 
