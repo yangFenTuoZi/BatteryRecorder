@@ -127,8 +127,19 @@ object HistoryRepository {
     }
 
     /** 加载统计摘要，按时长加权计算平均功率 */
-    fun loadSummary(context: Context, type: RecordType, limit: Int = 10): HistorySummary? {
-        val records = loadRecords(context, type).take(limit)
+    fun loadSummary(context: Context, type: RecordType, avgPowerLimit: Int = 20): HistorySummary? {
+        val dataDir = validDataDir(context, type) ?: return null
+        val files = dataDir.listFiles()?.filter { it.isFile }
+            ?.sortedByDescending { it.lastModified() } ?: return null
+
+        val recordCount = files.size
+        if (recordCount == 0) return null
+
+        val latestFileName = files.first().name
+        val sampleFiles = files.take(avgPowerLimit.coerceAtLeast(0))
+        if (sampleFiles.isEmpty()) return null
+
+        val records = sampleFiles.mapNotNull { loadStats(context, type, it, dataDir, latestFileName) }
         if (records.isEmpty()) return null
 
         var totalDurationMs = 0L
@@ -153,7 +164,7 @@ object HistoryRepository {
 
         return HistorySummary(
             type = type,
-            recordCount = records.size,
+            recordCount = recordCount,
             averagePower = averagePower,
             totalDurationMs = totalDurationMs,
             totalScreenOnMs = totalScreenOnMs,
