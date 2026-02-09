@@ -117,7 +117,6 @@ class DataWriter(val looper: Looper) {
             record: PowerRecord,
             justChangedStatus: Boolean
         ) {
-            var startedNewSegment = false
 
             // 选择性丢弃一些干扰数据
             if (justChangedStatus) lastChangedStatusTime = record.timestamp
@@ -130,7 +129,7 @@ class DataWriter(val looper: Looper) {
                 }
             }
 
-            startedNewSegment = startNewSegmentIfNeed(justChangedStatus)
+            val startedNewSegment = startNewSegmentIfNeed(justChangedStatus)
             lastTime = record.timestamp
 
             buffer.append(record).append("\n")
@@ -202,7 +201,7 @@ class DataWriter(val looper: Looper) {
                 try {
                     outputStream!!.close()
                 } catch (e: IOException) {
-                    Log.e(Server.TAG, "Failed to close segment file", e)
+                    Log.e(TAG, "Failed to close segment file", e)
                 }
                 outputStream = null
                 if (needDeleteSegment(System.currentTimeMillis())) {
@@ -223,6 +222,7 @@ class DataWriter(val looper: Looper) {
     }
 
     companion object {
+        const val TAG = "DataWriter"
         val powerDir = File(Server.APP_DATA + "/power_data")
         val chargeDir = File(powerDir, "charge")
         val dischargeDir = File(powerDir, "discharge")

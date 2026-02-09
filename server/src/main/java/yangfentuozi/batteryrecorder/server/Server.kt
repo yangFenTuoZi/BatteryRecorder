@@ -7,13 +7,8 @@ import android.app.IActivityTaskManager
 import android.app.ITaskStackListener
 import android.app.TaskInfo
 import android.app.TaskStackListener
-import android.content.AttributionSource
-import android.content.IContentProvider
-import android.content.pm.ApplicationInfo
-import android.content.pm.IPackageManager
 import android.hardware.display.IDisplayManager
 import android.hardware.display.IDisplayManagerCallback
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
@@ -29,6 +24,8 @@ import android.util.Xml
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserException
 import yangfentuozi.batteryrecorder.server.Native.nativeInit
+import yangfentuozi.hiddenapi.compat.ActivityManagerCompat
+import yangfentuozi.hiddenapi.compat.PackageManagerCompat
 import yangfentuozi.hiddenapi.compat.ServiceManagerCompat
 import java.io.File
 import java.io.FileInputStream
@@ -91,7 +88,8 @@ class Server internal constructor() : IService.Stub() {
                         val n: Int = callbacks.beginBroadcast()
                         for (i in 0..<n) {
                             try {
-                                callbacks.getBroadcastItem(i).onRecord(timestamp, power, status.value)
+                                callbacks.getBroadcastItem(i)
+                                    .onRecord(timestamp, power, status.value)
                             } catch (e: RemoteException) {
                                 Log.e(TAG, "Failed to call back", e)
                             }
@@ -136,14 +134,7 @@ class Server internal constructor() : IService.Stub() {
 
     private fun startService() {
         try {
-            val iPackageManager =
-                IPackageManager.Stub.asInterface(ServiceManager.getService("package"))
-            val appInfo: ApplicationInfo
-            if (Build.VERSION.SDK_INT >= 33) {
-                appInfo = iPackageManager.getApplicationInfo(APP_PACKAGE, 0L, Os.getuid())
-            } else {
-                appInfo = iPackageManager.getApplicationInfo(APP_PACKAGE, 0, Os.getuid())
-            }
+            val appInfo = PackageManagerCompat.getApplicationInfo(APP_PACKAGE, 0L, Os.getuid())
             appUid = appInfo.uid
             System.load("${appInfo.nativeLibraryDir}/libbatteryrecorder.so")
             nativeInit()
@@ -305,42 +296,19 @@ class Server internal constructor() : IService.Stub() {
     }
 
     private fun sendBinder() {
-        var provider: IContentProvider? = null
-        val name = "yangfentuozi.batteryrecorder.binderProvider"
         try {
-            val contentProviderHolder =
-                iActivityManager.getContentProviderExternal(name, 0, null, name)
-            provider = contentProviderHolder?.provider
 
-            if (provider == null) {
-                Log.e(TAG, "Provider is null")
-                return
-            }
-            if (!provider.asBinder().pingBinder()) {
-                Log.e(TAG, "Provider is dead")
-            }
-
-            val extras = Bundle()
-            extras.putBinder("binder", this)
-
-            provider.call(
-                (AttributionSource.Builder(Os.getuid())).setPackageName(null).build(),
-                name,
+            ActivityManagerCompat.contentProviderCall(
+                "yangfentuozi.batteryrecorder.binderProvider",
                 "setBinder",
                 null,
-                extras
+                Bundle().apply {
+                    putBinder("binder", this@Server)
+                }
             )
             Log.i(TAG, "Send binder")
         } catch (e: RemoteException) {
             Log.e(TAG, "Failed send binder", e)
-        } finally {
-            if (provider != null) {
-                try {
-                    iActivityManager.removeContentProviderExternal(name, null)
-                } catch (tr: Throwable) {
-                    Log.w(TAG, "RemoveContentProviderExternal", tr)
-                }
-            }
         }
     }
 
@@ -368,7 +336,7 @@ class Server internal constructor() : IService.Stub() {
     }
 
     companion object {
-        const val TAG: String = "BatteryRecorderServer"
+        const val TAG: String = "Server"
         const val APP_PACKAGE: String = "yangfentuozi.batteryrecorder"
 
         @SuppressLint("SdCardPath")
