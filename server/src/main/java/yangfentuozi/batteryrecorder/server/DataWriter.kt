@@ -12,7 +12,9 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.io.OutputStream
 
-class DataWriter(val looper: Looper) {
+class DataWriter(
+    private val looper: Looper
+) {
 
     private var lastStatus: BatteryStatus? = null
 
@@ -93,6 +95,9 @@ class DataWriter(val looper: Looper) {
     abstract inner class BaseWriter(val dir: File) {
         protected var segmentFile: File? = null
         protected var outputStream: OutputStream? = null
+        protected var autoRetryWriter: AutoRetryStringWriter? = null
+        protected var oldAutoRetryWriters: Set<AutoRetryStringWriter> = HashSet()
+
         protected var startTime: Long = 0L
         protected var lastTime: Long = 0L
         protected var lastChangedStatusTime = 0L
@@ -161,18 +166,28 @@ class DataWriter(val looper: Looper) {
             val nowTime = System.currentTimeMillis()
             if (needStartNewSegment(justChangedStatus, nowTime) ||
                 // case 还没记录过
-                outputStream == null
+                autoRetryWriter == null
             ) {
                 // 关闭之前的记录，打开新的
                 closeCurrentSegment()
                 startTime = nowTime
                 val fileName = "$nowTime.txt"
-                segmentFile = File(dir, fileName)
-                if (!segmentFile!!.exists() && !segmentFile!!.createNewFile()) {
-                    throw IOException("Failed to create segment file: " + segmentFile!!.absolutePath)
+                val file = File(dir, fileName)
+                segmentFile = file
+
+                val openOutputStream: (() -> OutputStream) = {
+                    if (!file.exists() && !file.createNewFile()) {
+                        throw IOException("Failed to create segment file: " + file.absolutePath)
+                    }
+                    changeOwner(file)
+                    FileOutputStream(file, true)
                 }
-                changeOwner(segmentFile!!)
-                outputStream = FileOutputStream(segmentFile!!, true)
+                autoRetryWriter = AutoRetryStringWriter(
+                    openOutputStream(),
+                    3,
+                    1000,
+                    openOutputStream
+                )
                 return true
             }
             return false
@@ -188,22 +203,21 @@ class DataWriter(val looper: Looper) {
         ): Boolean
 
         fun flushBuffer() {
-            if (batchCount == 0 || outputStream == null) return
-            outputStream!!.write(buffer.toString().toByteArray())
-            outputStream!!.flush()
+            if (batchCount == 0 || autoRetryWriter == null) return
+            autoRetryWriter!!.write(buffer)
             buffer.setLength(0) // 清空 StringBuilder
             batchCount = 0
         }
 
         fun closeCurrentSegment() {
             flushBuffer()
-            if (outputStream != null) {
+            if (autoRetryWriter != null) {
                 try {
-                    outputStream!!.close()
+                    autoRetryWriter!!.close()
                 } catch (e: IOException) {
                     Log.e(TAG, "Failed to close segment file", e)
                 }
-                outputStream = null
+                autoRetryWriter = null
                 if (needDeleteSegment(System.currentTimeMillis())) {
                     segmentFile!!.delete()
                 }
