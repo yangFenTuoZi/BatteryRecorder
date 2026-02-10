@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import yangfentuozi.batteryrecorder.ipc.Service
+import yangfentuozi.batteryrecorder.server.Config
 
 class SettingsViewModel : ViewModel() {
     private lateinit var prefs: SharedPreferences
@@ -45,6 +46,8 @@ class SettingsViewModel : ViewModel() {
     private val _segmentDurationMin = MutableStateFlow(1440L)
     val segmentDurationMin: StateFlow<Long> = _segmentDurationMin.asStateFlow()
 
+    private lateinit var serverConfig: Config
+
     /**
      * 初始化 SharedPreferences
      */
@@ -67,6 +70,13 @@ class SettingsViewModel : ViewModel() {
         _batchSize.value = prefs.getInt("batch_size", 200)
         _recordScreenOff.value = prefs.getBoolean("record_screen_off", false)
         _segmentDurationMin.value = prefs.getLong("segment_duration", 1440)
+        serverConfig = Config(
+            recordInterval = _intervalMs.value,
+            flushInterval = _writeLatencyMs.value,
+            batchSize = _batchSize.value,
+            screenOffRecord = _recordScreenOff.value,
+            segmentDuration = _segmentDurationMin.value
+        )
     }
 
     /**
@@ -103,7 +113,8 @@ class SettingsViewModel : ViewModel() {
         viewModelScope.launch {
             prefs.edit { putLong("interval", value) }
             _intervalMs.value = value
-            Service.service?.refreshConfig()
+            serverConfig = serverConfig.copy(recordInterval = value)
+            Service.service?.updateConfig(serverConfig)
         }
     }
 
@@ -114,7 +125,8 @@ class SettingsViewModel : ViewModel() {
         viewModelScope.launch {
             prefs.edit { putLong("flush_interval", value) }
             _writeLatencyMs.value = value
-            Service.service?.refreshConfig()
+            serverConfig = serverConfig.copy(flushInterval = value)
+            Service.service?.updateConfig(serverConfig)
         }
     }
 
@@ -125,7 +137,8 @@ class SettingsViewModel : ViewModel() {
         viewModelScope.launch {
             prefs.edit { putInt("batch_size", value) }
             _batchSize.value = value
-            Service.service?.refreshConfig()
+            serverConfig = serverConfig.copy(batchSize = value)
+            Service.service?.updateConfig(serverConfig)
         }
     }
 
@@ -133,7 +146,8 @@ class SettingsViewModel : ViewModel() {
         viewModelScope.launch {
             prefs.edit { putBoolean("record_screen_off", enabled) }
             _recordScreenOff.value = enabled
-            Service.service?.refreshConfig()
+            serverConfig = serverConfig.copy(screenOffRecord = enabled)
+            Service.service?.updateConfig(serverConfig)
         }
     }
 
@@ -141,7 +155,8 @@ class SettingsViewModel : ViewModel() {
         viewModelScope.launch {
             prefs.edit { putLong("segment_duration", value) }
             _segmentDurationMin.value = value
-            Service.service?.refreshConfig()
+            serverConfig = serverConfig.copy(segmentDuration = value)
+            Service.service?.updateConfig(serverConfig)
         }
     }
 

@@ -9,6 +9,7 @@ import android.app.TaskInfo
 import android.app.TaskStackListener
 import android.hardware.display.IDisplayManager
 import android.hardware.display.IDisplayManagerCallback
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
@@ -99,7 +100,7 @@ class Server internal constructor() : IService.Stub() {
                         Log.e(TAG, "Error reading power data", e)
                     }
 
-                    if (isInteractive || recordScreenOff) {
+                    if (isInteractive || screenOffRecord) {
                         paused = false
                         lock.wait(mIntervalMillis)
                     } else {
@@ -130,7 +131,7 @@ class Server internal constructor() : IService.Stub() {
     private val writerThread = HandlerThread("WriterThread")
     private var currForegroundApp: String? = null
     private var isInteractive: Boolean
-    private var recordScreenOff: Boolean = false
+    private var screenOffRecord: Boolean = false
 
     private fun startService() {
         try {
@@ -162,7 +163,12 @@ class Server internal constructor() : IService.Stub() {
         } catch (e: IOException) {
             throw RuntimeException(e)
         }
-        refreshConfig()
+
+        if (Os.getuid() == 0) {
+            loadConfigRoot()
+        } else {
+            loadConfigCommon()
+        }
 
         monitor.start()
 
@@ -190,7 +196,33 @@ class Server internal constructor() : IService.Stub() {
         currForegroundApp = packageName
     }
 
-    override fun refreshConfig() {
+    fun loadConfigCommon() {
+        try {
+            val reply = ActivityManagerCompat.contentProviderCall(
+                "yangfentuozi.batteryrecorder.configProvider",
+                "requestConfig",
+                null,
+                null
+            )
+            if (reply == null) throw NullPointerException("reply is null")
+            reply.classLoader = Config::class.java.classLoader
+            val config = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                reply.getParcelable("config", Config::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                reply.getParcelable("config")
+            }
+            if (config == null) throw NullPointerException("config is null")
+            updateConfig(config)
+            Log.i(TAG, "Requested config")
+        } catch (e: RemoteException) {
+            Log.e(TAG, "Failed to request config", e)
+        } catch (e: NullPointerException) {
+            Log.e(TAG, "Failed to request config", e)
+        }
+    }
+
+    fun loadConfigRoot() {
         val config = File(CONFIG)
         if (!config.exists()) {
             Log.e(TAG, "Config file not found")
@@ -203,10 +235,10 @@ class Server internal constructor() : IService.Stub() {
                 parser.setInput(fis, "UTF-8")
 
                 var eventType = parser.eventType
-                mIntervalMillis = 900
+                var intervalMillis = 1000L
                 var batchSize = 200  // 保留兼容性
                 var flushIntervalMs = 30000L  // 默认5秒
-                var recordScreenOff = false
+                var screenOffRecord = false
                 var segmentDurationMin = 1440L  // 默认24小时
 
                 while (eventType != XmlPullParser.END_DOCUMENT) {
@@ -215,7 +247,7 @@ class Server internal constructor() : IService.Stub() {
                         val valueAttr = parser.getAttributeValue(null, "value")
                         when (nameAttr) {
                             "interval" ->
-                                mIntervalMillis = valueAttr.toLongOrNull() ?: 900
+                                intervalMillis = valueAttr.toLongOrNull() ?: 1000L
 
                             "batch_size" ->
                                 batchSize = valueAttr.toIntOrNull() ?: 200
@@ -224,7 +256,7 @@ class Server internal constructor() : IService.Stub() {
                                 flushIntervalMs = valueAttr.toLongOrNull() ?: 30000L
 
                             "record_screen_off" -> {
-                                recordScreenOff = valueAttr == "true"
+                                screenOffRecord = valueAttr == "true"
                             }
 
                             "segment_duration" ->
@@ -234,18 +266,13 @@ class Server internal constructor() : IService.Stub() {
                     eventType = parser.next()
                 }
 
-                if (mIntervalMillis < 0) mIntervalMillis = 0
-                if (batchSize < 0) batchSize = 0
-                else if (batchSize > 1000) batchSize = 1000
-                if (flushIntervalMs < 100) flushIntervalMs = 100L  // 最小100ms
-                else if (flushIntervalMs > 60000) flushIntervalMs = 60000L  // 最大60秒
-                if (segmentDurationMin < 0) segmentDurationMin = 0
-
-                writer.batchSize = batchSize
-                writer.flushIntervalMs = flushIntervalMs
-                writer.maxSegmentDurationMs = segmentDurationMin * 60 * 1000
-
-                this.recordScreenOff = recordScreenOff
+                updateConfig(Config(
+                    recordInterval = intervalMillis,
+                    flushInterval = flushIntervalMs,
+                    batchSize = batchSize,
+                    screenOffRecord = screenOffRecord,
+                    segmentDuration = segmentDurationMin
+                ))
             }
         } catch (e: FileNotFoundException) {
             Log.e(TAG, "Config file not found", e)
@@ -275,6 +302,31 @@ class Server internal constructor() : IService.Stub() {
 
     override fun unregisterRecordListener(listener: IRecordListener) {
         callbacks.unregister(listener)
+    }
+
+    override fun updateConfig(config: Config) {
+        mIntervalMillis = config.recordInterval
+        var flushInterval = config.flushInterval
+        var batchSize = config.batchSize
+        val screenOffRecord = config.screenOffRecord
+        var segmentDuration = config.segmentDuration
+
+        if (mIntervalMillis < 0) mIntervalMillis = 0
+        if (batchSize < 0) batchSize = 0
+        else if (batchSize > 1000) batchSize = 1000
+        if (flushInterval < 100) flushInterval = 100L
+        else if (flushInterval > 60000) flushInterval = 60000L
+        if (segmentDuration < 0) segmentDuration = 0
+
+        writer.batchSize = batchSize
+        writer.flushIntervalMs = flushInterval
+        writer.maxSegmentDurationMs = segmentDuration * 60 * 1000
+
+        this.screenOffRecord = screenOffRecord
+    }
+
+    override fun sync() {
+        TODO("Not yet implemented")
     }
 
     private fun stopServiceImmediately() {
