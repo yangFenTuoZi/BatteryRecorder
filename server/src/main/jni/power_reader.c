@@ -93,12 +93,12 @@ static int read_int(FILE *fp) {
 }
 
 JNIEXPORT jint JNICALL
-Java_yangfentuozi_batteryrecorder_server_Native_nativeInit(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
+Java_yangfentuozi_batteryrecorder_server_recorder_Native_nativeInit(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
     return init_file_cache();
 }
 
 JNIEXPORT jlong JNICALL
-Java_yangfentuozi_batteryrecorder_server_Native_nativeGetVoltage(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
+Java_yangfentuozi_batteryrecorder_server_recorder_Native_nativeGetVoltage(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
     if (!g_cache.initialized || !g_cache.voltage_fp) {
         return 0;
     }
@@ -106,7 +106,7 @@ Java_yangfentuozi_batteryrecorder_server_Native_nativeGetVoltage(JNIEnv *env __a
 }
 
 JNIEXPORT jlong JNICALL
-Java_yangfentuozi_batteryrecorder_server_Native_nativeGetCurrent(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
+Java_yangfentuozi_batteryrecorder_server_recorder_Native_nativeGetCurrent(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
     if (!g_cache.initialized || !g_cache.current_fp) {
         return 0;
     }
@@ -114,7 +114,7 @@ Java_yangfentuozi_batteryrecorder_server_Native_nativeGetCurrent(JNIEnv *env __a
 }
 
 JNIEXPORT jint JNICALL
-Java_yangfentuozi_batteryrecorder_server_Native_nativeGetCapacity(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
+Java_yangfentuozi_batteryrecorder_server_recorder_Native_nativeGetCapacity(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
     if (!g_cache.initialized || !g_cache.capacity_fp) {
         return 0;
     }
@@ -122,7 +122,7 @@ Java_yangfentuozi_batteryrecorder_server_Native_nativeGetCapacity(JNIEnv *env __
 }
 
 JNIEXPORT jint JNICALL
-Java_yangfentuozi_batteryrecorder_server_Native_nativeGetStatus(JNIEnv *env, jclass clazz __attribute__((unused))) {
+Java_yangfentuozi_batteryrecorder_server_recorder_Native_nativeGetStatus(JNIEnv *env, jclass clazz __attribute__((unused))) {
     if (!g_cache.initialized || !g_cache.status_fp) {
         return 0;
     }

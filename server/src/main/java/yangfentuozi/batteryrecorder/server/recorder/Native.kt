@@ -1,5 +1,6 @@
-package yangfentuozi.batteryrecorder.server
+package yangfentuozi.batteryrecorder.server.recorder
 
+import yangfentuozi.batteryrecorder.server.data.BatteryStatus
 import java.io.IOException
 
 object Native {

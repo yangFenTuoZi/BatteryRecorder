@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.server
+package yangfentuozi.batteryrecorder.server.writer
 
 import android.os.Handler
 import android.os.HandlerThread

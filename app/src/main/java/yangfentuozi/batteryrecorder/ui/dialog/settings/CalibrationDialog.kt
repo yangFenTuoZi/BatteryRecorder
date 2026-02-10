@@ -36,7 +36,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import yangfentuozi.batteryrecorder.config.Constants
 import yangfentuozi.batteryrecorder.ipc.Service
-import yangfentuozi.batteryrecorder.server.IRecordListener
+import yangfentuozi.batteryrecorder.server.recorder.IRecordListener
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 import kotlin.math.abs
 

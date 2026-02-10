@@ -1,18 +1,21 @@
-package yangfentuozi.batteryrecorder.server
+package yangfentuozi.batteryrecorder.server.writer
 
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import yangfentuozi.batteryrecorder.server.BatteryStatus.Charging
-import yangfentuozi.batteryrecorder.server.BatteryStatus.Discharging
-import yangfentuozi.batteryrecorder.server.BatteryStatus.Full
+import yangfentuozi.batteryrecorder.server.Server
 import yangfentuozi.batteryrecorder.server.Server.Companion.changeOwner
+import yangfentuozi.batteryrecorder.server.data.BatteryStatus
+import yangfentuozi.batteryrecorder.server.data.BatteryStatus.Charging
+import yangfentuozi.batteryrecorder.server.data.BatteryStatus.Discharging
+import yangfentuozi.batteryrecorder.server.data.BatteryStatus.Full
+import yangfentuozi.batteryrecorder.server.data.PowerRecord
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.io.OutputStream
 
-class DataWriter(
+class PowerRecordWriter(
     private val looper: Looper
 ) {
 
@@ -66,7 +69,7 @@ class DataWriter(
         dischargeDataWriter.flushBuffer()
     }
 
-    inner class ChargeDataWriter(dir: File) : BaseWriter(dir) {
+    inner class ChargeDataWriter(dir: File) : BaseDelayedRecordWriter(dir) {
         override fun needStartNewSegment(justChangedStatus: Boolean, nowTime: Long): Boolean {
             // case1 记录超过最大分段时间（0 表示不按时间分段）
             return (maxSegmentDurationMs > 0 && nowTime - startTime > maxSegmentDurationMs) ||
@@ -79,7 +82,7 @@ class DataWriter(
         }
     }
 
-    inner class DischargeDataWriter(dir: File) : BaseWriter(dir) {
+    inner class DischargeDataWriter(dir: File) : BaseDelayedRecordWriter(dir) {
         override fun needStartNewSegment(justChangedStatus: Boolean, nowTime: Long): Boolean {
             // case1 记录超过最大分段时间（0 表示不按时间分段）
             return (maxSegmentDurationMs > 0 && nowTime - startTime > maxSegmentDurationMs) ||
@@ -92,11 +95,9 @@ class DataWriter(
         }
     }
 
-    abstract inner class BaseWriter(val dir: File) {
+    abstract inner class BaseDelayedRecordWriter(val dir: File) {
         protected var segmentFile: File? = null
-        protected var outputStream: OutputStream? = null
         protected var autoRetryWriter: AutoRetryStringWriter? = null
-        protected var oldAutoRetryWriters: Set<AutoRetryStringWriter> = HashSet()
 
         protected var startTime: Long = 0L
         protected var lastTime: Long = 0L
@@ -223,15 +224,6 @@ class DataWriter(
                 }
                 segmentFile = null
             }
-        }
-    }
-
-    data class PowerRecord(
-        val timestamp: Long, val power: Long, val packageName: String?,
-        val capacity: Int, val isDisplayOn: Int, val status: BatteryStatus
-    ) {
-        override fun toString(): String {
-            return "$timestamp,$power,$packageName,$capacity,$isDisplayOn"
         }
     }
 

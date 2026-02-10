@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import yangfentuozi.batteryrecorder.ipc.Service
-import yangfentuozi.batteryrecorder.server.IRecordListener
+import yangfentuozi.batteryrecorder.server.recorder.IRecordListener
 
 private const val MAX_LIVE_POINTS = 20
 private const val DEFAULT_INTERVAL_MS = 1000L

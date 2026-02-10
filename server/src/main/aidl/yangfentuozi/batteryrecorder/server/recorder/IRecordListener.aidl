@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.server;
+package yangfentuozi.batteryrecorder.server.recorder;
 
 interface IRecordListener {
     void onRecord(long timestamp, long power, int status);
