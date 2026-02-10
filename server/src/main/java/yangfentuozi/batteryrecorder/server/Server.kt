@@ -112,7 +112,7 @@ class Server internal constructor() : IService.Stub() {
         monitor.screenOffRecord = config.screenOffRecordEnabled
         writer.flushIntervalMs = config.writeLatencyMs
         writer.batchSize = config.batchSize
-        writer.maxSegmentDurationMs = config.segmentDurationMin
+        writer.maxSegmentDurationMs = config.segmentDurationMin * 60 * 1000L
     }
 
     override fun sync() {
