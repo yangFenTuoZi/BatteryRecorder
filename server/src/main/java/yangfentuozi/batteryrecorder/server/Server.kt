@@ -42,7 +42,16 @@ class Server internal constructor() : IService.Stub() {
 
         try {
             writerThread.start()
-            writer = PowerRecordWriter(writerThread.looper)
+            writer = if (Os.getuid() == 0)
+                PowerRecordWriter(
+                    writerThread.looper,
+                    File("$APP_DATA/power_data")
+                ) { changeOwnerRecursively(it) }
+            else
+                PowerRecordWriter(
+                    writerThread.looper,
+                    File("$SHELL_APP_DATA/batteryrecorder_power_data")
+                ) {}
         } catch (e: IOException) {
             throw RuntimeException(e)
         }
@@ -153,17 +162,17 @@ class Server internal constructor() : IService.Stub() {
         Looper.loop()
     }
 
+    @SuppressLint("SdCardPath")
     companion object {
         const val TAG: String = "Server"
         const val APP_PACKAGE: String = "yangfentuozi.batteryrecorder"
 
-        @SuppressLint("SdCardPath")
         const val APP_DATA: String = "/data/user/0/$APP_PACKAGE"
         const val CONFIG: String = APP_DATA + "/shared_prefs/" + APP_PACKAGE + "_preferences.xml"
+        const val SHELL_APP_DATA: String = "/data/user_de/0/com.android.shell"
 
         var appUid: Int = 0
 
-        @JvmStatic
         fun changeOwner(file: File) {
             try {
                 Os.chown(file.absolutePath, appUid, appUid)

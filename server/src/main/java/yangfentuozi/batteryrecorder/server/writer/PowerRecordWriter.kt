@@ -3,8 +3,6 @@ package yangfentuozi.batteryrecorder.server.writer
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import yangfentuozi.batteryrecorder.server.Server
-import yangfentuozi.batteryrecorder.server.Server.Companion.changeOwner
 import yangfentuozi.batteryrecorder.server.data.BatteryStatus
 import yangfentuozi.batteryrecorder.server.data.BatteryStatus.Charging
 import yangfentuozi.batteryrecorder.server.data.BatteryStatus.Discharging
@@ -16,8 +14,12 @@ import java.io.IOException
 import java.io.OutputStream
 
 class PowerRecordWriter(
-    private val looper: Looper
+    private val looper: Looper,
+    private val powerDir: File,
+    private val fixFileOwner: ((File) -> Unit)
 ) {
+    private val chargeDir = File(powerDir, "charge")
+    private val dischargeDir = File(powerDir, "discharge")
 
     private var lastStatus: BatteryStatus? = null
 
@@ -34,10 +36,10 @@ class PowerRecordWriter(
                 if (!file.mkdirs()) {
                     throw IOException("Failed to create power data directory: " + file.absolutePath)
                 }
-                changeOwner(file)
             } else if (!file.isDirectory()) {
                 throw IOException("Power data path is not a directory: " + file.absolutePath)
             }
+            fixFileOwner(file)
         }
         makeSureExists(powerDir)
         makeSureExists(chargeDir)
@@ -180,7 +182,7 @@ class PowerRecordWriter(
                     if (!file.exists() && !file.createNewFile()) {
                         throw IOException("Failed to create segment file: " + file.absolutePath)
                     }
-                    changeOwner(file)
+                    fixFileOwner(file)
                     FileOutputStream(file, true)
                 }
                 autoRetryWriter = AutoRetryStringWriter(
@@ -229,8 +231,5 @@ class PowerRecordWriter(
 
     companion object {
         const val TAG = "DataWriter"
-        val powerDir = File(Server.APP_DATA + "/power_data")
-        val chargeDir = File(powerDir, "charge")
-        val dischargeDir = File(powerDir, "discharge")
     }
 }
