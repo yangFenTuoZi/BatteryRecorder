@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import yangfentuozi.batteryrecorder.config.Constants
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 
 @Composable
@@ -34,12 +35,12 @@ fun BatchSizeDialog(
                 onValueChange = { newValue: String ->
                     value = newValue
                     isError =
-                        newValue.toIntOrNull() == null || newValue.toInt() < 0 || newValue.toInt() > 1000
+                        newValue.toIntOrNull() == null || newValue.toInt() < Constants.MIN_BATCH_SIZE || newValue.toInt() > Constants.MAX_BATCH_SIZE
                 },
                 label = { Text("批量大小") },
                 isError = isError,
                 supportingText = if (isError) {
-                    { Text("请输入 0-1000 之间的整数") }
+                    { Text("请输入 ${Constants.MIN_BATCH_SIZE}-${Constants.MAX_BATCH_SIZE} 之间的整数") }
                 } else null,
                 singleLine = true,
                 modifier = Modifier
@@ -55,7 +56,7 @@ fun BatchSizeDialog(
             TextButton(
                 onClick = {
                     value.toIntOrNull()?.let { intValue ->
-                        if (intValue in 0..1000) {
+                        if (intValue in Constants.MIN_BATCH_SIZE..Constants.MAX_BATCH_SIZE) {
                             onSave(intValue)
                         }
                     }

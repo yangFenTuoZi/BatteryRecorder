@@ -7,7 +7,7 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
-import yangfentuozi.batteryrecorder.server.Config
+import yangfentuozi.batteryrecorder.config.ConfigUtil
 
 class ConfigProvider : ContentProvider() {
 
@@ -23,13 +23,7 @@ class ConfigProvider : ContentProvider() {
             )
             return Bundle().apply {
                 putParcelable(
-                    "config", Config(
-                        recordInterval = prefs.getLong("interval", 1000),
-                        flushInterval = prefs.getLong("flush_interval", 30000),
-                        batchSize = prefs.getInt("batch_size", 200),
-                        screenOffRecord = prefs.getBoolean("record_screen_off", false),
-                        segmentDuration = prefs.getLong("segment_duration", 1440)
-                    )
+                    "config", ConfigUtil.getConfigBySharedPreferences(prefs)
                 )
             }
         }

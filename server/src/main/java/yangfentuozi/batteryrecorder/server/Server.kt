@@ -9,7 +9,6 @@ import android.app.TaskInfo
 import android.app.TaskStackListener
 import android.hardware.display.IDisplayManager
 import android.hardware.display.IDisplayManagerCallback
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
@@ -21,16 +20,13 @@ import android.os.ServiceManager
 import android.system.ErrnoException
 import android.system.Os
 import android.util.Log
-import android.util.Xml
-import org.xmlpull.v1.XmlPullParser
-import org.xmlpull.v1.XmlPullParserException
+import yangfentuozi.batteryrecorder.config.Config
+import yangfentuozi.batteryrecorder.config.ConfigUtil
 import yangfentuozi.batteryrecorder.server.Native.nativeInit
 import yangfentuozi.hiddenapi.compat.ActivityManagerCompat
 import yangfentuozi.hiddenapi.compat.PackageManagerCompat
 import yangfentuozi.hiddenapi.compat.ServiceManagerCompat
 import java.io.File
-import java.io.FileInputStream
-import java.io.FileNotFoundException
 import java.io.IOException
 import java.util.Scanner
 import kotlin.system.exitProcess
@@ -165,9 +161,11 @@ class Server internal constructor() : IService.Stub() {
         }
 
         if (Os.getuid() == 0) {
-            loadConfigRoot()
+            ConfigUtil.getConfigByReading(File(CONFIG))
         } else {
-            loadConfigCommon()
+            ConfigUtil.getConfigByContentProvider()
+        }?.let {
+            updateConfig(it)
         }
 
         monitor.start()
@@ -196,93 +194,6 @@ class Server internal constructor() : IService.Stub() {
         currForegroundApp = packageName
     }
 
-    fun loadConfigCommon() {
-        try {
-            val reply = ActivityManagerCompat.contentProviderCall(
-                "yangfentuozi.batteryrecorder.configProvider",
-                "requestConfig",
-                null,
-                null
-            )
-            if (reply == null) throw NullPointerException("reply is null")
-            reply.classLoader = Config::class.java.classLoader
-            val config = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                reply.getParcelable("config", Config::class.java)
-            } else {
-                @Suppress("DEPRECATION")
-                reply.getParcelable("config")
-            }
-            if (config == null) throw NullPointerException("config is null")
-            updateConfig(config)
-            Log.i(TAG, "Requested config")
-        } catch (e: RemoteException) {
-            Log.e(TAG, "Failed to request config", e)
-        } catch (e: NullPointerException) {
-            Log.e(TAG, "Failed to request config", e)
-        }
-    }
-
-    fun loadConfigRoot() {
-        val config = File(CONFIG)
-        if (!config.exists()) {
-            Log.e(TAG, "Config file not found")
-            return
-        }
-
-        try {
-            FileInputStream(config).use { fis ->
-                val parser = Xml.newPullParser()
-                parser.setInput(fis, "UTF-8")
-
-                var eventType = parser.eventType
-                var intervalMillis = 1000L
-                var batchSize = 200  // 保留兼容性
-                var flushIntervalMs = 30000L  // 默认5秒
-                var screenOffRecord = false
-                var segmentDurationMin = 1440L  // 默认24小时
-
-                while (eventType != XmlPullParser.END_DOCUMENT) {
-                    if (eventType == XmlPullParser.START_TAG) {
-                        val nameAttr = parser.getAttributeValue(null, "name")
-                        val valueAttr = parser.getAttributeValue(null, "value")
-                        when (nameAttr) {
-                            "interval" ->
-                                intervalMillis = valueAttr.toLongOrNull() ?: 1000L
-
-                            "batch_size" ->
-                                batchSize = valueAttr.toIntOrNull() ?: 200
-
-                            "flush_interval" ->
-                                flushIntervalMs = valueAttr.toLongOrNull() ?: 30000L
-
-                            "record_screen_off" -> {
-                                screenOffRecord = valueAttr == "true"
-                            }
-
-                            "segment_duration" ->
-                                segmentDurationMin = valueAttr.toLongOrNull() ?: 1440L
-                        }
-                    }
-                    eventType = parser.next()
-                }
-
-                updateConfig(Config(
-                    recordInterval = intervalMillis,
-                    flushInterval = flushIntervalMs,
-                    batchSize = batchSize,
-                    screenOffRecord = screenOffRecord,
-                    segmentDuration = segmentDurationMin
-                ))
-            }
-        } catch (e: FileNotFoundException) {
-            Log.e(TAG, "Config file not found", e)
-        } catch (e: IOException) {
-            Log.e(TAG, "Error reading config file", e)
-        } catch (e: XmlPullParserException) {
-            Log.e(TAG, "Error parsing config file", e)
-        }
-    }
-
     override fun stopService() {
         mMainHandler.postDelayed({ exitProcess(0) }, 100)
     }
@@ -305,24 +216,11 @@ class Server internal constructor() : IService.Stub() {
     }
 
     override fun updateConfig(config: Config) {
-        mIntervalMillis = config.recordInterval
-        var flushInterval = config.flushInterval
-        var batchSize = config.batchSize
-        val screenOffRecord = config.screenOffRecord
-        var segmentDuration = config.segmentDuration
-
-        if (mIntervalMillis < 0) mIntervalMillis = 0
-        if (batchSize < 0) batchSize = 0
-        else if (batchSize > 1000) batchSize = 1000
-        if (flushInterval < 100) flushInterval = 100L
-        else if (flushInterval > 60000) flushInterval = 60000L
-        if (segmentDuration < 0) segmentDuration = 0
-
-        writer.batchSize = batchSize
-        writer.flushIntervalMs = flushInterval
-        writer.maxSegmentDurationMs = segmentDuration * 60 * 1000
-
-        this.screenOffRecord = screenOffRecord
+        mIntervalMillis = config.recordIntervalMs
+        writer.flushIntervalMs = config.writeLatencyMs
+        writer.batchSize = config.batchSize
+        screenOffRecord = config.screenOffRecordEnabled
+        writer.maxSegmentDurationMs = config.segmentDurationMin
     }
 
     override fun sync() {

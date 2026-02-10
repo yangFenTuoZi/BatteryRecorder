@@ -1,18 +1,18 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    id("kotlin-parcelize")
 }
 
 android {
-    namespace = "yangfentuozi.batteryrecorder.server"
-    compileSdk = 36
+    namespace = "yangfentuozi.batteryrecoder.config"
+    compileSdk {
+        version = release(36)
+    }
 
     defaultConfig {
         minSdk = 31
         consumerProguardFiles("consumer-rules.pro")
-        ndk {
-            abiFilters.addAll(listOf("x86", "x86_64", "armeabi-v7a", "arm64-v8a"))
-        }
     }
 
     buildTypes {
@@ -20,15 +20,11 @@ android {
             isMinifyEnabled = false
         }
     }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
     }
 
-    buildFeatures {
-        aidl = true
-    }
     kotlinOptions {
         compileOptions {
             sourceCompatibility = JavaVersion.VERSION_21
@@ -36,21 +32,12 @@ android {
         }
     }
 
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/jni/CMakeLists.txt")
-            version = "3.22.1"
-        }
+    buildFeatures {
+        aidl = true
     }
-
-    ndkVersion = "29.0.14206865"
 }
 
 dependencies {
-
-    implementation(libs.androidx.annotation)
-
-    implementation(project(":config"))
     implementation(project(":hiddenapi:compat"))
     compileOnly(project(":hiddenapi:stub"))
 }

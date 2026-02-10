@@ -64,6 +64,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":config"))
     implementation(project(":server"))
 
     // Compose

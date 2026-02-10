@@ -61,7 +61,7 @@ fun HomeScreen(
     // 读取设置值
     val dualCellEnabled by settingsViewModel.dualCellEnabled.collectAsState()
     val calibrationValue by settingsViewModel.calibrationValue.collectAsState()
-    val intervalMs by settingsViewModel.intervalMs.collectAsState()
+    val intervalMs by settingsViewModel.recordIntervalMs.collectAsState()
     val dischargeDisplayPositive by settingsViewModel.dischargeDisplayPositive.collectAsState()
 
     val lifecycleOwner = LocalLifecycleOwner.current

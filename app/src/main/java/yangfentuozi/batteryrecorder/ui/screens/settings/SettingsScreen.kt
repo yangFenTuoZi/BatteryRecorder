@@ -43,10 +43,10 @@ fun SettingsScreen(
     val dualCellEnabled by settingsViewModel.dualCellEnabled.collectAsState()
     val dischargeDisplayPositive by settingsViewModel.dischargeDisplayPositive.collectAsState()
     val calibrationValue by settingsViewModel.calibrationValue.collectAsState()
-    val intervalMs by settingsViewModel.intervalMs.collectAsState()
+    val intervalMs by settingsViewModel.recordIntervalMs.collectAsState()
     val writeLatencyMs by settingsViewModel.writeLatencyMs.collectAsState()
     val batchSize by settingsViewModel.batchSize.collectAsState()
-    val recordScreenOffEnabled by settingsViewModel.recordScreenOff.collectAsState()
+    val recordScreenOffEnabled by settingsViewModel.screenOffRecord.collectAsState()
     val segmentDurationMin by settingsViewModel.segmentDurationMin.collectAsState()
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -86,14 +86,14 @@ fun SettingsScreen(
             item {
                 // 服务器设置
                 ServerSection(
-                    intervalMs = intervalMs,
-                    onIntervalChange = settingsViewModel::setIntervalMs,
+                    recordIntervalMs = intervalMs,
+                    onRecordIntervalChange = settingsViewModel::setRecordIntervalMs,
                     writeLatencyMs = writeLatencyMs,
                     onWriteLatencyChange = settingsViewModel::setWriteLatencyMs,
                     batchSize = batchSize,
                     onBatchSizeChange = settingsViewModel::setBatchSize,
                     recordScreenOffEnabled = recordScreenOffEnabled,
-                    onRecordScreenOffChange = settingsViewModel::setRecordScreenOffEnabled,
+                    onRecordScreenOffChange = settingsViewModel::setScreenOffRecordEnabled,
                     segmentDurationMin = segmentDurationMin,
                     onSegmentDurationChange = settingsViewModel::setSegmentDurationMin,
                 )

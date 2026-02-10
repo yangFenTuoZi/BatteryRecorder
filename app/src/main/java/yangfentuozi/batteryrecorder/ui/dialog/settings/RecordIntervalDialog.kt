@@ -17,18 +17,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import yangfentuozi.batteryrecorder.config.Constants
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 import kotlin.math.roundToInt
 
 @Composable
-fun IntervalDialog(
+fun RecordIntervalDialog(
     currentValueMs: Long,
     onDismiss: () -> Unit,
     onSave: (Long) -> Unit,
     onReset: () -> Unit
 ) {
+    val minS = Constants.MIN_RECORD_INTERVAL_MS / 1000f
+    val maxS = Constants.MAX_RECORD_INTERVAL_MS / 1000f
     var value by remember {
-        val initial = (currentValueMs / 1000f).coerceIn(0.1f, 60f)
+        val initial = (currentValueMs / 1000f).coerceIn(minS, maxS)
         mutableFloatStateOf(initial)
     }
 
@@ -49,7 +52,7 @@ fun IntervalDialog(
                 Slider(
                     value = value,
                     onValueChange = { value = it },
-                    valueRange = 0.1f..60f,
+                    valueRange = minS..maxS,
                     modifier = Modifier.weight(1F)
                 )
                 Text(

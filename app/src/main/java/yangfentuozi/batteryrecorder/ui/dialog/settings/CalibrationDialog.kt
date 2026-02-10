@@ -34,13 +34,11 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import yangfentuozi.batteryrecorder.config.Constants
 import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.server.IRecordListener
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 import kotlin.math.abs
-
-// 校准值范围上限
-private const val MAX_CALIBRATION_VALUE = 100_000_000
 
 /** 调整校准值：decrease=true 时减小（负向），否则增大（正向） */
 private fun adjustCalibrationValue(current: Int, decrease: Boolean): Int {
@@ -49,12 +47,10 @@ private fun adjustCalibrationValue(current: Int, decrease: Boolean): Int {
     } else {
         if (current > 0) current * 10 else current / 10
     }
-    return when {
-        next == 0 -> if (decrease) -1 else 1
-        next < -MAX_CALIBRATION_VALUE -> -MAX_CALIBRATION_VALUE
-        next > MAX_CALIBRATION_VALUE -> MAX_CALIBRATION_VALUE
-        else -> next
-    }
+    return if (next == 0) if (decrease) -1 else 1 else next.coerceIn(
+        Constants.MIN_CALIBRATION_VALUE,
+        Constants.MAX_CALIBRATION_VALUE
+    )
 }
 
 @Composable

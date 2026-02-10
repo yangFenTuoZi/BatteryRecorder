@@ -12,15 +12,15 @@ import yangfentuozi.batteryrecorder.ui.components.global.M3ESwitchWidget
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
 import yangfentuozi.batteryrecorder.ui.components.settings.SettingsItem
 import yangfentuozi.batteryrecorder.ui.dialog.settings.BatchSizeDialog
-import yangfentuozi.batteryrecorder.ui.dialog.settings.IntervalDialog
+import yangfentuozi.batteryrecorder.ui.dialog.settings.RecordIntervalDialog
 import yangfentuozi.batteryrecorder.ui.dialog.settings.SegmentDurationDialog
 import yangfentuozi.batteryrecorder.ui.dialog.settings.WriteLatencyDialog
 import kotlin.math.round
 
 @Composable
 fun ServerSection(
-    intervalMs: Long,
-    onIntervalChange: (Long) -> Unit,
+    recordIntervalMs: Long,
+    onRecordIntervalChange: (Long) -> Unit,
     writeLatencyMs: Long,
     onWriteLatencyChange: (Long) -> Unit,
     batchSize: Int,
@@ -30,7 +30,7 @@ fun ServerSection(
     segmentDurationMin: Long,
     onSegmentDurationChange: (Long) -> Unit
 ) {
-    var showIntervalDialog by remember { mutableStateOf(false) }
+    var showRecordIntervalDialog by remember { mutableStateOf(false) }
     var showWriteLatencyDialog by remember { mutableStateOf(false) }
     var showBatchSizeDialog by remember { mutableStateOf(false) }
     var showSegmentDurationDialog by remember { mutableStateOf(false) }
@@ -50,8 +50,8 @@ fun ServerSection(
         item {
             SettingsItem(
                 title = "采样间隔",
-                summary = "${"%.1f".format(intervalMs / 1000.0)} 秒"
-            ) { showIntervalDialog = true }
+                summary = "${"%.1f".format(recordIntervalMs / 1000.0)} 秒"
+            ) { showRecordIntervalDialog = true }
         }
 
         item {
@@ -82,18 +82,18 @@ fun ServerSection(
     }
 
     // 采样间隔对话框
-    if (showIntervalDialog) {
-        IntervalDialog(
-            currentValueMs = intervalMs,
-            onDismiss = { showIntervalDialog = false },
+    if (showRecordIntervalDialog) {
+        RecordIntervalDialog(
+            currentValueMs = recordIntervalMs,
+            onDismiss = { showRecordIntervalDialog = false },
             onSave = { value ->
                 val roundedValue = (round(value / 100.0) * 100).toLong()
-                onIntervalChange(roundedValue)
-                showIntervalDialog = false
+                onRecordIntervalChange(roundedValue)
+                showRecordIntervalDialog = false
             },
             onReset = {
-                onIntervalChange(1000)
-                showIntervalDialog = false
+                onRecordIntervalChange(1000)
+                showRecordIntervalDialog = false
             }
         )
     }

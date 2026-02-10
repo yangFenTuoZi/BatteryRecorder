@@ -49,7 +49,7 @@ fun RecordDetailScreen(
     val dualCellEnabled by settingsViewModel.dualCellEnabled.collectAsState()
     val dischargeDisplayPositive by settingsViewModel.dischargeDisplayPositive.collectAsState()
     val calibrationValue by settingsViewModel.calibrationValue.collectAsState()
-    val recordScreenOffEnabled by settingsViewModel.recordScreenOff.collectAsState()
+    val recordScreenOffEnabled by settingsViewModel.screenOffRecord.collectAsState()
 
     LaunchedEffect(Unit) {
         settingsViewModel.init(context)
