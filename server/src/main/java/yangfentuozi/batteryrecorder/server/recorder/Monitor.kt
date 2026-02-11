@@ -128,7 +128,9 @@ class Monitor(
     }
 
     fun notifyLock() {
-        lock.notifyAll()
+        synchronized(lock) {
+            lock.notifyAll()
+        }
     }
 
     fun registerRecordListener(callback: IRecordListener) {
