@@ -1,6 +1,7 @@
 package yangfentuozi.batteryrecorder.config
 
 object Constants {
+    const val PREFS_NAME = "app_settings"
     // server
     /** 记录间隔（毫秒） */
     const val KEY_RECORD_INTERVAL_MS = "record_interval_ms"

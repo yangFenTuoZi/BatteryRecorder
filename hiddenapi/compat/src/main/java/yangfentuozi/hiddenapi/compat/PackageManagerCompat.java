@@ -2,10 +2,13 @@ package yangfentuozi.hiddenapi.compat;
 
 import android.content.pm.ApplicationInfo;
 import android.content.pm.IPackageManager;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.system.Os;
+
+import androidx.annotation.NonNull;
 
 public class PackageManagerCompat {
 
@@ -17,8 +20,9 @@ public class PackageManagerCompat {
         }
     }
 
+    @NonNull
     public static ApplicationInfo getApplicationInfo(String packageName, long flags, int userId)
-            throws RemoteException {
+            throws RemoteException, PackageManager.NameNotFoundException {
         init();
 
         ApplicationInfo applicationInfo;
@@ -27,6 +31,7 @@ public class PackageManagerCompat {
         } else {
             applicationInfo = service.getApplicationInfo(packageName, (int) flags, Os.getuid());
         }
+        if (applicationInfo == null) throw new PackageManager.NameNotFoundException();
         return applicationInfo;
     }
 }

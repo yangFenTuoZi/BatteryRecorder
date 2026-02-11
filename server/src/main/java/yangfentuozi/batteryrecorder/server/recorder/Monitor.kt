@@ -13,7 +13,7 @@ import android.os.RemoteException
 import android.os.ServiceManager
 import android.util.Log
 import yangfentuozi.batteryrecorder.config.Constants
-import yangfentuozi.batteryrecorder.server.Server.Companion.APP_PACKAGE
+import yangfentuozi.batteryrecorder.server.Server.Companion.APP_PACKAGE_NAME
 import yangfentuozi.batteryrecorder.server.Server.Companion.TAG
 import yangfentuozi.batteryrecorder.server.data.PowerRecord
 import yangfentuozi.batteryrecorder.server.writer.PowerRecordWriter
@@ -142,7 +142,7 @@ class Monitor(
     private fun onFocusedAppChanged(taskInfo: TaskInfo) {
         val componentName = taskInfo.topActivity ?: return
         val packageName = componentName.packageName
-        if (packageName == APP_PACKAGE) {
+        if (packageName == APP_PACKAGE_NAME) {
             sendBinder()
         }
         currForegroundApp = packageName

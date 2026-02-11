@@ -57,7 +57,7 @@ class SettingsViewModel : ViewModel() {
     fun init(context: Context) {
         if (!::prefs.isInitialized) {
             prefs = context.getSharedPreferences(
-                "yangfentuozi.batteryrecorder_preferences",
+                Constants.PREFS_NAME,
                 Context.MODE_PRIVATE
             )
             loadSettings()

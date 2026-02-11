@@ -1,6 +1,7 @@
 package yangfentuozi.batteryrecorder.data.history
 
 import android.content.Context
+import yangfentuozi.batteryrecorder.config.Constants
 import yangfentuozi.batteryrecorder.data.model.ChartPoint
 import java.io.File
 
@@ -26,13 +27,12 @@ data class HistorySummary(
 )
 
 object HistoryRepository {
-    private const val PREFS_NAME = "yangfentuozi.batteryrecorder_preferences"
     private const val KEY_DISCHARGE_DISPLAY_POSITIVE = "discharge_display_positive"
 
     // 放电功率默认为负值，用户可选择显示为正值
     private fun getPowerMultiplier(context: Context, type: RecordType): Double {
         if (type != RecordType.DISCHARGE) return 1.0
-        val enabled = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val enabled = context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
             .getBoolean(KEY_DISCHARGE_DISPLAY_POSITIVE, true)
         return if (enabled) -1.0 else 1.0
     }

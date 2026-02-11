@@ -1,6 +1,8 @@
 package yangfentuozi.batteryrecorder.server
 
 import android.annotation.SuppressLint
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
@@ -11,6 +13,7 @@ import android.system.Os
 import android.util.Log
 import yangfentuozi.batteryrecorder.config.Config
 import yangfentuozi.batteryrecorder.config.ConfigUtil
+import yangfentuozi.batteryrecorder.config.Constants
 import yangfentuozi.batteryrecorder.server.recorder.IRecordListener
 import yangfentuozi.batteryrecorder.server.recorder.Monitor
 import yangfentuozi.batteryrecorder.server.recorder.Native.nativeInit
@@ -29,28 +32,50 @@ class Server internal constructor() : IService.Stub() {
     private lateinit var writer: PowerRecordWriter
     private val writerThread = HandlerThread("WriterThread")
 
+    private lateinit var appDataDir: File
+    private lateinit var appConfigFile: File
+    private lateinit var appPowerDataDir: File
+    private lateinit var shellDataDir: File
+    private lateinit var shellPowerDataDir: File
+
     private fun startService() {
-        try {
-            val appInfo = PackageManagerCompat.getApplicationInfo(APP_PACKAGE, 0L, Os.getuid())
-            appUid = appInfo.uid
-            @SuppressLint("UnsafeDynamicallyLoadedCode")
-            System.load("${appInfo.nativeLibraryDir}/libbatteryrecorder.so")
-            nativeInit()
-        } catch (e: RemoteException) {
-            throw RuntimeException("Failed to get application info for package: $APP_PACKAGE", e)
+        fun getAppInfo(packageName: String): ApplicationInfo {
+            try {
+                return PackageManagerCompat.getApplicationInfo(packageName, 0L, 0)
+            } catch (e: RemoteException) {
+                throw RuntimeException(
+                    "Failed to get application info for package: $packageName",
+                    e
+                )
+            } catch (e: PackageManager.NameNotFoundException) {
+                throw RuntimeException("$packageName is not installed", e)
+            }
         }
+
+        var appInfo = getAppInfo(APP_PACKAGE_NAME)
+        appUid = appInfo.uid
+        appDataDir = File(appInfo.dataDir)
+        appConfigFile = File("${appInfo.dataDir}/shared_prefs/${Constants.PREFS_NAME}.xml")
+        appPowerDataDir = File("${appInfo.dataDir}/power_data")
+        @SuppressLint("UnsafeDynamicallyLoadedCode")
+        System.load("${appInfo.nativeLibraryDir}/libbatteryrecorder.so")
+        nativeInit()
+
+        appInfo = getAppInfo(SHELL_PACKAGE_NAME)
+        shellDataDir = File(appInfo.dataDir)
+        shellPowerDataDir = File("${appInfo.dataDir}/batteryrecorder_power_data")
 
         try {
             writerThread.start()
             writer = if (Os.getuid() == 0)
                 PowerRecordWriter(
                     writerThread.looper,
-                    File("$APP_DATA/power_data")
+                    appPowerDataDir
                 ) { changeOwnerRecursively(it) }
             else
                 PowerRecordWriter(
                     writerThread.looper,
-                    File("$SHELL_APP_DATA/batteryrecorder_power_data")
+                    shellPowerDataDir
                 ) {}
         } catch (e: IOException) {
             throw RuntimeException(e)
@@ -62,7 +87,7 @@ class Server internal constructor() : IService.Stub() {
         )
 
         if (Os.getuid() == 0) {
-            ConfigUtil.getConfigByReading(File(CONFIG))
+            ConfigUtil.getConfigByReading(appConfigFile)
         } else {
             ConfigUtil.getConfigByContentProvider()
         }?.let {
@@ -162,14 +187,10 @@ class Server internal constructor() : IService.Stub() {
         Looper.loop()
     }
 
-    @SuppressLint("SdCardPath")
     companion object {
         const val TAG: String = "Server"
-        const val APP_PACKAGE: String = "yangfentuozi.batteryrecorder"
-
-        const val APP_DATA: String = "/data/user/0/$APP_PACKAGE"
-        const val CONFIG: String = APP_DATA + "/shared_prefs/" + APP_PACKAGE + "_preferences.xml"
-        const val SHELL_APP_DATA: String = "/data/user_de/0/com.android.shell"
+        const val APP_PACKAGE_NAME: String = "yangfentuozi.batteryrecorder"
+        const val SHELL_PACKAGE_NAME: String = "com.android.shell"
 
         var appUid: Int = 0
 

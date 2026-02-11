@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import yangfentuozi.batteryrecorder.config.ConfigUtil
+import yangfentuozi.batteryrecorder.config.Constants
 
 class ConfigProvider : ContentProvider() {
 
@@ -18,7 +19,7 @@ class ConfigProvider : ContentProvider() {
             Log.i("BatteryRecorderApp", "requestConfig")
 
             val prefs = requireContext().getSharedPreferences(
-                "yangfentuozi.batteryrecorder_preferences",
+                Constants.PREFS_NAME,
                 Context.MODE_PRIVATE
             )
             return Bundle().apply {
