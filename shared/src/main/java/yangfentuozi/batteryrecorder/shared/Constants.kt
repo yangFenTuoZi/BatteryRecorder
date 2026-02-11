@@ -8,5 +8,5 @@ object Constants {
     // **相对**于 app 数据目录的功率记录数据
     const val APP_POWER_DATA_PATH = "power_data"
     // **相对**于 Shell app 数据目录的功率记录数据
-    const val SHELL_POWER_DATA_PATH = "batteryrecord_power_data"
+    const val SHELL_POWER_DATA_PATH = "batteryrecorder_power_data"
 }
