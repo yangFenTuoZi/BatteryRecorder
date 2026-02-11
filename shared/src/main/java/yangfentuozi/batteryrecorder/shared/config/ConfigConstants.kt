@@ -1,6 +1,6 @@
 package yangfentuozi.batteryrecorder.shared.config
 
-object Constants {
+object ConfigConstants {
     const val PREFS_NAME = "app_settings"
     // server
     /** 记录间隔（毫秒） */

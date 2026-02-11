@@ -56,11 +56,11 @@ object ConfigUtil {
                 parser.setInput(fis, "UTF-8")
 
                 var eventType = parser.eventType
-                var recordIntervalMs = Constants.DEF_RECORD_INTERVAL_MS
-                var batchSize = Constants.DEF_BATCH_SIZE
-                var writeLatencyMs = Constants.DEF_WRITE_LATENCY_MS
-                var screenOffRecordEnabled = Constants.DEF_SCREEN_OFF_RECORD_ENABLED
-                var segmentDurationMin = Constants.DEF_SEGMENT_DURATION_MIN
+                var recordIntervalMs = ConfigConstants.DEF_RECORD_INTERVAL_MS
+                var batchSize = ConfigConstants.DEF_BATCH_SIZE
+                var writeLatencyMs = ConfigConstants.DEF_WRITE_LATENCY_MS
+                var screenOffRecordEnabled = ConfigConstants.DEF_SCREEN_OFF_RECORD_ENABLED
+                var segmentDurationMin = ConfigConstants.DEF_SEGMENT_DURATION_MIN
 
                 while (eventType != XmlPullParser.END_DOCUMENT) {
                     if (eventType == XmlPullParser.START_TAG) {
@@ -68,21 +68,21 @@ object ConfigUtil {
                         val valueAttr = parser.getAttributeValue(null, "value")
 
                         when (nameAttr) {
-                            Constants.KEY_RECORD_INTERVAL_MS ->
-                                recordIntervalMs = valueAttr.toLongOrNull() ?: Constants.DEF_RECORD_INTERVAL_MS
+                            ConfigConstants.KEY_RECORD_INTERVAL_MS ->
+                                recordIntervalMs = valueAttr.toLongOrNull() ?: ConfigConstants.DEF_RECORD_INTERVAL_MS
 
-                            Constants.KEY_BATCH_SIZE ->
-                                batchSize = valueAttr.toIntOrNull() ?: Constants.DEF_BATCH_SIZE
+                            ConfigConstants.KEY_BATCH_SIZE ->
+                                batchSize = valueAttr.toIntOrNull() ?: ConfigConstants.DEF_BATCH_SIZE
 
-                            Constants.KEY_WRITE_LATENCY_MS ->
-                                writeLatencyMs = valueAttr.toLongOrNull() ?: Constants.DEF_WRITE_LATENCY_MS
+                            ConfigConstants.KEY_WRITE_LATENCY_MS ->
+                                writeLatencyMs = valueAttr.toLongOrNull() ?: ConfigConstants.DEF_WRITE_LATENCY_MS
 
-                            Constants.KEY_SCREEN_OFF_RECORD_ENABLED -> {
-                                screenOffRecordEnabled = valueAttr.toBooleanStrictOrNull() ?: Constants.DEF_SCREEN_OFF_RECORD_ENABLED
+                            ConfigConstants.KEY_SCREEN_OFF_RECORD_ENABLED -> {
+                                screenOffRecordEnabled = valueAttr.toBooleanStrictOrNull() ?: ConfigConstants.DEF_SCREEN_OFF_RECORD_ENABLED
                             }
 
-                            Constants.KEY_SEGMENT_DURATION_MIN ->
-                                segmentDurationMin = valueAttr.toLongOrNull() ?: Constants.DEF_SEGMENT_DURATION_MIN
+                            ConfigConstants.KEY_SEGMENT_DURATION_MIN ->
+                                segmentDurationMin = valueAttr.toLongOrNull() ?: ConfigConstants.DEF_SEGMENT_DURATION_MIN
                         }
                     }
                     eventType = parser.next()
@@ -110,34 +110,34 @@ object ConfigUtil {
 
     fun getConfigBySharedPreferences(prefs: SharedPreferences): Config {
         return coerceConfigValue(Config(
-            recordIntervalMs = prefs.getLong(Constants.KEY_RECORD_INTERVAL_MS, Constants.DEF_RECORD_INTERVAL_MS),
-            writeLatencyMs = prefs.getLong(Constants.KEY_WRITE_LATENCY_MS, Constants.DEF_WRITE_LATENCY_MS),
-            batchSize = prefs.getInt(Constants.KEY_BATCH_SIZE, Constants.DEF_BATCH_SIZE),
+            recordIntervalMs = prefs.getLong(ConfigConstants.KEY_RECORD_INTERVAL_MS, ConfigConstants.DEF_RECORD_INTERVAL_MS),
+            writeLatencyMs = prefs.getLong(ConfigConstants.KEY_WRITE_LATENCY_MS, ConfigConstants.DEF_WRITE_LATENCY_MS),
+            batchSize = prefs.getInt(ConfigConstants.KEY_BATCH_SIZE, ConfigConstants.DEF_BATCH_SIZE),
             screenOffRecordEnabled = prefs.getBoolean(
-                Constants.KEY_SCREEN_OFF_RECORD_ENABLED,
-                Constants.DEF_SCREEN_OFF_RECORD_ENABLED
+                ConfigConstants.KEY_SCREEN_OFF_RECORD_ENABLED,
+                ConfigConstants.DEF_SCREEN_OFF_RECORD_ENABLED
             ),
-            segmentDurationMin = prefs.getLong(Constants.KEY_SEGMENT_DURATION_MIN, Constants.DEF_SEGMENT_DURATION_MIN)
+            segmentDurationMin = prefs.getLong(ConfigConstants.KEY_SEGMENT_DURATION_MIN, ConfigConstants.DEF_SEGMENT_DURATION_MIN)
         ))
     }
 
     fun coerceConfigValue(config: Config): Config {
         return config.copy(
             recordIntervalMs = config.recordIntervalMs.coerceIn(
-                Constants.MIN_RECORD_INTERVAL_MS,
-                Constants.MAX_RECORD_INTERVAL_MS
+                ConfigConstants.MIN_RECORD_INTERVAL_MS,
+                ConfigConstants.MAX_RECORD_INTERVAL_MS
             ),
             batchSize = config.batchSize.coerceIn(
-                Constants.MIN_BATCH_SIZE,
-                Constants.MAX_BATCH_SIZE
+                ConfigConstants.MIN_BATCH_SIZE,
+                ConfigConstants.MAX_BATCH_SIZE
             ),
             writeLatencyMs = config.writeLatencyMs.coerceIn(
-                Constants.MIN_WRITE_LATENCY_MS,
-                Constants.MAX_WRITE_LATENCY_MS
+                ConfigConstants.MIN_WRITE_LATENCY_MS,
+                ConfigConstants.MAX_WRITE_LATENCY_MS
             ),
             segmentDurationMin = config.segmentDurationMin.coerceIn(
-                Constants.MIN_SEGMENT_DURATION_MIN,
-                Constants.MAX_SEGMENT_DURATION_MIN
+                ConfigConstants.MIN_SEGMENT_DURATION_MIN,
+                ConfigConstants.MAX_SEGMENT_DURATION_MIN
             )
         )
     }

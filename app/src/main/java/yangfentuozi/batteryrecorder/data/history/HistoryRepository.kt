@@ -2,7 +2,8 @@ package yangfentuozi.batteryrecorder.data.history
 
 import android.content.Context
 import yangfentuozi.batteryrecorder.data.model.ChartPoint
-import yangfentuozi.batteryrecorder.shared.config.Constants
+import yangfentuozi.batteryrecorder.shared.Constants
+import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import java.io.File
 
 enum class RecordType(val dirName: String) {
@@ -32,13 +33,13 @@ object HistoryRepository {
     // 放电功率默认为负值，用户可选择显示为正值
     private fun getPowerMultiplier(context: Context, type: RecordType): Double {
         if (type != RecordType.DISCHARGE) return 1.0
-        val enabled = context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
+        val enabled = context.getSharedPreferences(ConfigConstants.PREFS_NAME, Context.MODE_PRIVATE)
             .getBoolean(KEY_DISCHARGE_DISPLAY_POSITIVE, true)
         return if (enabled) -1.0 else 1.0
     }
 
     private fun getDataDir(context: Context, type: RecordType) =
-        File(File(context.dataDir, "power_data"), type.dirName)
+        File(File(context.dataDir, Constants.APP_POWER_DATA_PATH), type.dirName)
 
     private fun getCacheDir(context: Context) = File(context.cacheDir, "power_stats")
 

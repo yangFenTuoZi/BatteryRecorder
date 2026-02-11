@@ -12,11 +12,11 @@ import android.os.RemoteCallbackList
 import android.os.RemoteException
 import android.os.ServiceManager
 import android.util.Log
-import yangfentuozi.batteryrecorder.server.Server.Companion.APP_PACKAGE_NAME
 import yangfentuozi.batteryrecorder.server.Server.Companion.TAG
 import yangfentuozi.batteryrecorder.server.data.PowerRecord
 import yangfentuozi.batteryrecorder.server.writer.PowerRecordWriter
-import yangfentuozi.batteryrecorder.shared.config.Constants
+import yangfentuozi.batteryrecorder.shared.Constants
+import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import java.io.IOException
 
 class Monitor(
@@ -49,8 +49,8 @@ class Monitor(
 
     private val callbacks: RemoteCallbackList<IRecordListener> = RemoteCallbackList()
 
-    var recordIntervalMs: Long = Constants.DEF_RECORD_INTERVAL_MS
-    var screenOffRecord: Boolean = Constants.DEF_SCREEN_OFF_RECORD_ENABLED
+    var recordIntervalMs: Long = ConfigConstants.DEF_RECORD_INTERVAL_MS
+    var screenOffRecord: Boolean = ConfigConstants.DEF_SCREEN_OFF_RECORD_ENABLED
     private var paused = false
     private var stopped = false
     private val lock = Object()
@@ -144,7 +144,7 @@ class Monitor(
     private fun onFocusedAppChanged(taskInfo: TaskInfo) {
         val componentName = taskInfo.topActivity ?: return
         val packageName = componentName.packageName
-        if (packageName == APP_PACKAGE_NAME) {
+        if (packageName == Constants.APP_PACKAGE_NAME) {
             sendBinder()
         }
         currForegroundApp = packageName

@@ -17,7 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import yangfentuozi.batteryrecorder.shared.config.Constants
+import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 import kotlin.math.roundToInt
 
@@ -28,8 +28,8 @@ fun WriteLatencyDialog(
     onSave: (Long) -> Unit,
     onReset: () -> Unit
 ) {
-    val minS = Constants.MIN_WRITE_LATENCY_MS / 1000f
-    val maxS = Constants.MAX_WRITE_LATENCY_MS / 1000f
+    val minS = ConfigConstants.MIN_WRITE_LATENCY_MS / 1000f
+    val maxS = ConfigConstants.MAX_WRITE_LATENCY_MS / 1000f
     var value by remember {
         val initial = (currentValueMs / 1000f).coerceIn(minS, maxS)
         mutableFloatStateOf(initial)

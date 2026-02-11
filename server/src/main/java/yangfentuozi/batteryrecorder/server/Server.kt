@@ -18,9 +18,10 @@ import yangfentuozi.batteryrecorder.server.recorder.IRecordListener
 import yangfentuozi.batteryrecorder.server.recorder.Monitor
 import yangfentuozi.batteryrecorder.server.recorder.Native.nativeInit
 import yangfentuozi.batteryrecorder.server.writer.PowerRecordWriter
+import yangfentuozi.batteryrecorder.shared.Constants
 import yangfentuozi.batteryrecorder.shared.config.Config
+import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.shared.config.ConfigUtil
-import yangfentuozi.batteryrecorder.shared.config.Constants
 import yangfentuozi.batteryrecorder.shared.sync.PfdFileSender
 import yangfentuozi.hiddenapi.compat.ActivityManagerCompat
 import yangfentuozi.hiddenapi.compat.PackageManagerCompat
@@ -57,18 +58,18 @@ class Server internal constructor() : IService.Stub() {
             }
         }
 
-        var appInfo = getAppInfo(APP_PACKAGE_NAME)
+        var appInfo = getAppInfo(Constants.APP_PACKAGE_NAME)
         appUid = appInfo.uid
         appDataDir = File(appInfo.dataDir)
-        appConfigFile = File("${appInfo.dataDir}/shared_prefs/${Constants.PREFS_NAME}.xml")
-        appPowerDataDir = File("${appInfo.dataDir}/power_data")
+        appConfigFile = File("${appInfo.dataDir}/shared_prefs/${ConfigConstants.PREFS_NAME}.xml")
+        appPowerDataDir = File("${appInfo.dataDir}/${Constants.APP_POWER_DATA_PATH}")
         @SuppressLint("UnsafeDynamicallyLoadedCode")
         System.load("${appInfo.nativeLibraryDir}/libbatteryrecorder.so")
         nativeInit()
 
-        appInfo = getAppInfo(SHELL_PACKAGE_NAME)
+        appInfo = getAppInfo(Constants.SHELL_PACKAGE_NAME)
         shellDataDir = File(appInfo.dataDir)
-        shellPowerDataDir = File("${appInfo.dataDir}/batteryrecorder_power_data")
+        shellPowerDataDir = File("${appInfo.dataDir}/${Constants.SHELL_POWER_DATA_PATH}")
 
         if (Os.getuid() == 0) {
             shellPowerDataDir.let { shellPowerDataDir ->
@@ -244,8 +245,6 @@ class Server internal constructor() : IService.Stub() {
 
     companion object {
         const val TAG: String = "Server"
-        const val APP_PACKAGE_NAME: String = "yangfentuozi.batteryrecorder"
-        const val SHELL_PACKAGE_NAME: String = "com.android.shell"
 
         var appUid: Int = 0
 

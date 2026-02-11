@@ -36,7 +36,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.server.recorder.IRecordListener
-import yangfentuozi.batteryrecorder.shared.config.Constants
+import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 import kotlin.math.abs
 
@@ -48,8 +48,8 @@ private fun adjustCalibrationValue(current: Int, decrease: Boolean): Int {
         if (current > 0) current * 10 else current / 10
     }
     return if (next == 0) if (decrease) -1 else 1 else next.coerceIn(
-        Constants.MIN_CALIBRATION_VALUE,
-        Constants.MAX_CALIBRATION_VALUE
+        ConfigConstants.MIN_CALIBRATION_VALUE,
+        ConfigConstants.MAX_CALIBRATION_VALUE
     )
 }
 

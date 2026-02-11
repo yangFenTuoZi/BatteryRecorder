@@ -11,42 +11,42 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.shared.config.Config
-import yangfentuozi.batteryrecorder.shared.config.Constants
+import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 
 class SettingsViewModel : ViewModel() {
     private lateinit var prefs: SharedPreferences
 
     // 双电芯设置
-    private val _dualCellEnabled = MutableStateFlow(Constants.DEF_DUAL_CELL_ENABLED)
+    private val _dualCellEnabled = MutableStateFlow(ConfigConstants.DEF_DUAL_CELL_ENABLED)
     val dualCellEnabled: StateFlow<Boolean> = _dualCellEnabled.asStateFlow()
 
     // 放电电流显示为正值
     private val _dischargeDisplayPositive =
-        MutableStateFlow(Constants.DEF_DISCHARGE_DISPLAY_POSITIVE)
+        MutableStateFlow(ConfigConstants.DEF_DISCHARGE_DISPLAY_POSITIVE)
     val dischargeDisplayPositive: StateFlow<Boolean> = _dischargeDisplayPositive.asStateFlow()
 
     // 校准值
-    private val _calibrationValue = MutableStateFlow(Constants.DEF_CALIBRATION_VALUE)
+    private val _calibrationValue = MutableStateFlow(ConfigConstants.DEF_CALIBRATION_VALUE)
     val calibrationValue: StateFlow<Int> = _calibrationValue.asStateFlow()
 
     // 采样间隔 (ms)
-    private val _recordIntervalMs = MutableStateFlow(Constants.DEF_RECORD_INTERVAL_MS)
+    private val _recordIntervalMs = MutableStateFlow(ConfigConstants.DEF_RECORD_INTERVAL_MS)
     val recordIntervalMs: StateFlow<Long> = _recordIntervalMs.asStateFlow()
 
     // 写入延迟 (ms)
-    private val _writeLatencyMs = MutableStateFlow(Constants.DEF_WRITE_LATENCY_MS)
+    private val _writeLatencyMs = MutableStateFlow(ConfigConstants.DEF_WRITE_LATENCY_MS)
     val writeLatencyMs: StateFlow<Long> = _writeLatencyMs.asStateFlow()
 
     // 批次大小
-    private val _batchSize = MutableStateFlow(Constants.DEF_BATCH_SIZE)
+    private val _batchSize = MutableStateFlow(ConfigConstants.DEF_BATCH_SIZE)
     val batchSize: StateFlow<Int> = _batchSize.asStateFlow()
 
     // 息屏时继续记录
-    private val _screenOffRecord = MutableStateFlow(Constants.DEF_SCREEN_OFF_RECORD_ENABLED)
+    private val _screenOffRecord = MutableStateFlow(ConfigConstants.DEF_SCREEN_OFF_RECORD_ENABLED)
     val screenOffRecord: StateFlow<Boolean> = _screenOffRecord.asStateFlow()
 
     // 分段时间 (分钟)
-    private val _segmentDurationMin = MutableStateFlow(Constants.DEF_SEGMENT_DURATION_MIN)
+    private val _segmentDurationMin = MutableStateFlow(ConfigConstants.DEF_SEGMENT_DURATION_MIN)
     val segmentDurationMin: StateFlow<Long> = _segmentDurationMin.asStateFlow()
 
     private lateinit var serverConfig: Config
@@ -57,7 +57,7 @@ class SettingsViewModel : ViewModel() {
     fun init(context: Context) {
         if (!::prefs.isInitialized) {
             prefs = context.getSharedPreferences(
-                Constants.PREFS_NAME,
+                ConfigConstants.PREFS_NAME,
                 Context.MODE_PRIVATE
             )
             loadSettings()
@@ -70,65 +70,65 @@ class SettingsViewModel : ViewModel() {
     private fun loadSettings() {
         _dualCellEnabled.value =
             prefs.getBoolean(
-                Constants.KEY_DUAL_CELL_ENABLED,
-                Constants.DEF_DUAL_CELL_ENABLED
+                ConfigConstants.KEY_DUAL_CELL_ENABLED,
+                ConfigConstants.DEF_DUAL_CELL_ENABLED
             )
 
         _dischargeDisplayPositive.value =
             prefs.getBoolean(
-                Constants.KEY_DISCHARGE_DISPLAY_POSITIVE,
-                Constants.DEF_DISCHARGE_DISPLAY_POSITIVE
+                ConfigConstants.KEY_DISCHARGE_DISPLAY_POSITIVE,
+                ConfigConstants.DEF_DISCHARGE_DISPLAY_POSITIVE
             )
 
         _calibrationValue.value =
             prefs.getInt(
-                Constants.KEY_CALIBRATION_VALUE,
-                Constants.DEF_CALIBRATION_VALUE
+                ConfigConstants.KEY_CALIBRATION_VALUE,
+                ConfigConstants.DEF_CALIBRATION_VALUE
             ).coerceIn(
-                Constants.MIN_CALIBRATION_VALUE,
-                Constants.MAX_CALIBRATION_VALUE
+                ConfigConstants.MIN_CALIBRATION_VALUE,
+                ConfigConstants.MAX_CALIBRATION_VALUE
             )
 
         _recordIntervalMs.value =
             prefs.getLong(
-                Constants.KEY_RECORD_INTERVAL_MS,
-                Constants.DEF_RECORD_INTERVAL_MS
+                ConfigConstants.KEY_RECORD_INTERVAL_MS,
+                ConfigConstants.DEF_RECORD_INTERVAL_MS
             ).coerceIn(
-                Constants.MIN_RECORD_INTERVAL_MS,
-                Constants.MAX_RECORD_INTERVAL_MS
+                ConfigConstants.MIN_RECORD_INTERVAL_MS,
+                ConfigConstants.MAX_RECORD_INTERVAL_MS
             )
 
         _writeLatencyMs.value =
             prefs.getLong(
-                Constants.KEY_WRITE_LATENCY_MS,
-                Constants.DEF_WRITE_LATENCY_MS
+                ConfigConstants.KEY_WRITE_LATENCY_MS,
+                ConfigConstants.DEF_WRITE_LATENCY_MS
             ).coerceIn(
-                Constants.MIN_WRITE_LATENCY_MS,
-                Constants.MAX_WRITE_LATENCY_MS
+                ConfigConstants.MIN_WRITE_LATENCY_MS,
+                ConfigConstants.MAX_WRITE_LATENCY_MS
             )
 
         _batchSize.value =
             prefs.getInt(
-                Constants.KEY_BATCH_SIZE,
-                Constants.DEF_BATCH_SIZE
+                ConfigConstants.KEY_BATCH_SIZE,
+                ConfigConstants.DEF_BATCH_SIZE
             ).coerceIn(
-                Constants.MIN_BATCH_SIZE,
-                Constants.MAX_BATCH_SIZE
+                ConfigConstants.MIN_BATCH_SIZE,
+                ConfigConstants.MAX_BATCH_SIZE
             )
 
         _screenOffRecord.value =
             prefs.getBoolean(
-                Constants.KEY_SCREEN_OFF_RECORD_ENABLED,
-                Constants.DEF_SCREEN_OFF_RECORD_ENABLED
+                ConfigConstants.KEY_SCREEN_OFF_RECORD_ENABLED,
+                ConfigConstants.DEF_SCREEN_OFF_RECORD_ENABLED
             )
 
         _segmentDurationMin.value =
             prefs.getLong(
-                Constants.KEY_SEGMENT_DURATION_MIN,
-                Constants.DEF_SEGMENT_DURATION_MIN
+                ConfigConstants.KEY_SEGMENT_DURATION_MIN,
+                ConfigConstants.DEF_SEGMENT_DURATION_MIN
             ).coerceIn(
-                Constants.MIN_SEGMENT_DURATION_MIN,
-                Constants.MAX_SEGMENT_DURATION_MIN
+                ConfigConstants.MIN_SEGMENT_DURATION_MIN,
+                ConfigConstants.MAX_SEGMENT_DURATION_MIN
             )
         serverConfig = Config(
             recordIntervalMs = _recordIntervalMs.value,
@@ -144,7 +144,7 @@ class SettingsViewModel : ViewModel() {
      */
     fun setDualCellEnabled(enabled: Boolean) {
         viewModelScope.launch {
-            prefs.edit { putBoolean(Constants.KEY_DUAL_CELL_ENABLED, enabled) }
+            prefs.edit { putBoolean(ConfigConstants.KEY_DUAL_CELL_ENABLED, enabled) }
             _dualCellEnabled.value = enabled
         }
     }
@@ -154,16 +154,16 @@ class SettingsViewModel : ViewModel() {
      */
     fun setDischargeDisplayPositiveEnabled(enabled: Boolean) {
         viewModelScope.launch {
-            prefs.edit { putBoolean(Constants.KEY_DISCHARGE_DISPLAY_POSITIVE, enabled) }
+            prefs.edit { putBoolean(ConfigConstants.KEY_DISCHARGE_DISPLAY_POSITIVE, enabled) }
             _dischargeDisplayPositive.value = enabled
         }
     }
 
     fun setCalibrationValue(value: Int) {
         val finalValue =
-            value.coerceIn(Constants.MIN_CALIBRATION_VALUE, Constants.MAX_CALIBRATION_VALUE)
+            value.coerceIn(ConfigConstants.MIN_CALIBRATION_VALUE, ConfigConstants.MAX_CALIBRATION_VALUE)
         viewModelScope.launch {
-            prefs.edit { putInt(Constants.KEY_CALIBRATION_VALUE, finalValue) }
+            prefs.edit { putInt(ConfigConstants.KEY_CALIBRATION_VALUE, finalValue) }
             _calibrationValue.value = finalValue
         }
     }
@@ -173,9 +173,9 @@ class SettingsViewModel : ViewModel() {
      */
     fun setRecordIntervalMs(value: Long) {
         val finalValue =
-            value.coerceIn(Constants.MIN_RECORD_INTERVAL_MS, Constants.MAX_RECORD_INTERVAL_MS)
+            value.coerceIn(ConfigConstants.MIN_RECORD_INTERVAL_MS, ConfigConstants.MAX_RECORD_INTERVAL_MS)
         viewModelScope.launch {
-            prefs.edit { putLong(Constants.KEY_RECORD_INTERVAL_MS, finalValue) }
+            prefs.edit { putLong(ConfigConstants.KEY_RECORD_INTERVAL_MS, finalValue) }
             _recordIntervalMs.value = finalValue
             serverConfig = serverConfig.copy(recordIntervalMs = finalValue)
             Service.service?.updateConfig(serverConfig)
@@ -187,9 +187,9 @@ class SettingsViewModel : ViewModel() {
      */
     fun setWriteLatencyMs(value: Long) {
         val finalValue =
-            value.coerceIn(Constants.MIN_WRITE_LATENCY_MS, Constants.MAX_WRITE_LATENCY_MS)
+            value.coerceIn(ConfigConstants.MIN_WRITE_LATENCY_MS, ConfigConstants.MAX_WRITE_LATENCY_MS)
         viewModelScope.launch {
-            prefs.edit { putLong(Constants.KEY_WRITE_LATENCY_MS, finalValue) }
+            prefs.edit { putLong(ConfigConstants.KEY_WRITE_LATENCY_MS, finalValue) }
             _writeLatencyMs.value = finalValue
             serverConfig = serverConfig.copy(writeLatencyMs = finalValue)
             Service.service?.updateConfig(serverConfig)
@@ -200,9 +200,9 @@ class SettingsViewModel : ViewModel() {
      * 更新批次大小
      */
     fun setBatchSize(value: Int) {
-        val finalValue = value.coerceIn(Constants.MIN_BATCH_SIZE, Constants.MAX_BATCH_SIZE)
+        val finalValue = value.coerceIn(ConfigConstants.MIN_BATCH_SIZE, ConfigConstants.MAX_BATCH_SIZE)
         viewModelScope.launch {
-            prefs.edit { putInt(Constants.KEY_BATCH_SIZE, finalValue) }
+            prefs.edit { putInt(ConfigConstants.KEY_BATCH_SIZE, finalValue) }
             _batchSize.value = finalValue
             serverConfig = serverConfig.copy(batchSize = finalValue)
             Service.service?.updateConfig(serverConfig)
@@ -211,7 +211,7 @@ class SettingsViewModel : ViewModel() {
 
     fun setScreenOffRecordEnabled(enabled: Boolean) {
         viewModelScope.launch {
-            prefs.edit { putBoolean(Constants.KEY_SCREEN_OFF_RECORD_ENABLED, enabled) }
+            prefs.edit { putBoolean(ConfigConstants.KEY_SCREEN_OFF_RECORD_ENABLED, enabled) }
             _screenOffRecord.value = enabled
             serverConfig = serverConfig.copy(screenOffRecordEnabled = enabled)
             Service.service?.updateConfig(serverConfig)
@@ -220,9 +220,9 @@ class SettingsViewModel : ViewModel() {
 
     fun setSegmentDurationMin(value: Long) {
         val finalValue =
-            value.coerceIn(Constants.MIN_SEGMENT_DURATION_MIN, Constants.MAX_SEGMENT_DURATION_MIN)
+            value.coerceIn(ConfigConstants.MIN_SEGMENT_DURATION_MIN, ConfigConstants.MAX_SEGMENT_DURATION_MIN)
         viewModelScope.launch {
-            prefs.edit { putLong(Constants.KEY_SEGMENT_DURATION_MIN, finalValue) }
+            prefs.edit { putLong(ConfigConstants.KEY_SEGMENT_DURATION_MIN, finalValue) }
             _segmentDurationMin.value = finalValue
             serverConfig = serverConfig.copy(segmentDurationMin = finalValue)
             Service.service?.updateConfig(serverConfig)
