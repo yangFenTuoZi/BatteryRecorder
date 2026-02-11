@@ -17,11 +17,11 @@ import yangfentuozi.batteryrecorder.server.data.BatteryStatus.Discharging
 import yangfentuozi.batteryrecorder.server.recorder.IRecordListener
 import yangfentuozi.batteryrecorder.server.recorder.Monitor
 import yangfentuozi.batteryrecorder.server.recorder.Native.nativeInit
-import yangfentuozi.batteryrecorder.server.sync.PfdFileSender
 import yangfentuozi.batteryrecorder.server.writer.PowerRecordWriter
 import yangfentuozi.batteryrecorder.shared.config.Config
 import yangfentuozi.batteryrecorder.shared.config.ConfigUtil
 import yangfentuozi.batteryrecorder.shared.config.Constants
+import yangfentuozi.batteryrecorder.shared.sync.PfdFileSender
 import yangfentuozi.hiddenapi.compat.ActivityManagerCompat
 import yangfentuozi.hiddenapi.compat.PackageManagerCompat
 import yangfentuozi.hiddenapi.compat.ServiceManagerCompat

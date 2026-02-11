@@ -3,7 +3,7 @@ package yangfentuozi.batteryrecorder.data.history
 import android.content.Context
 import android.util.Log
 import yangfentuozi.batteryrecorder.ipc.Service
-import yangfentuozi.batteryrecorder.server.sync.PfdFileReceiver
+import yangfentuozi.batteryrecorder.shared.sync.PfdFileReceiver
 import java.io.File
 
 object SyncUtil {

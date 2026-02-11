@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.server.sync
+package yangfentuozi.batteryrecorder.shared.sync
 
 object SyncConstants {
     const val BUF_SIZE = 64 * 1024

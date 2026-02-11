@@ -1,8 +1,6 @@
-package yangfentuozi.batteryrecorder.server.sync
+package yangfentuozi.batteryrecorder.shared.sync
 
 import android.os.ParcelFileDescriptor
-import yangfentuozi.batteryrecorder.server.sync.SyncConstants.BUF_SIZE
-import yangfentuozi.batteryrecorder.server.sync.SyncConstants.CODE_DELIM
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.ByteArrayOutputStream
@@ -27,7 +25,7 @@ object PfdFileReceiver {
         val basePath = outputDir.toPath()
 
         ParcelFileDescriptor.AutoCloseInputStream(readPfd).use { raw ->
-            BufferedInputStream(raw, BUF_SIZE).use { input ->
+            BufferedInputStream(raw, SyncConstants.BUF_SIZE).use { input ->
                 while (true) {
                     val code = input.read()
                     if (code < 0) throw EOFException("EOF while reading control code")
@@ -56,9 +54,11 @@ object PfdFileReceiver {
                     val outFile = basePath.resolve(relativizePath).toFile()
 
                     // 严格读 size 字节作为内容
-                    BufferedOutputStream(FileOutputStream(outFile), BUF_SIZE).use { out ->
+                    BufferedOutputStream(FileOutputStream(outFile),
+                        SyncConstants.BUF_SIZE
+                    ).use { out ->
                         var remaining = size
-                        val buf = ByteArray(BUF_SIZE)
+                        val buf = ByteArray(SyncConstants.BUF_SIZE)
                         while (remaining > 0) {
                             val toRead = minOf(remaining, buf.size.toLong()).toInt()
                             val r = input.read(buf, 0, toRead)
@@ -81,7 +81,7 @@ object PfdFileReceiver {
             val cur = input.read()
             if (cur < 0) throw EOFException("EOF before delimiter 00 00")
 
-            if (cur == CODE_DELIM) {
+            if (cur == SyncConstants.CODE_DELIM) {
                 return baos.toByteArray()
             }
             baos.write(cur)

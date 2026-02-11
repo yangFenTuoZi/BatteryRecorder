@@ -1,7 +1,6 @@
-package yangfentuozi.batteryrecorder.server.sync
+package yangfentuozi.batteryrecorder.shared.sync
 
 import android.os.ParcelFileDescriptor
-import yangfentuozi.batteryrecorder.server.sync.SyncConstants.BUF_SIZE
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.EOFException
@@ -20,7 +19,7 @@ object PfdFileSender {
     ) {
         val basePath = file.toPath()
         ParcelFileDescriptor.AutoCloseOutputStream(writePfd).use { raw ->
-            BufferedOutputStream(raw, BUF_SIZE).use { out ->
+            BufferedOutputStream(raw, SyncConstants.BUF_SIZE).use { out ->
                 sendFileInner(out, file, basePath, callback)
                 // 结束码
                 out.write(SyncConstants.CODE_FINISHED)
@@ -55,8 +54,8 @@ object PfdFileSender {
             out.write(SyncConstants.CODE_DELIM)
 
             // 文件内容：size: Long 字节
-            BufferedInputStream(FileInputStream(file), BUF_SIZE).use { fis ->
-                val buf = ByteArray(BUF_SIZE)
+            BufferedInputStream(FileInputStream(file), SyncConstants.BUF_SIZE).use { fis ->
+                val buf = ByteArray(SyncConstants.BUF_SIZE)
                 var remaining = size
                 while (remaining > 0) {
                     val toRead = minOf(remaining, buf.size.toLong()).toInt()
