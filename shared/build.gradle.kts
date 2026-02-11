@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "yangfentuozi.batteryrecorder.config"
+    namespace = "yangfentuozi.batteryrecorder.shared"
     compileSdk {
         version = release(36)
     }

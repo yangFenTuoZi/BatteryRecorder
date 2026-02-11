@@ -17,7 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import yangfentuozi.batteryrecorder.config.Constants
+import yangfentuozi.batteryrecorder.shared.config.Constants
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 import kotlin.math.roundToInt
 

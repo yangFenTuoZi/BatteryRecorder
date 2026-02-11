@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.config
+package yangfentuozi.batteryrecorder.shared.config
 
 import android.content.SharedPreferences
 import android.os.Build

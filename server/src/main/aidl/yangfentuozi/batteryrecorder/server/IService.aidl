@@ -1,7 +1,7 @@
 package yangfentuozi.batteryrecorder.server;
 
 import yangfentuozi.batteryrecorder.server.recorder.IRecordListener;
-import yangfentuozi.batteryrecorder.config.Config;
+import yangfentuozi.batteryrecorder.shared.config.Config;
 
 interface IService {
     void stopService();

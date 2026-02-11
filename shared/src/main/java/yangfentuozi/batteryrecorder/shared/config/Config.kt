@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.config
+package yangfentuozi.batteryrecorder.shared.config
 
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize

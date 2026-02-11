@@ -7,8 +7,8 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
-import yangfentuozi.batteryrecorder.config.ConfigUtil
-import yangfentuozi.batteryrecorder.config.Constants
+import yangfentuozi.batteryrecorder.shared.config.ConfigUtil
+import yangfentuozi.batteryrecorder.shared.config.Constants
 
 class ConfigProvider : ContentProvider() {
 

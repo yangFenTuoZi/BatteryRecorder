@@ -1,8 +1,8 @@
 package yangfentuozi.batteryrecorder.data.history
 
 import android.content.Context
-import yangfentuozi.batteryrecorder.config.Constants
 import yangfentuozi.batteryrecorder.data.model.ChartPoint
+import yangfentuozi.batteryrecorder.shared.config.Constants
 import java.io.File
 
 enum class RecordType(val dirName: String) {

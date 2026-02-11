@@ -49,8 +49,8 @@ android {
 dependencies {
 
     implementation(libs.androidx.annotation)
+    implementation(project(":shared"))
 
-    implementation(project(":config"))
     implementation(project(":hiddenapi:compat"))
     compileOnly(project(":hiddenapi:stub"))
 }

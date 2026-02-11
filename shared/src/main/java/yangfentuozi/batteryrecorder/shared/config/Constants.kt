@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.config
+package yangfentuozi.batteryrecorder.shared.config
 
 object Constants {
     const val PREFS_NAME = "app_settings"

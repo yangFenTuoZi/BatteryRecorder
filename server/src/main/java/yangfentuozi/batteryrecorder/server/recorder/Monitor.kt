@@ -12,11 +12,11 @@ import android.os.RemoteCallbackList
 import android.os.RemoteException
 import android.os.ServiceManager
 import android.util.Log
-import yangfentuozi.batteryrecorder.config.Constants
 import yangfentuozi.batteryrecorder.server.Server.Companion.APP_PACKAGE_NAME
 import yangfentuozi.batteryrecorder.server.Server.Companion.TAG
 import yangfentuozi.batteryrecorder.server.data.PowerRecord
 import yangfentuozi.batteryrecorder.server.writer.PowerRecordWriter
+import yangfentuozi.batteryrecorder.shared.config.Constants
 import java.io.IOException
 
 class Monitor(
