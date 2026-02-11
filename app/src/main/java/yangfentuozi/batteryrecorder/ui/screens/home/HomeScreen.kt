@@ -26,7 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import yangfentuozi.batteryrecorder.data.history.RecordType
-import yangfentuozi.batteryrecorder.ipc.Service
+import yangfentuozi.batteryrecorder.data.history.SyncUtil
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
 import yangfentuozi.batteryrecorder.ui.components.home.BatteryRecorderTopAppBar
 import yangfentuozi.batteryrecorder.ui.components.home.ChargeStatsCard
@@ -79,7 +79,7 @@ fun HomeScreen(
         if (liveStatus == null) return@LaunchedEffect
 
         withContext(Dispatchers.IO) {
-            runCatching { Service.service?.writeToDatabaseImmediately() }
+            runCatching { SyncUtil.sync(context) }
         }
 
         val before = viewModel.currentRecord.value

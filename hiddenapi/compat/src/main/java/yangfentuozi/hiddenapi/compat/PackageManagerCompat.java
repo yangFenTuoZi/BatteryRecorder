@@ -6,7 +6,6 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.RemoteException;
 import android.os.ServiceManager;
-import android.system.Os;
 
 import androidx.annotation.NonNull;
 
@@ -27,9 +26,9 @@ public class PackageManagerCompat {
 
         ApplicationInfo applicationInfo;
         if (Build.VERSION.SDK_INT >= 33) {
-            applicationInfo = service.getApplicationInfo(packageName, flags, Os.getuid());
+            applicationInfo = service.getApplicationInfo(packageName, flags, userId);
         } else {
-            applicationInfo = service.getApplicationInfo(packageName, (int) flags, Os.getuid());
+            applicationInfo = service.getApplicationInfo(packageName, (int) flags, userId);
         }
         if (applicationInfo == null) throw new PackageManager.NameNotFoundException();
         return applicationInfo;

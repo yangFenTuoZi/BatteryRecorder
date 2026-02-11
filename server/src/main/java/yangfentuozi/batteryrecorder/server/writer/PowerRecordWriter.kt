@@ -15,16 +15,17 @@ import java.io.OutputStream
 
 class PowerRecordWriter(
     private val looper: Looper,
-    private val powerDir: File,
+    powerDir: File,
     private val fixFileOwner: ((File) -> Unit)
 ) {
     private val chargeDir = File(powerDir, "charge")
     private val dischargeDir = File(powerDir, "discharge")
 
-    private var lastStatus: BatteryStatus? = null
+    var lastStatus: BatteryStatus? = null
+        private set
 
-    private val chargeDataWriter = ChargeDataWriter(chargeDir)
-    private val dischargeDataWriter = DischargeDataWriter(dischargeDir)
+    val chargeDataWriter = ChargeDataWriter(chargeDir)
+    val dischargeDataWriter = DischargeDataWriter(dischargeDir)
 
     var batchSize = 200
     var flushIntervalMs = 30 * 1000L
@@ -98,7 +99,8 @@ class PowerRecordWriter(
     }
 
     abstract inner class BaseDelayedRecordWriter(val dir: File) {
-        protected var segmentFile: File? = null
+        var segmentFile: File? = null
+            private set
         protected var autoRetryWriter: AutoRetryStringWriter? = null
 
         protected var startTime: Long = 0L

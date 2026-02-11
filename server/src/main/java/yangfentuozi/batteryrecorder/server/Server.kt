@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
+import android.os.ParcelFileDescriptor
 import android.os.RemoteException
 import android.system.ErrnoException
 import android.system.Os
@@ -14,15 +15,19 @@ import android.util.Log
 import yangfentuozi.batteryrecorder.config.Config
 import yangfentuozi.batteryrecorder.config.ConfigUtil
 import yangfentuozi.batteryrecorder.config.Constants
+import yangfentuozi.batteryrecorder.server.data.BatteryStatus.Charging
+import yangfentuozi.batteryrecorder.server.data.BatteryStatus.Discharging
 import yangfentuozi.batteryrecorder.server.recorder.IRecordListener
 import yangfentuozi.batteryrecorder.server.recorder.Monitor
 import yangfentuozi.batteryrecorder.server.recorder.Native.nativeInit
+import yangfentuozi.batteryrecorder.server.sync.PfdFileSender
 import yangfentuozi.batteryrecorder.server.writer.PowerRecordWriter
 import yangfentuozi.hiddenapi.compat.ActivityManagerCompat
 import yangfentuozi.hiddenapi.compat.PackageManagerCompat
 import yangfentuozi.hiddenapi.compat.ServiceManagerCompat
 import java.io.File
 import java.io.IOException
+import java.nio.file.Files
 import java.util.Scanner
 import kotlin.system.exitProcess
 
@@ -64,6 +69,21 @@ class Server internal constructor() : IService.Stub() {
         appInfo = getAppInfo(SHELL_PACKAGE_NAME)
         shellDataDir = File(appInfo.dataDir)
         shellPowerDataDir = File("${appInfo.dataDir}/batteryrecorder_power_data")
+
+        if (Os.getuid() == 0) {
+            shellPowerDataDir.let { shellPowerDataDir ->
+                appPowerDataDir.let { appPowerDataDir ->
+                    if (shellPowerDataDir.exists() && shellPowerDataDir.isDirectory) {
+                        shellPowerDataDir.copyRecursively(
+                            target = appPowerDataDir,
+                            overwrite = true
+                        )
+                        shellPowerDataDir.deleteRecursively()
+                        changeOwnerRecursively(appPowerDataDir)
+                    }
+                }
+            }
+        }
 
         try {
             writerThread.start()
@@ -115,15 +135,6 @@ class Server internal constructor() : IService.Stub() {
         mMainHandler.postDelayed({ exitProcess(0) }, 100)
     }
 
-    @Throws(RemoteException::class)
-    override fun writeToDatabaseImmediately() {
-        try {
-            writer.flushBuffer()
-        } catch (e: IOException) {
-            throw RemoteException(Log.getStackTraceString(e))
-        }
-    }
-
     override fun registerRecordListener(listener: IRecordListener) {
         monitor.registerRecordListener(listener)
     }
@@ -140,8 +151,52 @@ class Server internal constructor() : IService.Stub() {
         writer.maxSegmentDurationMs = config.segmentDurationMin * 60 * 1000L
     }
 
-    override fun sync() {
-        TODO("Not yet implemented")
+
+    override fun sync(): ParcelFileDescriptor? {
+        writer.flushBuffer()
+        if (Os.getuid() == 0)
+            return null
+
+        val pipe = ParcelFileDescriptor.createPipe()
+        val readEnd = pipe[0]
+        val writeEnd = pipe[1]
+
+        // 服务端在后台线程写入（发送）
+        Thread {
+            try {
+                val currChargeDataPath =
+                    if (writer.chargeDataWriter.needStartNewSegment(writer.lastStatus != Charging)) null
+                    else writer.chargeDataWriter.segmentFile?.toPath()
+
+                val currDischargeDataPath =
+                    if (writer.chargeDataWriter.needStartNewSegment(writer.lastStatus != Discharging)) null
+                    else writer.dischargeDataWriter.segmentFile?.toPath()
+
+                PfdFileSender.sendFile(
+                    writeEnd,
+                    shellPowerDataDir
+                ) { file ->
+                    if ((currChargeDataPath == null || !Files.isSameFile(
+                            file.toPath(),
+                            currChargeDataPath
+                        )) &&
+                        (currDischargeDataPath == null || !Files.isSameFile(
+                            file.toPath(),
+                            currDischargeDataPath
+                        ))
+                    ) file.delete()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Sync error", e)
+                try {
+                    writeEnd.close()
+                } catch (_: Exception) {
+                }
+            }
+        }.start()
+
+        // 返回给客户端用于读取
+        return readEnd
     }
 
     private fun stopServiceImmediately() {
