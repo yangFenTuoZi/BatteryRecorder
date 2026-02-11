@@ -56,11 +56,11 @@ object ConfigUtil {
                 parser.setInput(fis, "UTF-8")
 
                 var eventType = parser.eventType
-                var recordIntervalMs = 1000L
-                var batchSize = 200
-                var writeLatencyMs = 30000L
-                var screenOffRecordEnabled = false
-                var segmentDurationMin = 1440L
+                var recordIntervalMs = Constants.DEF_RECORD_INTERVAL_MS
+                var batchSize = Constants.DEF_BATCH_SIZE
+                var writeLatencyMs = Constants.DEF_WRITE_LATENCY_MS
+                var screenOffRecordEnabled = Constants.DEF_SCREEN_OFF_RECORD_ENABLED
+                var segmentDurationMin = Constants.DEF_SEGMENT_DURATION_MIN
 
                 while (eventType != XmlPullParser.END_DOCUMENT) {
                     if (eventType == XmlPullParser.START_TAG) {
@@ -69,20 +69,20 @@ object ConfigUtil {
 
                         when (nameAttr) {
                             Constants.KEY_RECORD_INTERVAL_MS ->
-                                recordIntervalMs = valueAttr.toLongOrNull() ?: 1000L
+                                recordIntervalMs = valueAttr.toLongOrNull() ?: Constants.DEF_RECORD_INTERVAL_MS
 
                             Constants.KEY_BATCH_SIZE ->
-                                batchSize = valueAttr.toIntOrNull() ?: 200
+                                batchSize = valueAttr.toIntOrNull() ?: Constants.DEF_BATCH_SIZE
 
                             Constants.KEY_WRITE_LATENCY_MS ->
-                                writeLatencyMs = valueAttr.toLongOrNull() ?: 30000L
+                                writeLatencyMs = valueAttr.toLongOrNull() ?: Constants.DEF_WRITE_LATENCY_MS
 
                             Constants.KEY_SCREEN_OFF_RECORD_ENABLED -> {
-                                screenOffRecordEnabled = valueAttr == "true"
+                                screenOffRecordEnabled = valueAttr.toBooleanStrictOrNull() ?: Constants.DEF_SCREEN_OFF_RECORD_ENABLED
                             }
 
                             Constants.KEY_SEGMENT_DURATION_MIN ->
-                                segmentDurationMin = valueAttr.toLongOrNull() ?: 1440L
+                                segmentDurationMin = valueAttr.toLongOrNull() ?: Constants.DEF_SEGMENT_DURATION_MIN
                         }
                     }
                     eventType = parser.next()
@@ -110,14 +110,14 @@ object ConfigUtil {
 
     fun getConfigBySharedPreferences(prefs: SharedPreferences): Config {
         return coerceConfigValue(Config(
-            recordIntervalMs = prefs.getLong(Constants.KEY_RECORD_INTERVAL_MS, 1000),
-            writeLatencyMs = prefs.getLong(Constants.KEY_WRITE_LATENCY_MS, 30000),
-            batchSize = prefs.getInt(Constants.KEY_BATCH_SIZE, 200),
+            recordIntervalMs = prefs.getLong(Constants.KEY_RECORD_INTERVAL_MS, Constants.DEF_RECORD_INTERVAL_MS),
+            writeLatencyMs = prefs.getLong(Constants.KEY_WRITE_LATENCY_MS, Constants.DEF_WRITE_LATENCY_MS),
+            batchSize = prefs.getInt(Constants.KEY_BATCH_SIZE, Constants.DEF_BATCH_SIZE),
             screenOffRecordEnabled = prefs.getBoolean(
                 Constants.KEY_SCREEN_OFF_RECORD_ENABLED,
-                false
+                Constants.DEF_SCREEN_OFF_RECORD_ENABLED
             ),
-            segmentDurationMin = prefs.getLong(Constants.KEY_SEGMENT_DURATION_MIN, 1440)
+            segmentDurationMin = prefs.getLong(Constants.KEY_SEGMENT_DURATION_MIN, Constants.DEF_SEGMENT_DURATION_MIN)
         ))
     }
 
