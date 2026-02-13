@@ -122,7 +122,7 @@ Java_yangfentuozi_batteryrecorder_server_recorder_Native_nativeGetCapacity(JNIEn
 }
 
 JNIEXPORT jint JNICALL
-Java_yangfentuozi_batteryrecorder_server_recorder_Native_nativeGetStatus(JNIEnv *env, jclass clazz __attribute__((unused))) {
+Java_yangfentuozi_batteryrecorder_server_recorder_Native_nativeGetStatus(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
     if (!g_cache.initialized || !g_cache.status_fp) {
         return 0;
     }
