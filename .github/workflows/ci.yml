@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    if: ${{ !startsWith(github.event.head_commit.message, '[skip ci]') && github.repository_owner == 'yangFenTuoZi' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: Write key
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          touch signing.properties
+          echo KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }} >> signing.properties
+          echo KEYSTORE_ALIAS=${{ secrets.KEYSTORE_ALIAS }} >> signing.properties
+          echo KEYSTORE_ALIAS_PASSWORD='${{ secrets.KEYSTORE_ALIAS_PASSWORD }}' >> signing.properties
+          echo KEYSTORE_FILE=../key.jks >> signing.properties
+          echo '${{ secrets.KEYSTORE }}' | base64 --decode > key.jks
+
+      - name: Write temporary key
+        if: hashFiles('key.jks') == '' && !steps.vars.outputs.HAS_SECRET
+        run: |
+          keytool -genkey -alias a -dname CN=_ -storepass passwd -keypass passwd -keystore key.jks -keyalg RSA
+          echo KEYSTORE_PASSWORD=passwd >> signing.properties
+          echo KEYSTORE_ALIAS=a >> signing.properties
+          echo KEYSTORE_ALIAS_PASSWORD=passwd >> signing.properties
+          echo KEYSTORE_FILE=../key.jks >> signing.properties
+
+      - name: Cache Gradle Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            !~/.gradle/caches/build-cache-*
+          key: gradle-deps-app-${{ hashFiles('**/build.gradle') }}
+          restore-keys: |
+            gradle-deps
+
+      - name: Cache Gradle Build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches/build-cache-*
+          key: gradle-builds-app-${{ github.sha }}
+          restore-keys: |
+            gradle-builds
+
+      - name: Build with Gradle
+        id: buildWithGradle
+        run: |
+          echo 'org.gradle.caching=true' >> gradle.properties
+          echo 'org.gradle.parallel=true' >> gradle.properties
+          echo 'org.gradle.vfs.watch=true' >> gradle.properties
+          echo 'org.gradle.jvmargs=-Xmx2048m' >> gradle.properties
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease :app:assembleDebug
+          releaseName=`ls app/build/outputs/apk/release/batteryrecorder*-v*-release.apk | awk -F '(/|.apk)' '{print $6}'` && echo "releaseName=$releaseName" >> $GITHUB_OUTPUT
+          debugName=`ls app/build/outputs/apk/debug/batteryrecorder*-v*-debug.apk | awk -F '(/|.apk)' '{print $6}'` && echo "debugName=$debugName" >> $GITHUB_OUTPUT
+
+      - name: Upload release
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.buildWithGradle.outputs.releaseName }}
+          path: "app/build/outputs/apk/release/*.apk"
+
+      - name: Upload debug
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.buildWithGradle.outputs.debugName }}
+          path: "app/build/outputs/apk/debug/*.apk"
+
+      - name: Upload mappings
+        uses: actions/upload-artifact@v4
+        with:
+          name: mappings
+          path: "app/build/outputs/mapping/release"
+
