@@ -4,9 +4,13 @@ import android.ddm.DdmHandleAppName;
 import android.system.Os;
 import android.util.Log;
 
+import androidx.annotation.Keep;
+
 import java.io.IOException;
 
+@Keep
 public class Main {
+    @Keep
     public static void main(String[] args) {
         DdmHandleAppName.setAppName("battery_recorder", 0);
         try {

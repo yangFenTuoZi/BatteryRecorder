@@ -92,37 +92,32 @@ static int read_int(FILE *fp) {
     return atoi(buffer);
 }
 
-JNIEXPORT jint JNICALL
-Java_yangfentuozi_batteryrecorder_server_recorder_Native_nativeInit(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
+static jint native_init(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
     return init_file_cache();
 }
 
-JNIEXPORT jlong JNICALL
-Java_yangfentuozi_batteryrecorder_server_recorder_Native_nativeGetVoltage(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
+static jlong native_get_voltage(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
     if (!g_cache.initialized || !g_cache.voltage_fp) {
         return 0;
     }
     return read_long(g_cache.voltage_fp);
 }
 
-JNIEXPORT jlong JNICALL
-Java_yangfentuozi_batteryrecorder_server_recorder_Native_nativeGetCurrent(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
+static jlong native_get_current(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
     if (!g_cache.initialized || !g_cache.current_fp) {
         return 0;
     }
     return read_long(g_cache.current_fp);
 }
 
-JNIEXPORT jint JNICALL
-Java_yangfentuozi_batteryrecorder_server_recorder_Native_nativeGetCapacity(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
+static jint native_get_capacity(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
     if (!g_cache.initialized || !g_cache.capacity_fp) {
         return 0;
     }
     return read_int(g_cache.capacity_fp);
 }
 
-JNIEXPORT jint JNICALL
-Java_yangfentuozi_batteryrecorder_server_recorder_Native_nativeGetStatus(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
+static jint native_get_status(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
     if (!g_cache.initialized || !g_cache.status_fp) {
         return 0;
     }
@@ -137,4 +132,42 @@ Java_yangfentuozi_batteryrecorder_server_recorder_Native_nativeGetStatus(JNIEnv 
     }
 
     return 0;
+}
+
+static int register_native_methods(JNIEnv *env) {
+    const char *class_name = "yangfentuozi/batteryrecorder/server/recorder/Native";
+    jclass clazz = (*env)->FindClass(env, class_name);
+    if (!clazz) {
+        LOGE("Failed to find class %s", class_name);
+        return JNI_FALSE;
+    }
+
+    static const JNINativeMethod methods[] = {
+            {"nativeInit", "()I", (void *) native_init},
+            {"nativeGetVoltage", "()J", (void *) native_get_voltage},
+            {"nativeGetCurrent", "()J", (void *) native_get_current},
+            {"nativeGetCapacity", "()I", (void *) native_get_capacity},
+            {"nativeGetStatus", "()I", (void *) native_get_status},
+    };
+
+    if ((*env)->RegisterNatives(env, clazz, methods, sizeof(methods) / sizeof(methods[0])) < 0) {
+        LOGE("RegisterNatives failed for %s", class_name);
+        return JNI_FALSE;
+    }
+
+    return JNI_TRUE;
+}
+
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved __attribute__((unused))) {
+    JNIEnv *env = NULL;
+    if ((*vm)->GetEnv(vm, (void **) &env, JNI_VERSION_1_6) != JNI_OK) {
+        LOGE("GetEnv failed");
+        return JNI_ERR;
+    }
+
+    if (!register_native_methods(env)) {
+        return JNI_ERR;
+    }
+
+    return JNI_VERSION_1_6;
 }

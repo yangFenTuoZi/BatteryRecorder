@@ -12,6 +12,7 @@ import android.os.RemoteCallbackList
 import android.os.RemoteException
 import android.os.ServiceManager
 import android.util.Log
+import androidx.annotation.Keep
 import yangfentuozi.batteryrecorder.server.Server.Companion.TAG
 import yangfentuozi.batteryrecorder.server.data.PowerRecord
 import yangfentuozi.batteryrecorder.server.writer.PowerRecordWriter
@@ -30,12 +31,14 @@ class Monitor(
         IDisplayManager.Stub.asInterface(ServiceManager.getService("display"))
     private val iPowerManager = IPowerManager.Stub.asInterface(ServiceManager.getService("power"))
     private val taskStackListener: ITaskStackListener = object : TaskStackListener() {
+        @Keep
         override fun onTaskMovedToFront(taskInfo: RunningTaskInfo) {
             onFocusedAppChanged(taskInfo)
         }
     }
 
     private val displayCallback: IDisplayManagerCallback = object : IDisplayManagerCallback.Stub() {
+        @Keep
         override fun onDisplayEvent(displayId: Int, event: Int) {
             isInteractive = iPowerManager.isInteractive
             if (isInteractive && paused) {
