@@ -65,6 +65,7 @@ jobs:
       - name: Build with Gradle
         id: buildWithGradle
         run: |
+          echo >> gradle.properties
           echo 'org.gradle.caching=true' >> gradle.properties
           echo 'org.gradle.parallel=true' >> gradle.properties
           echo 'org.gradle.vfs.watch=true' >> gradle.properties
