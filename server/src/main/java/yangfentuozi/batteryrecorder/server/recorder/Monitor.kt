@@ -19,6 +19,8 @@ import yangfentuozi.batteryrecorder.server.writer.PowerRecordWriter
 import yangfentuozi.batteryrecorder.shared.Constants
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import java.io.IOException
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.locks.ReentrantLock
 
 class Monitor(
     private val writer: PowerRecordWriter,
@@ -47,57 +49,81 @@ class Monitor(
         }
     }
 
+    @Volatile
     private var currForegroundApp: String? = null
+    @Volatile
     private var isInteractive = true
 
     private val callbacks: RemoteCallbackList<IRecordListener> = RemoteCallbackList()
 
+    @Volatile
     var recordIntervalMs: Long = ConfigConstants.DEF_RECORD_INTERVAL_MS
+    @Volatile
     var screenOffRecord: Boolean = ConfigConstants.DEF_SCREEN_OFF_RECORD_ENABLED
+    @Volatile
     private var paused = false
+    @Volatile
     private var stopped = false
-    private val lock = Object()
-    private var thread = Thread({
-        synchronized(lock) {
-            while (!stopped) {
-                try {
-                    val timestamp = System.currentTimeMillis()
-                    val power = Native.power
-                    val status = Native.status
-                    writer.write(
-                        PowerRecord(
-                            timestamp,
-                            power,
-                            currForegroundApp,
-                            Native.capacity,
-                            if (isInteractive) 1 else 0,
-                            status
-                        )
-                    )
 
-                    // 回调 app
-                    val n: Int = callbacks.beginBroadcast()
-                    for (i in 0..<n) {
-                        try {
-                            callbacks.getBroadcastItem(i)
-                                .onRecord(timestamp, power, status.value)
-                        } catch (e: RemoteException) {
-                            Log.e(TAG, "Failed to call back", e)
-                        }
-                    }
-                    callbacks.finishBroadcast()
-                } catch (e: IOException) {
-                    Log.e(TAG, "Error reading power data", e)
-                }
+    private val lock = ReentrantLock()
+    private val canRun = lock.newCondition()
 
-                if (isInteractive || screenOffRecord) {
-                    paused = false
-                    lock.wait(recordIntervalMs)
-                } else {
-                    paused = true
-                    lock.wait()
-                }
+    private fun shouldPause(): Boolean {
+        return !isInteractive && !screenOffRecord
+    }
+
+    private fun awaitNext(intervalMs: Long) {
+        lock.lock()
+        try {
+            while (!stopped && shouldPause()) {
+                paused = true
+                canRun.await()
             }
+            paused = false
+            if (stopped) return
+
+            var nanos = TimeUnit.MILLISECONDS.toNanos(intervalMs)
+            while (!stopped && !shouldPause() && nanos > 0L) {
+                nanos = canRun.awaitNanos(nanos)
+            }
+        } finally {
+            lock.unlock()
+        }
+    }
+
+    private var thread = Thread({
+        while (!stopped) {
+            try {
+                val timestamp = System.currentTimeMillis()
+                val power = Native.power
+                val status = Native.status
+                writer.write(
+                    PowerRecord(
+                        timestamp,
+                        power,
+                        currForegroundApp,
+                        Native.capacity,
+                        if (isInteractive) 1 else 0,
+                        status
+                    )
+                )
+
+                // 回调 app
+                val n: Int = callbacks.beginBroadcast()
+                for (i in 0..<n) {
+                    try {
+                        callbacks.getBroadcastItem(i)
+                            .onRecord(timestamp, power, status.value)
+                    } catch (e: RemoteException) {
+                        Log.e(TAG, "Failed to call back", e)
+                    }
+                }
+                callbacks.finishBroadcast()
+            } catch (e: IOException) {
+                Log.e(TAG, "Error reading power data", e)
+            }
+
+            awaitNext(recordIntervalMs)
         }
     }, "MonitorThread")
 
@@ -122,6 +148,7 @@ class Monitor(
 
     fun stop() {
         stopped = true
+        notifyLock()
         thread.interrupt()
         try {
             iActivityTaskManager.unregisterTaskStackListener(taskStackListener)
@@ -131,8 +158,11 @@ class Monitor(
     }
 
     fun notifyLock() {
-        synchronized(lock) {
-            lock.notifyAll()
+        lock.lock()
+        try {
+            canRun.signalAll()
+        } finally {
+            lock.unlock()
         }
     }
 
