@@ -27,8 +27,11 @@ class PowerRecordWriter(
     val chargeDataWriter = ChargeDataWriter(chargeDir)
     val dischargeDataWriter = DischargeDataWriter(dischargeDir)
 
+    @Volatile
     var batchSize = 200
+    @Volatile
     var flushIntervalMs = 30 * 1000L
+    @Volatile
     var maxSegmentDurationMs = 24 * 60 * 60 * 1000L
 
     init {
