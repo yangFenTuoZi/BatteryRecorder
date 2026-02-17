@@ -7,6 +7,8 @@ import android.app.TaskInfo
 import android.app.TaskStackListener
 import android.hardware.display.IDisplayManager
 import android.hardware.display.IDisplayManagerCallback
+import android.os.Handler
+import android.os.HandlerThread
 import android.os.IPowerManager
 import android.os.RemoteCallbackList
 import android.os.RemoteException
@@ -91,6 +93,8 @@ class Monitor(
         }
     }
 
+    private val callbackThread = HandlerThread("CallbackThread")
+    private lateinit var callbackHandler: Handler
     private var thread = Thread({
         while (!stopped) {
             try {
@@ -108,17 +112,19 @@ class Monitor(
                     )
                 )
 
-                // 回调 app
-                val n: Int = callbacks.beginBroadcast()
-                for (i in 0..<n) {
-                    try {
-                        callbacks.getBroadcastItem(i)
-                            .onRecord(timestamp, power, status.value)
-                    } catch (e: RemoteException) {
-                        Log.e(TAG, "Failed to call back", e)
+                callbackHandler.post {
+                    // 回调 app
+                    val n: Int = callbacks.beginBroadcast()
+                    for (i in 0..<n) {
+                        try {
+                            callbacks.getBroadcastItem(i)
+                                .onRecord(timestamp, power, status.value)
+                        } catch (e: RemoteException) {
+                            Log.e(TAG, "Failed to call back", e)
+                        }
                     }
+                    callbacks.finishBroadcast()
                 }
-                callbacks.finishBroadcast()
             } catch (e: IOException) {
                 Log.e(TAG, "Error reading power data", e)
             }
@@ -143,6 +149,8 @@ class Monitor(
         }
         isInteractive = iPowerManager.isInteractive
 
+        callbackThread.start()
+        callbackHandler = Handler(callbackThread.looper)
         thread.start()
     }
 
@@ -150,6 +158,7 @@ class Monitor(
         stopped = true
         notifyLock()
         thread.interrupt()
+        callbackThread.interrupt()
         try {
             iActivityTaskManager.unregisterTaskStackListener(taskStackListener)
         } catch (e: RemoteException) {
