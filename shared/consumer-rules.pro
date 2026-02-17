@@ -1,0 +1,1 @@
+-keep class yangfentuozi.batteryrecorder.shared.config.Config { *; }

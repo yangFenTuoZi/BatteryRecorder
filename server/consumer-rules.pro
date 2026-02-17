@@ -1,1 +1,5 @@
 -dontwarn android.**
+-keep class yangfentuozi.batteryrecorder.server.IService { *; }
+-keep class yangfentuozi.batteryrecorder.server.recorder.IRecordListener { *; }
+-keep class yangfentuozi.batteryrecorder.server.data.BatteryStatus { *; }
+-keep class yangfentuozi.batteryrecorder.server.data.PowerRecord { *; }
