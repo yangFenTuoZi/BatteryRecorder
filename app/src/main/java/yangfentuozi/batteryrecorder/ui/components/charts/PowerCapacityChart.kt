@@ -423,22 +423,37 @@ fun PowerCapacityChart(
                 }
 
                 if (showScreenStateLine && renderRawPoints.isNotEmpty()) {
-                    drawScreenStateLine(renderRawPoints, coords, screenOnColor, screenOffColor, 4.dp)
+                    // 屏幕状态线保留在底部区域，但仅允许在图表横向范围内绘制
+                    clipRect(
+                        left = paddingLeft,
+                        top = 0f,
+                        right = paddingLeft + chartWidth,
+                        bottom = size.height
+                    ) {
+                        drawScreenStateLine(renderRawPoints, coords, screenOnColor, screenOffColor, 4.dp)
+                    }
                 }
 
-                selectedPointState.value?.let { selectedPoint ->
-                    val selectedX = coords.timeToX(selectedPoint.timestamp)
-                    val powerY = coords.powerToY(powerValueSelector(selectedPoint))
-                    val capacityY = coords.capacityToY(selectedPoint.capacity.toDouble())
+                clipRect(
+                    left = paddingLeft,
+                    top = paddingTop,
+                    right = paddingLeft + chartWidth,
+                    bottom = paddingTop + chartHeight
+                ) {
+                    selectedPointState.value?.let { selectedPoint ->
+                        val selectedX = coords.timeToX(selectedPoint.timestamp)
+                        val powerY = coords.powerToY(powerValueSelector(selectedPoint))
+                        val capacityY = coords.capacityToY(selectedPoint.capacity.toDouble())
 
-                    drawLine(
-                        color = gridColor.copy(alpha = 0.6f),
-                        start = Offset(selectedX, paddingTop),
-                        end = Offset(selectedX, paddingTop + chartHeight),
-                        strokeWidth = 1.dp.toPx()
-                    )
-                    drawCircle(powerColor, radius = 2.8.dp.toPx(), center = Offset(selectedX, powerY))
-                    drawCircle(capacityColor, radius = 2.8.dp.toPx(), center = Offset(selectedX, capacityY))
+                        drawLine(
+                            color = gridColor.copy(alpha = 0.6f),
+                            start = Offset(selectedX, paddingTop),
+                            end = Offset(selectedX, paddingTop + chartHeight),
+                            strokeWidth = 1.dp.toPx()
+                        )
+                        drawCircle(powerColor, radius = 2.8.dp.toPx(), center = Offset(selectedX, powerY))
+                        drawCircle(capacityColor, radius = 2.8.dp.toPx(), center = Offset(selectedX, capacityY))
+                    }
                 }
             }
         }
