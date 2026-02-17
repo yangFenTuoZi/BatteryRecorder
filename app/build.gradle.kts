@@ -129,5 +129,5 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.capsule)
     debugImplementation(composeBom)
-    debugImplementation("androidx.compose.ui:ui-tooling")
+    debugImplementation(libs.androidx.compose.ui.tooling)
 }
