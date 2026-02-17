@@ -150,6 +150,7 @@ class Server internal constructor() : IService.Stub() {
         writer.flushIntervalMs = config.writeLatencyMs
         writer.batchSize = config.batchSize
         writer.maxSegmentDurationMs = config.segmentDurationMin * 60 * 1000L
+        monitor.notifyLock()
     }
 
 
