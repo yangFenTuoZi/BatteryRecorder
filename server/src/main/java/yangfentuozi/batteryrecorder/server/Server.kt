@@ -170,7 +170,7 @@ class Server internal constructor() : IService.Stub() {
                     else writer.chargeDataWriter.segmentFile?.toPath()
 
                 val currDischargeDataPath =
-                    if (writer.chargeDataWriter.needStartNewSegment(writer.lastStatus != Discharging)) null
+                    if (writer.dischargeDataWriter.needStartNewSegment(writer.lastStatus != Discharging)) null
                     else writer.dischargeDataWriter.segmentFile?.toPath()
 
                 PfdFileSender.sendFile(

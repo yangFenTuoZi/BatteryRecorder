@@ -21,6 +21,7 @@ class PowerRecordWriter(
     private val chargeDir = File(powerDir, "charge")
     private val dischargeDir = File(powerDir, "discharge")
 
+    @Volatile
     var lastStatus: BatteryStatus? = null
         private set
 
@@ -102,6 +103,7 @@ class PowerRecordWriter(
     }
 
     abstract inner class BaseDelayedRecordWriter(val dir: File) {
+        @Volatile
         var segmentFile: File? = null
             private set
         protected var autoRetryWriter: AutoRetryStringWriter? = null
