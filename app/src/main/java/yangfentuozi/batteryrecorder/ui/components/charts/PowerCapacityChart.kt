@@ -197,6 +197,10 @@ fun PowerCapacityChart(
     } else {
         rawPoints
     }
+    val selectablePoints = remember(renderFilteredPoints, viewportStart, viewportEnd) {
+        renderFilteredPoints.filter { it.timestamp in viewportStart..viewportEnd }
+            .ifEmpty { renderFilteredPoints }
+    }
 
     // 计算固定功率轴配置（根据最大功率值自动选择刻度范围）
     val powerAxisConfig = remember(filteredPoints, useFixedPowerAxisSegments, fixedPowerAxisMode) {
@@ -220,9 +224,11 @@ fun PowerCapacityChart(
     val selectedPointState = remember { mutableStateOf<ChartPoint?>(null) }
     val isNegativeMode = fixedPowerAxisMode == FixedPowerAxisMode.NegativeOnly
 
-    LaunchedEffect(renderFilteredPoints) {
+    LaunchedEffect(selectablePoints, viewportStart, viewportEnd) {
         val selected = selectedPointState.value ?: return@LaunchedEffect
-        if (renderFilteredPoints.none { it.timestamp == selected.timestamp }) {
+        if (selected.timestamp !in viewportStart..viewportEnd ||
+            selectablePoints.none { it.timestamp == selected.timestamp }
+        ) {
             selectedPointState.value = null
         }
     }
@@ -296,17 +302,17 @@ fun PowerCapacityChart(
                             }
                         }
                     }
-                    .pointerInput(renderFilteredPoints, paddingRightDp, viewportStart, viewportEnd) {
+                    .pointerInput(selectablePoints, paddingRightDp, viewportStart, viewportEnd) {
                         val paddingLeft = 32.dp.toPx()
                         val chartWidth = size.width - paddingLeft - paddingRightDp.toPx()
                         val coords = ChartCoordinates(
                             paddingLeft, 0f, chartWidth, 0f, viewportStart, viewportEnd, 0.0, 0.0
                         )
                         detectTapGestures { offset ->
-                            selectedPointState.value = coords.findPointAtX(offset.x, renderFilteredPoints)
+                            selectedPointState.value = coords.findPointAtX(offset.x, selectablePoints)
                         }
                     }
-                    .pointerInput(renderFilteredPoints, paddingRightDp, viewportStart, viewportEnd) {
+                    .pointerInput(selectablePoints, paddingRightDp, viewportStart, viewportEnd) {
                         val paddingLeft = 32.dp.toPx()
                         val chartWidth = size.width - paddingLeft - paddingRightDp.toPx()
                         val coords = ChartCoordinates(
@@ -314,7 +320,7 @@ fun PowerCapacityChart(
                         )
                         detectDragGestures { change, _ ->
                             change.consume()
-                            selectedPointState.value = coords.findPointAtX(change.position.x, renderFilteredPoints)
+                            selectedPointState.value = coords.findPointAtX(change.position.x, selectablePoints)
                         }
                     }
             ) {
@@ -440,7 +446,9 @@ fun PowerCapacityChart(
                     right = paddingLeft + chartWidth,
                     bottom = paddingTop + chartHeight
                 ) {
-                    selectedPointState.value?.let { selectedPoint ->
+                    selectedPointState.value
+                        ?.takeIf { it.timestamp in viewportStart..viewportEnd }
+                        ?.let { selectedPoint ->
                         val selectedX = coords.timeToX(selectedPoint.timestamp)
                         val powerY = coords.powerToY(powerValueSelector(selectedPoint))
                         val capacityY = coords.capacityToY(selectedPoint.capacity.toDouble())
