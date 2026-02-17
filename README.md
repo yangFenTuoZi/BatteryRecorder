@@ -15,7 +15,7 @@
 
 ### server
 
-- [ ] 解决 Monitor 唤醒锁异常
+- [x] ~~解决 Monitor 唤醒锁异常(实际为 callback 阻塞)~~
 - [ ] Magisk 模块开机自启
 - [ ] 监听 app 安装，并在适当时机重启 Server
 - [ ] 重启 server 时，续接之前 server 的状态
