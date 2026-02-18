@@ -1,7 +1,6 @@
 package yangfentuozi.batteryrecorder.server
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -15,13 +14,9 @@ import android.system.Os
 import android.util.Log
 import yangfentuozi.batteryrecorder.server.data.BatteryStatus.Charging
 import yangfentuozi.batteryrecorder.server.data.BatteryStatus.Discharging
-import yangfentuozi.batteryrecorder.server.recorder.BatteryDataSource
-import yangfentuozi.batteryrecorder.server.recorder.BatteryManagerDataSource
 import yangfentuozi.batteryrecorder.server.recorder.IRecordListener
 import yangfentuozi.batteryrecorder.server.recorder.Monitor
 import yangfentuozi.batteryrecorder.server.recorder.Native.nativeInit
-import yangfentuozi.batteryrecorder.server.recorder.StartupLockedBatteryDataSource
-import yangfentuozi.batteryrecorder.server.recorder.SysBatteryDataSource
 import yangfentuozi.batteryrecorder.server.writer.PowerRecordWriter
 import yangfentuozi.batteryrecorder.shared.Constants
 import yangfentuozi.batteryrecorder.shared.config.Config
@@ -70,9 +65,7 @@ class Server internal constructor() : IService.Stub() {
         appPowerDataDir = File("${appInfo.dataDir}/${Constants.APP_POWER_DATA_PATH}")
         @SuppressLint("UnsafeDynamicallyLoadedCode")
         System.load("${appInfo.nativeLibraryDir}/libbatteryrecorder.so")
-        val nativeInitResult = nativeInit()
-        Log.i(TAG, "nativeInit 结果：$nativeInitResult")
-        val batteryDataSource = createStartupLockedDataSource(nativeInitResult)
+        nativeInit()
 
         appInfo = getAppInfo(Constants.SHELL_PACKAGE_NAME)
         shellDataDir = File(appInfo.dataDir)
@@ -111,7 +104,6 @@ class Server internal constructor() : IService.Stub() {
 
         monitor = Monitor(
             writer = writer,
-            batteryDataSource = batteryDataSource,
             sendBinder = this::sendBinder
         )
 
@@ -234,47 +226,6 @@ class Server internal constructor() : IService.Stub() {
             Log.i(TAG, "Send binder")
         } catch (e: RemoteException) {
             Log.e(TAG, "Failed send binder", e)
-        }
-    }
-
-    private fun createStartupLockedDataSource(nativeInitResult: Int): BatteryDataSource {
-        val sysDataSource = SysBatteryDataSource()
-        if (nativeInitResult != 0) {
-            Log.i(TAG, "数据源锁定：SYS")
-            return StartupLockedBatteryDataSource(
-                mode = StartupLockedBatteryDataSource.Mode.SYS_LOCKED,
-                sysDataSource = sysDataSource,
-                batteryManagerDataSource = sysDataSource
-            )
-        }
-
-        val systemContext = getSystemContext()
-        Log.i(TAG, "数据源锁定：BatteryManager，context=${systemContext.javaClass.name}")
-        val batteryManagerDataSource = BatteryManagerDataSource(systemContext)
-        Log.w(TAG, "nativeInit 失败，已锁定 BatteryManager")
-        return StartupLockedBatteryDataSource(
-            mode = StartupLockedBatteryDataSource.Mode.BM_LOCKED,
-            sysDataSource = sysDataSource,
-            batteryManagerDataSource = batteryManagerDataSource
-        )
-    }
-
-    private fun getSystemContext(): Context {
-        try {
-            val activityThreadClass = Class.forName("android.app.ActivityThread")
-            val currentActivityThreadMethod =
-                activityThreadClass.getDeclaredMethod("currentActivityThread")
-            val activityThread = currentActivityThreadMethod.invoke(null)
-                ?: activityThreadClass.getDeclaredMethod("systemMain").invoke(null)
-            val getSystemContextMethod = activityThreadClass.getDeclaredMethod("getSystemContext")
-            val context = getSystemContextMethod.invoke(activityThread)
-            if (context is Context) {
-                Log.d(TAG, "反射获取 systemContext 成功：${context.javaClass.name}")
-                return context
-            }
-            throw RuntimeException("getSystemContext returned invalid object")
-        } catch (e: Throwable) {
-            throw RuntimeException("Failed to obtain system context for BatteryManager", e)
         }
     }
 
