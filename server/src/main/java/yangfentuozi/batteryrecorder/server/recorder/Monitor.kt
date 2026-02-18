@@ -26,6 +26,7 @@ import java.util.concurrent.locks.ReentrantLock
 
 class Monitor(
     private val writer: PowerRecordWriter,
+    private val batteryDataSource: BatteryDataSource,
     private val sendBinder: (() -> Unit)
 ) {
 
@@ -99,16 +100,19 @@ class Monitor(
         while (!stopped) {
             try {
                 val timestamp = System.currentTimeMillis()
-                val power = Native.power
-                val status = Native.status
+                val sample = batteryDataSource.readSample(timestamp)
+                if (sample == null) {
+                    awaitNext(recordIntervalMs)
+                    continue
+                }
                 writer.write(
                     PowerRecord(
-                        timestamp,
-                        power,
+                        sample.timestampMs,
+                        sample.powerNw,
                         currForegroundApp,
-                        Native.capacity,
+                        sample.capacity,
                         if (isInteractive) 1 else 0,
-                        status
+                        sample.status
                     )
                 )
 
@@ -118,7 +122,11 @@ class Monitor(
                     for (i in 0..<n) {
                         try {
                             callbacks.getBroadcastItem(i)
-                                .onRecord(timestamp, power, status.value)
+                                .onRecord(
+                                    sample.timestampMs,
+                                    sample.powerNw,
+                                    sample.status.value
+                                )
                         } catch (e: RemoteException) {
                             Log.e(TAG, "Failed to call back", e)
                         }
@@ -127,6 +135,8 @@ class Monitor(
                 }
             } catch (e: IOException) {
                 Log.e(TAG, "Error reading power data", e)
+            } catch (e: Throwable) {
+                Log.e(TAG, "Unexpected monitor error", e)
             }
 
             awaitNext(recordIntervalMs)
