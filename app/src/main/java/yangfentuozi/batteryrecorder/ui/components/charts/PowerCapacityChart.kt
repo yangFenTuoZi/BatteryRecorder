@@ -501,8 +501,7 @@ private fun SelectedPointInfo(
     val text = if (selected == null) {
         "时间点详细数据"
     } else {
-        "时间 ${timeLabelFormatter(selected.timestamp)} · 功耗 ${powerLabelFormatter(selected.power)} · 电量 ${capacityLabelFormatter(selected.capacity)}" +
-                if (selected.temp == 0) "" else " · 温度 ${tempLabelFormatter(selected.temp)}"
+        "${timeLabelFormatter(selected.timestamp)} · ${powerLabelFormatter(selected.power)} · ${capacityLabelFormatter(selected.capacity)}" + if (selected.temp == 0) "" else " · ${tempLabelFormatter(selected.temp)}"
     }
     Row(
         modifier = Modifier.fillMaxWidth(),
