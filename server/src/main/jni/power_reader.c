@@ -20,7 +20,7 @@ typedef struct {
     int initialized;
 } FileCache;
 
-static FileCache g_cache = {NULL, NULL, NULL, NULL, 0};
+static FileCache g_cache = {NULL, NULL, NULL, NULL, NULL, 0};
 
 // Open and cache file descriptors
 static int init_file_cache() {
