@@ -4,7 +4,8 @@
       "WebSearch",
       "Bash(./gradlew:*)",
       "Bash(dir:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(find:*)"
     ]
   }
 }

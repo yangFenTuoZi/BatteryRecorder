@@ -150,7 +150,7 @@ static jint native_get_status(JNIEnv *env __attribute__((unused)), jclass clazz 
 }
 
 static jint native_get_temp(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
-    if (!g_cache.initialized || !g_cache.status_fp) {
+    if (!g_cache.initialized || !g_cache.temp_fp) {
         return 0;
     }
 

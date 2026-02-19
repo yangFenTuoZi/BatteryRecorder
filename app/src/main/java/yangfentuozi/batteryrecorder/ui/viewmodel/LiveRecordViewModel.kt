@@ -19,6 +19,7 @@ data class LivePowerPoint(
     val timestamp: Long,
     val powerNw: Long,
     val status: Int,
+    val temp: Int = 0,
     val isGap: Boolean = false
 )
 
@@ -35,9 +36,9 @@ class LiveRecordViewModel : ViewModel() {
     private val buffer = ArrayList<LivePowerPoint>(MAX_LIVE_POINTS + 1)
 
     private val listener = object : IRecordListener.Stub() {
-        override fun onRecord(timestamp: Long, power: Long, status: Int) {
+        override fun onRecord(timestamp: Long, power: Long, status: Int, temp: Int) {
             viewModelScope.launch(Dispatchers.Main.immediate) {
-                handleRecord(timestamp, power, status)
+                handleRecord(timestamp, power, status, temp)
             }
         }
     }
@@ -86,7 +87,7 @@ class LiveRecordViewModel : ViewModel() {
         isListenerRegistered = false
     }
 
-    private fun handleRecord(timestamp: Long, power: Long, status: Int) {
+    private fun handleRecord(timestamp: Long, power: Long, status: Int, temp: Int) {
         val lastStatusValue = lastStatus
         if (lastStatusValue != null && lastStatusValue != status) {
             buffer.clear()
@@ -99,10 +100,10 @@ class LiveRecordViewModel : ViewModel() {
         if (last != null && timestamp - last > resetThresholdMs && lastStatusValue == status) {
             val gapTimestamp = last + (timestamp - last) / 2
             val gapPower = lastPowerNw?.let { (it + power) / 2 } ?: power
-            buffer.add(LivePowerPoint(gapTimestamp, gapPower, status, isGap = true))
+            buffer.add(LivePowerPoint(gapTimestamp, gapPower, status, temp, isGap = true))
         }
 
-        buffer.add(LivePowerPoint(timestamp, power, status))
+        buffer.add(LivePowerPoint(timestamp, power, status, temp))
         while (buffer.size > MAX_LIVE_POINTS) {
             buffer.removeAt(0)
         }

@@ -37,7 +37,6 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.data.history.HistoryRecord
-import yangfentuozi.batteryrecorder.data.history.RecordType
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.ui.viewmodel.LivePowerPoint
 import yangfentuozi.batteryrecorder.utils.formatDateTime
@@ -92,11 +91,6 @@ fun CurrentRecordCard(
             val stats = record.stats
             val latestPoint = livePoints.lastOrNull()
             val latestPower = latestPoint?.powerNw
-            val capacityChange = if (record.type == RecordType.CHARGE) {
-                stats.endCapacity - stats.startCapacity
-            } else {
-                stats.startCapacity - stats.endCapacity
-            }
 
             Row(
                 modifier = Modifier
@@ -121,7 +115,7 @@ fun CurrentRecordCard(
                             calibrationValue = calibrationValue
                         )
                     )
-                    StatRow("电量变化", "${capacityChange}%")
+                    StatRow("温度", latestPoint?.let { "${it.temp / 10.0}°C" } ?: "--")
                 }
 
                 LivePowerChart(

@@ -120,7 +120,7 @@ class Monitor(
                     for (i in 0..<n) {
                         try {
                             callbacks.getBroadcastItem(i)
-                                .onRecord(timestamp, power, status.value)
+                                .onRecord(timestamp, power, status.value, temp)
                         } catch (e: RemoteException) {
                             Log.e(TAG, "Failed to call back", e)
                         }
