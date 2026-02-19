@@ -68,7 +68,7 @@ fun CalibrationDialog(
     val scope = rememberCoroutineScope()
     val listener = remember {
         object : IRecordListener.Stub() {
-            override fun onRecord(timestamp: Long, power: Long, status: Int) {
+            override fun onRecord(timestamp: Long, power: Long, status: Int, temp: Int) {
                 scope.launch(Dispatchers.Main.immediate) {
                     rawPower = power
                 }
