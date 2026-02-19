@@ -1,7 +1,7 @@
 package yangfentuozi.batteryrecorder.server.recorder
 
 import androidx.annotation.Keep
-import yangfentuozi.batteryrecorder.server.data.BatteryStatus
+import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import java.io.IOException
 
 @Keep

@@ -3,11 +3,11 @@ package yangfentuozi.batteryrecorder.server.writer
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import yangfentuozi.batteryrecorder.server.data.BatteryStatus
-import yangfentuozi.batteryrecorder.server.data.BatteryStatus.Charging
-import yangfentuozi.batteryrecorder.server.data.BatteryStatus.Discharging
-import yangfentuozi.batteryrecorder.server.data.BatteryStatus.Full
-import yangfentuozi.batteryrecorder.server.data.PowerRecord
+import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
+import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Charging
+import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Discharging
+import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Full
+import yangfentuozi.batteryrecorder.shared.data.PowerRecord
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException

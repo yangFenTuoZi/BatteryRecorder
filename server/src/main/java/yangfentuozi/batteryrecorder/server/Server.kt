@@ -12,8 +12,6 @@ import android.os.RemoteException
 import android.system.ErrnoException
 import android.system.Os
 import android.util.Log
-import yangfentuozi.batteryrecorder.server.data.BatteryStatus.Charging
-import yangfentuozi.batteryrecorder.server.data.BatteryStatus.Discharging
 import yangfentuozi.batteryrecorder.server.recorder.IRecordListener
 import yangfentuozi.batteryrecorder.server.recorder.Monitor
 import yangfentuozi.batteryrecorder.server.recorder.Native.nativeInit
@@ -22,6 +20,8 @@ import yangfentuozi.batteryrecorder.shared.Constants
 import yangfentuozi.batteryrecorder.shared.config.Config
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.shared.config.ConfigUtil
+import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Charging
+import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Discharging
 import yangfentuozi.batteryrecorder.shared.sync.PfdFileSender
 import yangfentuozi.hiddenapi.compat.ActivityManagerCompat
 import yangfentuozi.hiddenapi.compat.PackageManagerCompat

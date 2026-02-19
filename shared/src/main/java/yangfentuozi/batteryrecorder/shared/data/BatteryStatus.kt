@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.server.data
+package yangfentuozi.batteryrecorder.shared.data
 
 enum class BatteryStatus(val value: Int) {
     Charging(0),

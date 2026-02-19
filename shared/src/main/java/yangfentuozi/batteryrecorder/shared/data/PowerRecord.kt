@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.server.data
+package yangfentuozi.batteryrecorder.shared.data
 
 data class PowerRecord(
     val timestamp: Long, val power: Long, val packageName: String?,

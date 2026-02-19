@@ -16,10 +16,10 @@ import android.os.ServiceManager
 import android.util.Log
 import androidx.annotation.Keep
 import yangfentuozi.batteryrecorder.server.Server.Companion.TAG
-import yangfentuozi.batteryrecorder.server.data.PowerRecord
 import yangfentuozi.batteryrecorder.server.writer.PowerRecordWriter
 import yangfentuozi.batteryrecorder.shared.Constants
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
+import yangfentuozi.batteryrecorder.shared.data.PowerRecord
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
