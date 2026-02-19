@@ -83,11 +83,6 @@ android {
         buildConfig = true
     }
 
-    packaging {
-        jniLibs {
-            useLegacyPackaging = true
-        }
-    }
     applicationVariants.all {
         outputs.all {
             (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName = "batteryrecorder-v${versionName}-${name}.apk"

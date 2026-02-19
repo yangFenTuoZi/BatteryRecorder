@@ -1,6 +1,5 @@
 package yangfentuozi.batteryrecorder.server
 
-import android.annotation.SuppressLint
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -14,7 +13,7 @@ import android.system.Os
 import android.util.Log
 import yangfentuozi.batteryrecorder.server.recorder.IRecordListener
 import yangfentuozi.batteryrecorder.server.recorder.Monitor
-import yangfentuozi.batteryrecorder.server.recorder.Native.nativeInit
+import yangfentuozi.batteryrecorder.server.recorder.Native
 import yangfentuozi.batteryrecorder.server.writer.PowerRecordWriter
 import yangfentuozi.batteryrecorder.shared.Constants
 import yangfentuozi.batteryrecorder.shared.config.Config
@@ -63,9 +62,8 @@ class Server internal constructor() : IService.Stub() {
         appDataDir = File(appInfo.dataDir)
         appConfigFile = File("${appInfo.dataDir}/shared_prefs/${ConfigConstants.PREFS_NAME}.xml")
         appPowerDataDir = File("${appInfo.dataDir}/${Constants.APP_POWER_DATA_PATH}")
-        @SuppressLint("UnsafeDynamicallyLoadedCode")
-        System.load("${appInfo.nativeLibraryDir}/libbatteryrecorder.so")
-        nativeInit()
+
+        Native.init(appInfo)
 
         appInfo = getAppInfo(Constants.SHELL_PACKAGE_NAME)
         shellDataDir = File(appInfo.dataDir)
