@@ -222,6 +222,9 @@ fun RecordDetailScreen(
                     String.format(Locale.getDefault(), "%.2f W", value)
                 },
                 capacityLabelFormatter = { value -> "$value%" },
+                tempLabelFormatter = { value ->
+                    String.format(Locale.getDefault(), "%.1f ℃", value / 10.0)
+                },
                 timeLabelFormatter = { value ->
                     val offset = (value - stats.startTime).coerceAtLeast(0L)
                     formatRelativeOffset(offset)

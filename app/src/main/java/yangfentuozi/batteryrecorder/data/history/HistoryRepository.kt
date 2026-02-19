@@ -113,7 +113,8 @@ object HistoryRepository {
                     timestamp = parts[0].toLongOrNull() ?: return@mapNotNull null,
                     power = (parts[1].toDoubleOrNull() ?: return@mapNotNull null) * multiplier,
                     capacity = parts[3].toIntOrNull() ?: return@mapNotNull null,
-                    isDisplayOn = parts[4] == "1"
+                    isDisplayOn = parts[4] == "1",
+                    temp = if (parts.size > 5) parts[5].toIntOrNull() ?: 0 else 0
                 )
             }
             .sortedBy { it.timestamp }

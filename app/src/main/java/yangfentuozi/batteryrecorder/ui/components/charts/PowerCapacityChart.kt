@@ -152,6 +152,7 @@ fun PowerCapacityChart(
     showCapacityMarkers: Boolean = false,
     powerLabelFormatter: (Double) -> String = { value -> String.format("%.2f", value) },
     capacityLabelFormatter: (Int) -> String = { value -> "$value%" },
+    tempLabelFormatter: (Int) -> String = { value -> String.format("%.1f", value / 10.0) },
     timeLabelFormatter: (Long) -> String = { value -> value.toString() },
     axisPowerLabelFormatter: (Double) -> String = { value -> value.roundToInt().toString() },
     axisCapacityLabelFormatter: (Int) -> String = { value -> "$value%" },
@@ -258,6 +259,7 @@ fun PowerCapacityChart(
             timeLabelFormatter = timeLabelFormatter,
             powerLabelFormatter = powerLabelFormatter,
             capacityLabelFormatter = capacityLabelFormatter,
+            tempLabelFormatter = tempLabelFormatter,
             showFullscreenToggle = showFullscreenToggle,
             isFullscreen = isFullscreen,
             onToggleFullscreen = onToggleFullscreen
@@ -491,6 +493,7 @@ private fun SelectedPointInfo(
     timeLabelFormatter: (Long) -> String,
     powerLabelFormatter: (Double) -> String,
     capacityLabelFormatter: (Int) -> String,
+    tempLabelFormatter: (Int) -> String,
     showFullscreenToggle: Boolean,
     isFullscreen: Boolean,
     onToggleFullscreen: (() -> Unit)?,
@@ -498,7 +501,8 @@ private fun SelectedPointInfo(
     val text = if (selected == null) {
         "时间点详细数据"
     } else {
-        "时间 ${timeLabelFormatter(selected.timestamp)} · 功耗 ${powerLabelFormatter(selected.power)} · 电量 ${capacityLabelFormatter(selected.capacity)}"
+        "时间 ${timeLabelFormatter(selected.timestamp)} · 功耗 ${powerLabelFormatter(selected.power)} · 电量 ${capacityLabelFormatter(selected.capacity)}" +
+                if (selected.temp == 0) "" else " · 温度 ${tempLabelFormatter(selected.temp)}"
     }
     Row(
         modifier = Modifier.fillMaxWidth(),
