@@ -101,6 +101,7 @@ class Monitor(
                 val timestamp = System.currentTimeMillis()
                 val power = Native.power
                 val status = Native.status
+                val temp = Native.temp
                 writer.write(
                     PowerRecord(
                         timestamp,
@@ -108,7 +109,8 @@ class Monitor(
                         currForegroundApp,
                         Native.capacity,
                         if (isInteractive) 1 else 0,
-                        status
+                        status,
+                        temp
                     )
                 )
 

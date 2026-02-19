@@ -22,6 +22,9 @@ object Native {
     @JvmStatic
     external fun nativeGetStatus(): Int
 
+    @JvmStatic
+    external fun nativeGetTemp(): Int
+
     @get:Throws(IOException::class)
     val power: Long
         get() = nativeGetVoltage() * nativeGetCurrent()
@@ -37,4 +40,8 @@ object Native {
             'D' -> BatteryStatus.Discharging
             else -> BatteryStatus.Full
         }
+
+    @get:Throws(IOException::class)
+    val temp: Int
+        get() = nativeGetTemp()
 }

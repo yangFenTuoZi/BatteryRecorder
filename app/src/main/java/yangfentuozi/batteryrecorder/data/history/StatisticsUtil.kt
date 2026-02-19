@@ -27,7 +27,7 @@ object StatisticsUtil {
 
         for (line in lines) {
             val parts = line.split(",")
-            if (parts.size != 5) continue
+            if (parts.size < 5) continue
 
             val timestamp = parts[0].toLongOrNull() ?: continue
             val power = parts[1].toDoubleOrNull() ?: continue

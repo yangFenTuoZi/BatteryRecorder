@@ -16,6 +16,7 @@ typedef struct {
     FILE *current_fp;
     FILE *capacity_fp;
     FILE *status_fp;
+    FILE *temp_fp;
     int initialized;
 } FileCache;
 
@@ -59,6 +60,20 @@ static int init_file_cache() {
         g_cache.current_fp = NULL;
         fclose(g_cache.capacity_fp);
         g_cache.capacity_fp = NULL;
+        return 0;
+    }
+
+    g_cache.temp_fp = fopen("/sys/class/power_supply/battery/temp", "r");
+    if (!g_cache.temp_fp) {
+        LOGE("Failed to open status");
+        fclose(g_cache.voltage_fp);
+        g_cache.voltage_fp = NULL;
+        fclose(g_cache.current_fp);
+        g_cache.current_fp = NULL;
+        fclose(g_cache.capacity_fp);
+        g_cache.capacity_fp = NULL;
+        fclose(g_cache.status_fp);
+        g_cache.status_fp = NULL;
         return 0;
     }
 
@@ -134,6 +149,14 @@ static jint native_get_status(JNIEnv *env __attribute__((unused)), jclass clazz 
     return 0;
 }
 
+static jint native_get_temp(JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused))) {
+    if (!g_cache.initialized || !g_cache.status_fp) {
+        return 0;
+    }
+
+    return read_int(g_cache.temp_fp);
+}
+
 static int register_native_methods(JNIEnv *env) {
     const char *class_name = "yangfentuozi/batteryrecorder/server/recorder/Native";
     jclass clazz = (*env)->FindClass(env, class_name);
@@ -148,6 +171,7 @@ static int register_native_methods(JNIEnv *env) {
             {"nativeGetCurrent", "()J", (void *) native_get_current},
             {"nativeGetCapacity", "()I", (void *) native_get_capacity},
             {"nativeGetStatus", "()I", (void *) native_get_status},
+            {"nativeGetTemp", "()I", (void *) native_get_temp},
     };
 
     if ((*env)->RegisterNatives(env, clazz, methods, sizeof(methods) / sizeof(methods[0])) < 0) {
