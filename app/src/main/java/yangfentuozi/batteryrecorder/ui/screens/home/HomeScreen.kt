@@ -29,10 +29,9 @@ import yangfentuozi.batteryrecorder.data.history.RecordType
 import yangfentuozi.batteryrecorder.data.history.SyncUtil
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
 import yangfentuozi.batteryrecorder.ui.components.home.BatteryRecorderTopAppBar
-import yangfentuozi.batteryrecorder.ui.components.home.ChargeStatsCard
 import yangfentuozi.batteryrecorder.ui.components.home.CurrentRecordCard
-import yangfentuozi.batteryrecorder.ui.components.home.DischargeStatsCard
 import yangfentuozi.batteryrecorder.ui.components.home.StartServerCard
+import yangfentuozi.batteryrecorder.ui.components.home.StatsCard
 import yangfentuozi.batteryrecorder.ui.dialog.home.AboutDialog
 import yangfentuozi.batteryrecorder.ui.viewmodel.LiveRecordViewModel
 import yangfentuozi.batteryrecorder.ui.viewmodel.MainViewModel
@@ -157,7 +156,8 @@ fun HomeScreen(
                     // 统计卡片行（自动处理圆角）
                     rowItem {
                         item {
-                            ChargeStatsCard(
+                            StatsCard(
+                                title = "充电总结",
                                 summary = chargeSummary,
                                 dualCellEnabled = dualCellEnabled,
                                 calibrationValue = calibrationValue,
@@ -165,7 +165,8 @@ fun HomeScreen(
                             )
                         }
                         item {
-                            DischargeStatsCard(
+                            StatsCard(
+                                title = "放电总结",
                                 summary = dischargeSummary,
                                 dualCellEnabled = dualCellEnabled,
                                 calibrationValue = calibrationValue,

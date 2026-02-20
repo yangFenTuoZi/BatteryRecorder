@@ -18,7 +18,8 @@ import yangfentuozi.batteryrecorder.ui.components.global.StatRow
 import yangfentuozi.batteryrecorder.utils.formatPower
 
 @Composable
-fun ChargeStatsCard(
+fun StatsCard(
+    title: String,
     summary: HistorySummary?,
     modifier: Modifier = Modifier,
     dualCellEnabled: Boolean,
@@ -33,7 +34,7 @@ fun ChargeStatsCard(
             .padding(16.dp)
     ) {
         Text(
-            text = "充电总结",
+            text = title,
             style = MaterialTheme.typography.titleMedium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -41,9 +42,7 @@ fun ChargeStatsCard(
 
         if (summary != null) {
             Spacer(Modifier.height(12.dp))
-
             StatRow("记录数", "${summary.recordCount} 次", modifier = Modifier.padding(vertical = 4.dp))
-
             StatRow(
                 "平均功率",
                 formatPower(
@@ -53,7 +52,6 @@ fun ChargeStatsCard(
                 ),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
-
         } else {
             Spacer(Modifier.height(12.dp))
             Text(
@@ -64,52 +62,3 @@ fun ChargeStatsCard(
         }
     }
 }
-
-@Composable
-fun DischargeStatsCard(
-    summary: HistorySummary?,
-    modifier: Modifier = Modifier,
-    dualCellEnabled: Boolean,
-    calibrationValue: Int,
-    onClick: (() -> Unit)? = null
-) {
-    Column(
-        modifier = modifier
-            .clickable(enabled = onClick != null) { onClick?.invoke() }
-            .fillMaxWidth()
-            .fillMaxHeight()
-            .padding(16.dp)
-    ) {
-        Text(
-            text = "放电总结",
-            style = MaterialTheme.typography.titleMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-
-        if (summary != null) {
-            Spacer(Modifier.height(12.dp))
-
-            StatRow("记录数", "${summary.recordCount} 次", modifier = Modifier.padding(vertical = 4.dp))
-
-            StatRow(
-                "平均功率",
-                formatPower(
-                    powerW = summary.averagePower,
-                    dualCellEnabled = dualCellEnabled,
-                    calibrationValue = calibrationValue
-                ),
-                modifier = Modifier.padding(vertical = 4.dp)
-            )
-
-        } else {
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text = "暂无数据",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
