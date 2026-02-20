@@ -19,7 +19,7 @@
 - [ ] Magisk 模块开机自启
 - [ ] 监听 app 安装，并在适当时机重启 Server
 - [ ] 重启 server 时，续接之前 server 的状态
-- [ ] 电池温度信息 `/sys/class/power_supply/battery/temp` 记录
+- [x] ~~电池温度信息 `/sys/class/power_supply/battery/temp` 记录~~
 
 ## 下载
 
