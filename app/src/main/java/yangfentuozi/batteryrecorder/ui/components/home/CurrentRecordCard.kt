@@ -34,10 +34,10 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.data.history.HistoryRecord
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
+import yangfentuozi.batteryrecorder.ui.components.global.StatRow
 import yangfentuozi.batteryrecorder.ui.viewmodel.LivePowerPoint
 import yangfentuozi.batteryrecorder.utils.formatDateTime
 import yangfentuozi.batteryrecorder.utils.formatDurationHours
@@ -166,28 +166,6 @@ fun CurrentRecordCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-    }
-}
-
-@Composable
-private fun StatRow(label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f)
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.End,
-            modifier = Modifier.weight(1f)
-        )
     }
 }
 
