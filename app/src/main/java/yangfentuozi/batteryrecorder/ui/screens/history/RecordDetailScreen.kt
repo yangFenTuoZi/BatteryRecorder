@@ -41,13 +41,11 @@ import yangfentuozi.batteryrecorder.ui.components.charts.PowerCapacityChart
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
 import yangfentuozi.batteryrecorder.ui.viewmodel.HistoryViewModel
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
-import yangfentuozi.batteryrecorder.utils.computePowerW
 import yangfentuozi.batteryrecorder.utils.formatDateTime
 import yangfentuozi.batteryrecorder.utils.formatDurationHours
 import yangfentuozi.batteryrecorder.utils.formatPower
 import yangfentuozi.batteryrecorder.utils.formatRelativeTime
 import java.util.Locale
-import kotlin.math.roundToLong
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,7 +58,7 @@ fun RecordDetailScreen(
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
     val record by viewModel.recordDetail.collectAsState()
-    val points by viewModel.recordPoints.collectAsState()
+    val chartUiState by viewModel.recordChartUiState.collectAsState()
     val dualCellEnabled by settingsViewModel.dualCellEnabled.collectAsState()
     val dischargeDisplayPositive by settingsViewModel.dischargeDisplayPositive.collectAsState()
     val calibrationValue by settingsViewModel.calibrationValue.collectAsState()
@@ -70,6 +68,10 @@ fun RecordDetailScreen(
 
     LaunchedEffect(Unit) {
         settingsViewModel.init(context)
+    }
+
+    LaunchedEffect(dualCellEnabled, calibrationValue) {
+        viewModel.updatePowerDisplayConfig(dualCellEnabled, calibrationValue)
     }
 
     LaunchedEffect(recordType, recordName) {
@@ -133,37 +135,16 @@ fun RecordDetailScreen(
             stats.startCapacity - stats.endCapacity
         }
         val typeLabel = if (detail.type == RecordType.CHARGE) "充电记录" else "放电记录"
-        val chartPoints = points.map { point ->
-            val displayPowerW = computePowerW(
-                rawPowerNw = point.power,
-                dualCellEnabled = dualCellEnabled,
-                calibrationValue = calibrationValue
-            )
-            val powerForChart = if (detail.type == RecordType.CHARGE && displayPowerW < 0) {
-                0.0
-            } else {
-                displayPowerW
-            }
-            point.copy(power = powerForChart)
-        }
-        val minChartTime = chartPoints.minOfOrNull { it.timestamp }
-        val maxChartTime = chartPoints.maxOfOrNull { it.timestamp }
-        val totalDurationMs = if (minChartTime != null && maxChartTime != null) {
-            (maxChartTime - minChartTime).coerceAtLeast(1L)
+
+        val fixedPowerMode = if (detail.type == RecordType.DISCHARGE && !dischargeDisplayPositive) {
+            FixedPowerAxisMode.NegativeOnly
         } else {
-            0L
+            FixedPowerAxisMode.PositiveOnly
         }
-        val viewportDurationMs = if (totalDurationMs > 0L) {
-            (totalDurationMs * 0.25).roundToLong().coerceAtLeast(1L)
-        } else {
-            0L
-        }
-        val maxViewportStart = if (minChartTime != null && maxChartTime != null) {
-            (maxChartTime - viewportDurationMs).coerceAtLeast(minChartTime)
-        } else {
-            null
-        }
-        val viewportStartForChart = if (isChartFullscreen && minChartTime != null) {
+
+        val viewportStartForChart = if (isChartFullscreen && chartUiState.minChartTime != null) {
+            val minChartTime = chartUiState.minChartTime!!
+            val maxViewportStart = chartUiState.maxViewportStartTime
             val initialStart = fullscreenViewportStartMs ?: minChartTime
             if (maxViewportStart == null) {
                 initialStart
@@ -173,34 +154,20 @@ fun RecordDetailScreen(
         } else {
             null
         }
-        val viewportEndForChart = if (isChartFullscreen &&
+        val viewportEndForChart = if (
+            isChartFullscreen &&
             viewportStartForChart != null &&
-            maxChartTime != null
+            chartUiState.maxChartTime != null
         ) {
-            (viewportStartForChart + viewportDurationMs).coerceAtMost(maxChartTime)
+            (viewportStartForChart + chartUiState.viewportDurationMs)
+                .coerceAtMost(chartUiState.maxChartTime!!)
         } else {
             null
         }
 
-        val toggleFullscreen: () -> Unit = {
-            if (isChartFullscreen) {
-                isChartFullscreen = false
-                fullscreenViewportStartMs = null
-            } else {
-                isChartFullscreen = true
-                fullscreenViewportStartMs = minChartTime
-            }
-        }
-
-        val fixedPowerMode = if (detail.type == RecordType.DISCHARGE && !dischargeDisplayPositive) {
-            FixedPowerAxisMode.NegativeOnly
-        } else {
-            FixedPowerAxisMode.PositiveOnly
-        }
-
         val chartBlock: @Composable (Modifier, Boolean) -> Unit = { modifier, isFullscreenMode ->
             PowerCapacityChart(
-                points = chartPoints,
+                points = chartUiState.displayPoints,
                 recordScreenOffEnabled = recordScreenOffEnabled,
                 modifier = modifier,
                 useFixedPowerAxisSegments = true,
@@ -211,15 +178,24 @@ fun RecordDetailScreen(
                 chartHeight = if (isFullscreenMode) 320.dp else 240.dp,
                 showFullscreenToggle = true,
                 isFullscreen = isFullscreenMode,
-                onToggleFullscreen = toggleFullscreen,
+                onToggleFullscreen = {
+                    if (isChartFullscreen) {
+                        isChartFullscreen = false
+                        fullscreenViewportStartMs = null
+                    } else {
+                        isChartFullscreen = true
+                        fullscreenViewportStartMs = chartUiState.minChartTime
+                    }
+                },
                 useFivePercentTimeGrid = isFullscreenMode,
                 visibleStartTime = viewportStartForChart,
                 visibleEndTime = viewportEndForChart,
-                onViewportShift = if (isFullscreenMode && minChartTime != null && maxViewportStart != null) { deltaMs ->
+                onViewportShift = if (isFullscreenMode && chartUiState.minChartTime != null && chartUiState.maxViewportStartTime != null) { deltaMs ->
+                    val minChartTime = chartUiState.minChartTime!!
+                    val maxViewportStart = chartUiState.maxViewportStartTime!!
                     val currentStart = (fullscreenViewportStartMs ?: minChartTime)
                         .coerceIn(minChartTime, maxViewportStart)
-                    val shiftedStart = (currentStart + deltaMs).coerceIn(minChartTime, maxViewportStart)
-                    fullscreenViewportStartMs = shiftedStart
+                    fullscreenViewportStartMs = (currentStart + deltaMs).coerceIn(minChartTime, maxViewportStart)
                 } else {
                     null
                 },
