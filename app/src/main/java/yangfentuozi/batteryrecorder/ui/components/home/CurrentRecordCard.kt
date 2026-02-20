@@ -39,6 +39,7 @@ import yangfentuozi.batteryrecorder.data.history.HistoryRecord
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.ui.components.global.StatRow
 import yangfentuozi.batteryrecorder.ui.viewmodel.LivePowerPoint
+import yangfentuozi.batteryrecorder.utils.computePowerW
 import yangfentuozi.batteryrecorder.utils.formatDateTime
 import yangfentuozi.batteryrecorder.utils.formatDurationHours
 import yangfentuozi.batteryrecorder.utils.formatPower
@@ -188,9 +189,12 @@ private fun LivePowerChart(
             )
         } else {
             val displayPoints = run {
-                val multiplier = if (dualCellEnabled) 2 else 1
                 points.map {
-                    val powerW = multiplier * calibrationValue * (it.powerNw / 1_000_000_000.0)
+                    val powerW = computePowerW(
+                        rawPowerNw = it.powerNw.toDouble(),
+                        dualCellEnabled = dualCellEnabled,
+                        calibrationValue = calibrationValue
+                    )
                     val plotPowerW = applyDischargeSignForPlot(powerW, it.status)
                     LivePowerPointDisplay(it.timestamp, plotPowerW, it.isGap)
                 }.sortedBy { it.timestamp }

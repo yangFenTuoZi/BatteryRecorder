@@ -38,6 +38,7 @@ import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.server.recorder.IRecordListener
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
+import yangfentuozi.batteryrecorder.utils.computePowerW
 import kotlin.math.abs
 
 /** 调整校准值：decrease=true 时减小（负向），否则增大（正向） */
@@ -141,8 +142,11 @@ fun CalibrationDialog(
                 if (serviceConnected && rawPower != null) {
                     val power = rawPower!!
                     val finalW = run {
-                        val cellMultiplier = if (dualCellEnabled) 2 else 1
-                        val valueW = cellMultiplier * value * (power / 1_000_000_000.0)
+                        val valueW = computePowerW(
+                            rawPowerNw = power.toDouble(),
+                            dualCellEnabled = dualCellEnabled,
+                            calibrationValue = value
+                        )
                         if (abs(valueW) < 0.005) 0.0 else valueW
                     }
                     Text(

@@ -43,9 +43,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.data.model.ChartPoint
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import yangfentuozi.batteryrecorder.utils.formatDateTime
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -166,7 +164,7 @@ fun PowerCapacityChart(
     timeLabelFormatter: (Long) -> String = { value -> value.toString() },
     axisPowerLabelFormatter: (Double) -> String = { value -> value.roundToInt().toString() },
     axisCapacityLabelFormatter: (Int) -> String = { value -> "$value%" },
-    axisTimeLabelFormatter: (Long) -> String = { value -> formatAbsoluteTime(value) },
+    axisTimeLabelFormatter: (Long) -> String = { value -> formatDateTime(value) },
     chartHeight: Dp = 240.dp,
     showFullscreenToggle: Boolean = false,
     isFullscreen: Boolean = false,
@@ -1128,24 +1126,3 @@ private fun DrawScope.drawTempExtremeMarkers(
     }
 }
 
-/**
- * 格式化相对时间（如 1h30m）
- */
-private fun formatRelativeTime(offsetMs: Long): String {
-    val totalMinutes = max(0, (offsetMs / 60000L).toInt())
-    val hours = totalMinutes / 60
-    val minutes = totalMinutes % 60
-    return if (hours > 0) {
-        if (minutes == 0) {
-            "${hours}h"
-        } else {
-            "${hours}h${minutes}m"
-        }
-    } else {
-        "${minutes}m"
-    }
-}
-
-private fun formatAbsoluteTime(timestampMs: Long): String {
-    return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestampMs))
-}

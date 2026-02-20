@@ -41,9 +41,11 @@ import yangfentuozi.batteryrecorder.ui.components.charts.PowerCapacityChart
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
 import yangfentuozi.batteryrecorder.ui.viewmodel.HistoryViewModel
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
+import yangfentuozi.batteryrecorder.utils.computePowerW
 import yangfentuozi.batteryrecorder.utils.formatDateTime
 import yangfentuozi.batteryrecorder.utils.formatDurationHours
 import yangfentuozi.batteryrecorder.utils.formatPower
+import yangfentuozi.batteryrecorder.utils.formatRelativeTime
 import java.util.Locale
 import kotlin.math.roundToLong
 
@@ -131,9 +133,12 @@ fun RecordDetailScreen(
             stats.startCapacity - stats.endCapacity
         }
         val typeLabel = if (detail.type == RecordType.CHARGE) "充电记录" else "放电记录"
-        val cellMultiplier = if (dualCellEnabled) 2 else 1
         val chartPoints = points.map { point ->
-            val displayPowerW = cellMultiplier * calibrationValue * (point.power / 1000000000.0)
+            val displayPowerW = computePowerW(
+                rawPowerNw = point.power,
+                dualCellEnabled = dualCellEnabled,
+                calibrationValue = calibrationValue
+            )
             val powerForChart = if (detail.type == RecordType.CHARGE && displayPowerW < 0) {
                 0.0
             } else {
@@ -227,7 +232,7 @@ fun RecordDetailScreen(
                 },
                 timeLabelFormatter = { value ->
                     val offset = (value - stats.startTime).coerceAtLeast(0L)
-                    formatRelativeOffset(offset)
+                    formatRelativeTime(offset)
                 },
                 axisPowerLabelFormatter = { value ->
                     String.format(Locale.getDefault(), "%.0f W", value)
@@ -235,7 +240,7 @@ fun RecordDetailScreen(
                 axisCapacityLabelFormatter = { value -> "$value%" },
                 axisTimeLabelFormatter = { value ->
                     val offset = (value - stats.startTime).coerceAtLeast(0L)
-                    formatRelativeOffset(offset)
+                    formatRelativeTime(offset)
                 }
             )
         }
@@ -294,21 +299,6 @@ fun RecordDetailScreen(
                 }
             }
         }
-    }
-}
-
-private fun formatRelativeOffset(offsetMs: Long): String {
-    val totalMinutes = (offsetMs / 60000L).toInt()
-    val hours = totalMinutes / 60
-    val minutes = totalMinutes % 60
-    return if (hours > 0) {
-        if (minutes == 0) {
-            "${hours}h"
-        } else {
-            "${hours}h${minutes}m"
-        }
-    } else {
-        "${minutes}m"
     }
 }
 

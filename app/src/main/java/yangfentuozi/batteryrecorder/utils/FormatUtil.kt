@@ -4,6 +4,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+private const val NW_TO_WATT = 1_000_000_000.0
+
 /**
  * 将毫秒时长格式化为小时分钟字符串
  * @param durationMs 时长（毫秒），如 7200000 表示 2 小时
@@ -26,6 +28,30 @@ fun formatDateTime(timestamp: Long): String {
     return formatter.format(Date(timestamp))
 }
 
+fun formatRelativeTime(offsetMs: Long): String {
+    val totalMinutes = (offsetMs / 60000L).toInt().coerceAtLeast(0)
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return if (hours > 0) {
+        if (minutes == 0) {
+            "${hours}h"
+        } else {
+            "${hours}h${minutes}m"
+        }
+    } else {
+        "${minutes}m"
+    }
+}
+
+fun computePowerW(
+    rawPowerNw: Double,
+    dualCellEnabled: Boolean,
+    calibrationValue: Int
+): Double {
+    val cellMultiplier = if (dualCellEnabled) 2 else 1
+    return cellMultiplier * calibrationValue * (rawPowerNw / NW_TO_WATT)
+}
+
 /**
  * 将原始功率值转换为瓦特并格式化（保留1位小数）
  *
@@ -44,9 +70,7 @@ fun formatPower(
     dualCellEnabled: Boolean,
     calibrationValue: Int
 ): String {
-    // cellMultiplier: 双电芯为2，单电芯为1
-    // 纳瓦转瓦特: ÷ 1000000000
-    val finalValue = (if (dualCellEnabled) 2 else 1) * calibrationValue * (powerW / 1000000000)
+    val finalValue = computePowerW(powerW, dualCellEnabled, calibrationValue)
     return String.format(Locale.getDefault(), "%.2f W", finalValue)
 }
 
@@ -65,6 +89,6 @@ fun formatPowerInt(
     dualCellEnabled: Boolean,
     calibrationValue: Int
 ): String {
-    val finalValue = (if (dualCellEnabled) 2 else 1) * calibrationValue * (powerW / 1000000000)
+    val finalValue = computePowerW(powerW, dualCellEnabled, calibrationValue)
     return String.format(Locale.getDefault(), "%.0f W", finalValue)
 }
