@@ -2,7 +2,6 @@ package yangfentuozi.batteryrecorder.ui
 
 import android.os.Bundle
 import androidx.activity.compose.setContent
-import yangfentuozi.batteryrecorder.ui.components.home.BatteryRecorderApp
 import yangfentuozi.batteryrecorder.ui.theme.BatteryRecorderTheme
 
 class MainActivity : BaseActivity() {

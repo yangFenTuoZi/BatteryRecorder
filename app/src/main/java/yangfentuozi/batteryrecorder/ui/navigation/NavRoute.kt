@@ -1,12 +1,12 @@
 package yangfentuozi.batteryrecorder.ui.navigation
 
-sealed class Screen(val route: String) {
-    object Home : Screen("home")
-    object Settings : Screen("settings")
-    object HistoryList : Screen("history/{type}") {
+sealed class NavRoute(val route: String) {
+    object Home : NavRoute("home")
+    object Settings : NavRoute("settings")
+    object HistoryList : NavRoute("history/{type}") {
         fun createRoute(type: String): String = "history/$type"
     }
-    object RecordDetail : Screen("record/{type}/{name}") {
+    object RecordDetail : NavRoute("record/{type}/{name}") {
         fun createRoute(type: String, name: String): String = "record/$type/$name"
     }
 }

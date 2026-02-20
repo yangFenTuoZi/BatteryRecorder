@@ -57,11 +57,11 @@ fun BatteryRecorderNavHost(
 ) {
     NavHost(
         navController = navController,
-        startDestination = Screen.Home.route,
+        startDestination = NavRoute.Home.route,
         modifier = modifier
     ) {
         composable(
-            route = Screen.Home.route,
+            route = NavRoute.Home.route,
             exitTransition = {
                 // 从 MainPage 到 EditPage 时，MainPage 的退出动画
                 slideOutHorizontally(targetOffsetX = { fullWidth -> -fullWidth / 4 }) +
@@ -83,14 +83,14 @@ fun BatteryRecorderNavHost(
                 viewModel = mainViewModel,
                 settingsViewModel = settingsViewModel,
                 onNavigateToSettings = {
-                    navController.navigate(Screen.Settings.route)
+                    navController.navigate(NavRoute.Settings.route)
                 },
                 onNavigateToHistoryList = { type ->
-                    navController.navigate(Screen.HistoryList.createRoute(type.dirName))
+                    navController.navigate(NavRoute.HistoryList.createRoute(type.dirName))
                 },
                 onNavigateToRecordDetail = { type, name ->
                     navController.navigate(
-                        Screen.RecordDetail.createRoute(
+                        NavRoute.RecordDetail.createRoute(
                             type.dirName,
                             Uri.encode(name)
                         )
@@ -99,7 +99,7 @@ fun BatteryRecorderNavHost(
             )
         }
         composable(
-            route = Screen.Settings.route,
+            route = NavRoute.Settings.route,
             enterTransition = { defaultEnterTransition },
             exitTransition = { defaultExitTransition },
             popEnterTransition = { defaultPopEnterTransition },
@@ -113,11 +113,11 @@ fun BatteryRecorderNavHost(
             )
         }
         composable(
-            route = Screen.HistoryList.route,
+            route = NavRoute.HistoryList.route,
             arguments = listOf(navArgument("type") { type = NavType.StringType }),
             enterTransition = { defaultEnterTransition },
             exitTransition = {
-                if (targetState.destination.route == Screen.RecordDetail.route) {
+                if (targetState.destination.route == NavRoute.RecordDetail.route) {
                     slideOutHorizontally(targetOffsetX = { fullWidth -> -fullWidth / 4 }) +
                             fadeOut()
                 } else {
@@ -125,7 +125,7 @@ fun BatteryRecorderNavHost(
                 }
             },
             popEnterTransition = {
-                if (initialState.destination.route == Screen.RecordDetail.route) {
+                if (initialState.destination.route == NavRoute.RecordDetail.route) {
                     slideInHorizontally(initialOffsetX = { fullWidth -> -fullWidth / 4 }) +
                             fadeIn()
                 } else {
@@ -144,13 +144,13 @@ fun BatteryRecorderNavHost(
                 recordType = recordType,
                 onNavigateToRecordDetail = { type, name ->
                     navController.navigate(
-                        Screen.RecordDetail.createRoute(type.dirName, Uri.encode(name))
+                        NavRoute.RecordDetail.createRoute(type.dirName, Uri.encode(name))
                     )
                 }
             )
         }
         composable(
-            route = Screen.RecordDetail.route,
+            route = NavRoute.RecordDetail.route,
             arguments = listOf(
                 navArgument("type") { type = NavType.StringType },
                 navArgument("name") { type = NavType.StringType }

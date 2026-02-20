@@ -1,4 +1,4 @@
-package yangfentuozi.batteryrecorder.ui.components.home
+package yangfentuozi.batteryrecorder.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
