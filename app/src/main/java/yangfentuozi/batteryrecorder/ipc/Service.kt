@@ -37,7 +37,6 @@ object Service {
                 value?.asBinder()?.linkToDeath(mDeathRecipient, 0)
                 mBinder = value?.asBinder()
                 mService = value
-                return
             } catch (_: RemoteException) {
             }
             scheduleListeners()

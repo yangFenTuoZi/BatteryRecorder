@@ -107,7 +107,7 @@ object StatisticsUtil {
                     startCapacity = startCapacity,
                     endCapacity = endCapacity,
                     screenOnTimeMs = screenOnTimeMs,
-                    screenOffTimeMs = screenOnTimeMs,
+                    screenOffTimeMs = screenOffTimeMs,
                     averagePower = averagePower
                 )
             }
