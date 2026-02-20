@@ -6,6 +6,7 @@ import android.os.Looper
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,6 +16,7 @@ import yangfentuozi.batteryrecorder.data.history.HistoryRecord
 import yangfentuozi.batteryrecorder.data.history.HistoryRepository
 import yangfentuozi.batteryrecorder.data.history.HistorySummary
 import yangfentuozi.batteryrecorder.data.history.RecordType
+import yangfentuozi.batteryrecorder.data.history.SyncUtil
 import yangfentuozi.batteryrecorder.ipc.Service
 
 class MainViewModel : ViewModel() {
@@ -98,8 +100,7 @@ class MainViewModel : ViewModel() {
                     ?.let { mapHistorySummaryForDisplay(it, dischargeDisplayPositive) }
                 _dischargeSummary.value = HistoryRepository.loadSummary(context, RecordType.DISCHARGE)
                     ?.let { mapHistorySummaryForDisplay(it, dischargeDisplayPositive) }
-                _currentRecord.value = HistoryRepository.loadLatestRecord(context)
-                    ?.let { mapHistoryRecordForDisplay(it, dischargeDisplayPositive) }
+                _currentRecord.value = loadLatestRecordForDisplay(context, dischargeDisplayPositive)
             } finally {
                 _isLoadingStats.value = false
             }
@@ -116,9 +117,35 @@ class MainViewModel : ViewModel() {
     fun refreshCurrentRecord(context: Context) {
         viewModelScope.launch {
             val dischargeDisplayPositive = getDischargeDisplayPositive(context)
-            _currentRecord.value = withContext(Dispatchers.IO) {
-                HistoryRepository.loadLatestRecord(context)
-            }?.let { mapHistoryRecordForDisplay(it, dischargeDisplayPositive) }
+            _currentRecord.value = loadLatestRecordForDisplay(context, dischargeDisplayPositive)
         }
+    }
+
+    suspend fun onLiveStatusChanged(context: Context, liveStatus: Int?, intervalMs: Long) {
+        if (liveStatus == null) return
+
+        withContext(Dispatchers.IO) {
+            runCatching { SyncUtil.sync(context) }
+        }
+
+        val dischargeDisplayPositive = getDischargeDisplayPositive(context)
+        val before = _currentRecord.value
+        delay((intervalMs * 2).coerceAtLeast(800L))
+
+        repeat(3) {
+            _currentRecord.value = loadLatestRecordForDisplay(context, dischargeDisplayPositive)
+            delay(350L)
+            val after = _currentRecord.value
+            if (after?.name != before?.name || after?.type != before?.type) return
+        }
+    }
+
+    private suspend fun loadLatestRecordForDisplay(
+        context: Context,
+        dischargeDisplayPositive: Boolean
+    ): HistoryRecord? {
+        return withContext(Dispatchers.IO) {
+            HistoryRepository.loadLatestRecord(context)
+        }?.let { mapHistoryRecordForDisplay(it, dischargeDisplayPositive) }
     }
 }

@@ -22,11 +22,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
 import yangfentuozi.batteryrecorder.data.history.RecordType
-import yangfentuozi.batteryrecorder.data.history.SyncUtil
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
 import yangfentuozi.batteryrecorder.ui.components.home.BatteryRecorderTopAppBar
 import yangfentuozi.batteryrecorder.ui.components.home.CurrentRecordCard
@@ -75,21 +71,7 @@ fun HomeScreen(
     }
 
     LaunchedEffect(liveStatus) {
-        if (liveStatus == null) return@LaunchedEffect
-
-        withContext(Dispatchers.IO) {
-            runCatching { SyncUtil.sync(context) }
-        }
-
-        val before = viewModel.currentRecord.value
-        delay((intervalMs * 2).coerceAtLeast(800L))
-
-        repeat(3) {
-            viewModel.refreshCurrentRecord(context)
-            delay(350L)
-            val after = viewModel.currentRecord.value
-            if (after?.name != before?.name || after?.type != before?.type) return@LaunchedEffect
-        }
+        viewModel.onLiveStatusChanged(context, liveStatus, intervalMs)
     }
 
     // 监听生命周期事件
