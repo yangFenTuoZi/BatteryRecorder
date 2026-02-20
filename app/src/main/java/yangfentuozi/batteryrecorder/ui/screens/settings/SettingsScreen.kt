@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.CalibrationSection
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.ServerSection
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
@@ -48,6 +49,7 @@ fun SettingsScreen(
     val batchSize by settingsViewModel.batchSize.collectAsState()
     val recordScreenOffEnabled by settingsViewModel.screenOffRecord.collectAsState()
     val segmentDurationMin by settingsViewModel.segmentDurationMin.collectAsState()
+    val serviceConnected = Service.service != null
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
@@ -79,6 +81,7 @@ fun SettingsScreen(
                     dischargeDisplayPositive = dischargeDisplayPositive,
                     onDischargeDisplayPositiveChange = settingsViewModel::setDischargeDisplayPositiveEnabled,
                     calibrationValue = calibrationValue,
+                    serviceConnected = serviceConnected,
                     onCalibrationChange = settingsViewModel::setCalibrationValue
                 )
             }
