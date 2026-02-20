@@ -61,11 +61,6 @@ fun HomeScreen(
 
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // 初始化设置 ViewModel
-    LaunchedEffect(Unit) {
-        settingsViewModel.init(context)
-    }
-
     LaunchedEffect(intervalMs) {
         liveRecordViewModel.updateIntervalMs(intervalMs)
     }

@@ -66,10 +66,6 @@ fun RecordDetailScreen(
     var isChartFullscreen by rememberSaveable(recordType, recordName) { mutableStateOf(false) }
     var fullscreenViewportStartMs by rememberSaveable(recordType, recordName) { mutableStateOf<Long?>(null) }
 
-    LaunchedEffect(Unit) {
-        settingsViewModel.init(context)
-    }
-
     LaunchedEffect(dualCellEnabled, calibrationValue) {
         viewModel.updatePowerDisplayConfig(dualCellEnabled, calibrationValue)
     }

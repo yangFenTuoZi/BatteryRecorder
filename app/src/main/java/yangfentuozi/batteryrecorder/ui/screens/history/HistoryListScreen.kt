@@ -56,10 +56,6 @@ fun HistoryListScreen(
     val calibrationValue by settingsViewModel.calibrationValue.collectAsState()
     var openRecordName by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) {
-        settingsViewModel.init(context)
-    }
-
     LaunchedEffect(recordType) {
         openRecordName = null
         viewModel.loadRecords(context, recordType)
