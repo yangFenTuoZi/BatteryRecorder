@@ -93,9 +93,13 @@ class MainViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoadingStats.value = true
             try {
+                val dischargeDisplayPositive = getDischargeDisplayPositive(context)
                 _chargeSummary.value = HistoryRepository.loadSummary(context, RecordType.CHARGE)
+                    ?.let { mapHistorySummaryForDisplay(it, dischargeDisplayPositive) }
                 _dischargeSummary.value = HistoryRepository.loadSummary(context, RecordType.DISCHARGE)
+                    ?.let { mapHistorySummaryForDisplay(it, dischargeDisplayPositive) }
                 _currentRecord.value = HistoryRepository.loadLatestRecord(context)
+                    ?.let { mapHistoryRecordForDisplay(it, dischargeDisplayPositive) }
             } finally {
                 _isLoadingStats.value = false
             }
@@ -111,9 +115,10 @@ class MainViewModel : ViewModel() {
 
     fun refreshCurrentRecord(context: Context) {
         viewModelScope.launch {
+            val dischargeDisplayPositive = getDischargeDisplayPositive(context)
             _currentRecord.value = withContext(Dispatchers.IO) {
                 HistoryRepository.loadLatestRecord(context)
-            }
+            }?.let { mapHistoryRecordForDisplay(it, dischargeDisplayPositive) }
         }
     }
 }

@@ -3,7 +3,6 @@ package yangfentuozi.batteryrecorder.data.history
 import android.content.Context
 import yangfentuozi.batteryrecorder.data.model.ChartPoint
 import yangfentuozi.batteryrecorder.shared.Constants
-import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import java.io.File
 
 enum class RecordType(val dirName: String) {
@@ -28,16 +27,6 @@ data class HistorySummary(
 )
 
 object HistoryRepository {
-    private const val KEY_DISCHARGE_DISPLAY_POSITIVE = "discharge_display_positive"
-
-    // 放电功率默认为负值，用户可选择显示为正值
-    private fun getPowerMultiplier(context: Context, type: RecordType): Double {
-        if (type != RecordType.DISCHARGE) return 1.0
-        val enabled = context.getSharedPreferences(ConfigConstants.PREFS_NAME, Context.MODE_PRIVATE)
-            .getBoolean(KEY_DISCHARGE_DISPLAY_POSITIVE, true)
-        return if (enabled) -1.0 else 1.0
-    }
-
     private fun getDataDir(context: Context, type: RecordType) =
         File(File(context.dataDir, Constants.APP_POWER_DATA_PATH), type.dirName)
 
@@ -51,7 +40,7 @@ object HistoryRepository {
     private fun validFile(dir: File, name: String): File? =
         File(dir, name).takeIf { it.isFile }
 
-    /** 加载统计数据，应用功率乘数后构建 HistoryRecord */
+    /** 加载统计数据并构建 HistoryRecord */
     private fun loadStats(
         context: Context,
         type: RecordType,
@@ -68,11 +57,10 @@ object HistoryRepository {
             )
         }.getOrNull() ?: return null
 
-        val multiplier = getPowerMultiplier(context, type)
         return HistoryRecord(
             name = file.name,
             type = type,
-            stats = stats.copy(averagePower = stats.averagePower * multiplier),
+            stats = stats,
             lastModified = file.lastModified()
         )
     }
@@ -101,7 +89,6 @@ object HistoryRepository {
     fun loadRecordPoints(context: Context, type: RecordType, name: String): List<ChartPoint> {
         val dataDir = validDataDir(context, type) ?: return emptyList()
         val file = validFile(dataDir, name) ?: return emptyList()
-        val multiplier = getPowerMultiplier(context, type)
 
         return file.readLines()
             .asSequence()
@@ -111,7 +98,7 @@ object HistoryRepository {
                 if (parts.size < 5) return@mapNotNull null
                 ChartPoint(
                     timestamp = parts[0].toLongOrNull() ?: return@mapNotNull null,
-                    power = (parts[1].toDoubleOrNull() ?: return@mapNotNull null) * multiplier,
+                    power = parts[1].toDoubleOrNull() ?: return@mapNotNull null,
                     capacity = parts[3].toIntOrNull() ?: return@mapNotNull null,
                     isDisplayOn = parts[4] == "1",
                     temp = if (parts.size > 5) parts[5].toIntOrNull() ?: 0 else 0

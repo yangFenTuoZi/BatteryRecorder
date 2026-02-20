@@ -30,7 +30,9 @@ class HistoryViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
+                val dischargeDisplayPositive = getDischargeDisplayPositive(context)
                 _records.value = HistoryRepository.loadRecords(context, type)
+                    .map { mapHistoryRecordForDisplay(it, dischargeDisplayPositive) }
             } finally {
                 _isLoading.value = false
             }
@@ -42,8 +44,14 @@ class HistoryViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
+                val dischargeDisplayPositive = getDischargeDisplayPositive(context)
                 _recordDetail.value = HistoryRepository.loadRecord(context, type, name)
-                _recordPoints.value = HistoryRepository.loadRecordPoints(context, type, name)
+                    ?.let { mapHistoryRecordForDisplay(it, dischargeDisplayPositive) }
+                _recordPoints.value = mapChartPointsForDisplay(
+                    points = HistoryRepository.loadRecordPoints(context, type, name),
+                    recordType = type,
+                    dischargeDisplayPositive = dischargeDisplayPositive
+                )
             } finally {
                 _isLoading.value = false
             }
@@ -57,7 +65,9 @@ class HistoryViewModel : ViewModel() {
             try {
                 val deleted = HistoryRepository.deleteRecord(context, type, name)
                 if (deleted) {
+                    val dischargeDisplayPositive = getDischargeDisplayPositive(context)
                     _records.value = HistoryRepository.loadRecords(context, type)
+                        .map { mapHistoryRecordForDisplay(it, dischargeDisplayPositive) }
                     val detail = _recordDetail.value
                     if (detail != null && detail.type == type && detail.name == name) {
                         _recordDetail.value = null
