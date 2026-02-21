@@ -4,11 +4,8 @@ import java.io.File
 
 object StatisticsUtil {
     private fun parseAndComputePowerStats(filePath: File): PowerStats {
-        val lines = filePath.readLines()
-            .filter { it.isNotBlank() }
-
-        if (lines.isEmpty()) {
-            throw IllegalArgumentException("File is empty")
+        if (!filePath.exists()) {
+            throw IllegalArgumentException("File not found: ${filePath.absolutePath}")
         }
 
         var startTime = Long.MAX_VALUE
@@ -19,50 +16,69 @@ object StatisticsUtil {
         var screenOnTime = 0L
         var screenOffTime = 0L
 
-        var totalPower = 0.0
-        var totalIntervals = 0
+        // 能量积分（μW * ms）
+        var totalEnergy = 0.0
+        var totalDuration = 0L
 
         var lastTimestamp: Long? = null
+        var lastPower: Double? = null
         var lastDisplayOn: Int? = null
 
-        for (line in lines) {
-            val parts = line.split(",")
-            if (parts.size < 5) continue
+        filePath.bufferedReader().useLines { lines ->
+            lines.forEach { raw ->
+                val line = raw.trim()
+                if (line.isEmpty()) return@forEach
 
-            val timestamp = parts[0].toLongOrNull() ?: continue
-            val power = parts[1].toDoubleOrNull() ?: continue
-            val capacity = parts[3].toIntOrNull() ?: continue
-            val isDisplayOn = parts[4].toIntOrNull() ?: continue
+                val parts = line.split(",")
+                if (parts.size < 5) return@forEach
 
-            // 记录开始和结束
-            if (timestamp < startTime) {
-                startTime = timestamp
-                startCapacity = capacity
-            }
-            if (timestamp > endTime) {
-                endTime = timestamp
-                endCapacity = capacity
-            }
+                val timestamp = parts[0].toLongOrNull() ?: return@forEach
+                val power = parts[1].toDoubleOrNull() ?: return@forEach
+                val capacity = parts[3].toIntOrNull() ?: return@forEach
+                val isDisplayOn = parts[4].toIntOrNull() ?: return@forEach
 
-            // 统计亮屏/息屏时间
-            if (lastTimestamp != null && lastDisplayOn != null) {
-                val interval = timestamp - lastTimestamp
-                if (lastDisplayOn == 1) {
-                    screenOnTime += interval
-                } else {
-                    screenOffTime += interval
+                // 起止时间与电量
+                if (timestamp < startTime) {
+                    startTime = timestamp
+                    startCapacity = capacity
                 }
+                if (timestamp > endTime) {
+                    endTime = timestamp
+                    endCapacity = capacity
+                }
+
+                val prevTs = lastTimestamp
+                val prevPower = lastPower
+                val prevDisplay = lastDisplayOn
+
+                if (prevTs != null && prevPower != null && prevDisplay != null) {
+                    val dt = timestamp - prevTs
+                    if (dt > 0) {
+                        // 时间统计
+                        if (prevDisplay == 1) {
+                            screenOnTime += dt
+                        } else {
+                            screenOffTime += dt
+                        }
+
+                        // 能量积分（sample-and-hold）
+                        totalEnergy += prevPower * dt
+                        totalDuration += dt
+                    }
+                }
+
+                lastTimestamp = timestamp
+                lastPower = power
+                lastDisplayOn = isDisplayOn
             }
-
-            // 累加功耗（简单平均）
-            totalPower += power
-            totalIntervals++
-
-            lastTimestamp = timestamp
-            lastDisplayOn = isDisplayOn
         }
 
-        val averagePower = totalPower / totalIntervals
+        if (totalDuration <= 0) {
+            throw IllegalStateException("Not enough valid samples")
+        }
+
+        // 时间加权平均功耗（μW）
+        val averagePower = totalEnergy / totalDuration
 
         return PowerStats(
             startTime = startTime,
@@ -86,30 +102,32 @@ object StatisticsUtil {
         val cacheFile = File(cacheDir, name)
         if (cacheFile.exists()) {
             val parts = cacheFile.readText().trim().split(",")
-            val startTime = parts[0].toLongOrNull()
-            val endTime = parts[1].toLongOrNull()
-            val startCapacity = parts[2].toIntOrNull()
-            val endCapacity = parts[3].toIntOrNull()
-            val screenOnTimeMs = parts[4].toLongOrNull()
-            val screenOffTimeMs = parts[5].toLongOrNull()
-            val averagePower = parts[6].toDoubleOrNull()
-            if (startTime != null &&
-                endTime != null &&
-                startCapacity != null &&
-                endCapacity != null &&
-                screenOnTimeMs != null &&
-                screenOffTimeMs != null &&
-                averagePower != null
-            ) {
-                return PowerStats(
-                    startTime = startTime,
-                    endTime = endTime,
-                    startCapacity = startCapacity,
-                    endCapacity = endCapacity,
-                    screenOnTimeMs = screenOnTimeMs,
-                    screenOffTimeMs = screenOffTimeMs,
-                    averagePower = averagePower
-                )
+            if (parts.size >= 7) {
+                val startTime = parts[0].toLongOrNull()
+                val endTime = parts[1].toLongOrNull()
+                val startCapacity = parts[2].toIntOrNull()
+                val endCapacity = parts[3].toIntOrNull()
+                val screenOnTimeMs = parts[4].toLongOrNull()
+                val screenOffTimeMs = parts[5].toLongOrNull()
+                val averagePower = parts[6].toDoubleOrNull()
+                if (startTime != null &&
+                    endTime != null &&
+                    startCapacity != null &&
+                    endCapacity != null &&
+                    screenOnTimeMs != null &&
+                    screenOffTimeMs != null &&
+                    averagePower != null
+                ) {
+                    return PowerStats(
+                        startTime = startTime,
+                        endTime = endTime,
+                        startCapacity = startCapacity,
+                        endCapacity = endCapacity,
+                        screenOnTimeMs = screenOnTimeMs,
+                        screenOffTimeMs = screenOffTimeMs,
+                        averagePower = averagePower
+                    )
+                }
             }
             cacheFile.delete()
         }
