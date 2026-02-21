@@ -38,7 +38,7 @@ import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
 fun HomeScreen(
     viewModel: MainViewModel = viewModel(),
     liveRecordViewModel: LiveRecordViewModel = viewModel(),
-    settingsViewModel: SettingsViewModel = viewModel(),
+    settingsViewModel: SettingsViewModel,
     onNavigateToSettings: () -> Unit = {},
     onNavigateToHistoryList: (RecordType) -> Unit = {},
     onNavigateToRecordDetail: (RecordType, String) -> Unit = { _, _ -> }

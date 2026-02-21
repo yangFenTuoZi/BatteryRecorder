@@ -47,7 +47,7 @@ import yangfentuozi.batteryrecorder.utils.formatPower
 fun HistoryListScreen(
     recordType: RecordType,
     viewModel: HistoryViewModel = viewModel(),
-    settingsViewModel: SettingsViewModel = viewModel(),
+    settingsViewModel: SettingsViewModel,
     onNavigateToRecordDetail: (RecordType, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current

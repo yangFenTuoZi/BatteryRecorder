@@ -146,7 +146,8 @@ fun BatteryRecorderNavHost(
                     navController.navigate(
                         NavRoute.RecordDetail.createRoute(type.dirName, Uri.encode(name))
                     )
-                }
+                },
+                settingsViewModel = settingsViewModel
             )
         }
         composable(
@@ -169,7 +170,8 @@ fun BatteryRecorderNavHost(
             }
             RecordDetailScreen(
                 recordType = recordType,
-                recordName = Uri.decode(nameArg)
+                recordName = Uri.decode(nameArg),
+                settingsViewModel = settingsViewModel
             )
         }
     }

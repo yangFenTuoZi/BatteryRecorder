@@ -53,7 +53,7 @@ fun RecordDetailScreen(
     recordType: RecordType,
     recordName: String,
     viewModel: HistoryViewModel = viewModel(),
-    settingsViewModel: SettingsViewModel = viewModel(),
+    settingsViewModel: SettingsViewModel,
 ) {
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
