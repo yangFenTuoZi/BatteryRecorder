@@ -5,6 +5,7 @@ import yangfentuozi.batteryrecorder.shared.config.Config;
 
 interface IService {
     void stopService() = 1;
+    int getVersion() = 2;
 
     void registerRecordListener(IRecordListener listener) = 100;
     void unregisterRecordListener(IRecordListener listener) = 101;

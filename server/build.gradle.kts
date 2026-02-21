@@ -13,6 +13,7 @@ android {
         ndk {
             abiFilters.addAll(listOf("x86", "x86_64", "armeabi-v7a", "arm64-v8a"))
         }
+        buildConfigField("int", "VERSION", rootProject.ext["gitCommitCountString"] as String)
     }
 
     buildTypes {
@@ -28,6 +29,7 @@ android {
 
     buildFeatures {
         aidl = true
+        buildConfig = true
     }
     kotlinOptions {
         compileOptions {

@@ -134,6 +134,10 @@ class Server internal constructor() : IService.Stub() {
         mMainHandler.postDelayed({ exitProcess(0) }, 100)
     }
 
+    override fun getVersion(): Int {
+        return BuildConfig.VERSION
+    }
+
     override fun registerRecordListener(listener: IRecordListener) {
         monitor.registerRecordListener(listener)
     }

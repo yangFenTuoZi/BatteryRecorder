@@ -6,22 +6,6 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
-val gitCommitCount: Int =
-    listOf("git", "rev-list", "--count", "HEAD").execute(project.rootDir).trim().toInt()
-
-fun List<String>.execute(workingDir: File): String {
-    return try {
-        ProcessBuilder(this)
-            .directory(workingDir)
-            .redirectOutput(ProcessBuilder.Redirect.PIPE)
-            .redirectError(ProcessBuilder.Redirect.PIPE)
-            .start()
-            .inputStream.bufferedReader().use { it.readText() }
-    } catch (e: Exception) {
-        logger.warn("Failed to execute git command: ${e.message}")
-        "unknown" // fallback value
-    }
-}
 
 val ksFile = rootProject.file("signing.properties")
 val props = Properties()
@@ -50,7 +34,7 @@ android {
         applicationId = "yangfentuozi.batteryrecorder"
         minSdk = 31
         targetSdk = 36
-        versionCode = gitCommitCount
+        versionCode = rootProject.ext["gitCommitCountInt"] as Int
         versionName = "1.0"
     }
 
