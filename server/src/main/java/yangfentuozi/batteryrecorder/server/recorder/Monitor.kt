@@ -21,8 +21,6 @@ import yangfentuozi.batteryrecorder.shared.Constants
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.shared.data.PowerRecord
 import java.io.IOException
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.locks.ReentrantLock
 
 class Monitor(
     private val writer: PowerRecordWriter,
@@ -66,42 +64,17 @@ class Monitor(
     private var paused = false
     @Volatile
     private var stopped = false
-
-    private val lock = ReentrantLock()
-    private val canRun = lock.newCondition()
-
-    private fun shouldPause(): Boolean {
-        return !isInteractive && !screenOffRecord
-    }
-
-    private fun awaitNext(intervalMs: Long) {
-        lock.lock()
-        try {
-            while (!stopped && shouldPause()) {
-                paused = true
-                canRun.await()
-            }
-            paused = false
-            if (stopped) return
-
-            var nanos = TimeUnit.MILLISECONDS.toNanos(intervalMs)
-            while (!stopped && !shouldPause() && nanos > 0L) {
-                nanos = canRun.awaitNanos(nanos)
-            }
-        } finally {
-            lock.unlock()
-        }
-    }
-
+    private val lock = Object()
     private val callbackThread = HandlerThread("CallbackThread")
     private lateinit var callbackHandler: Handler
     private var thread = Thread({
-        while (!stopped) {
-            try {
-                val timestamp = System.currentTimeMillis()
-                val power = Native.power
-                val status = Native.status
-                val temp = Native.temp
+        synchronized(lock) {
+            while (!stopped) {
+                try {
+                    val timestamp = System.currentTimeMillis()
+                    val power = Native.power
+                    val status = Native.status
+                    val temp = Native.temp
                 writer.write(
                     PowerRecord(
                         timestamp,
@@ -111,8 +84,8 @@ class Monitor(
                         if (isInteractive) 1 else 0,
                         status,
                         temp
+                        )
                     )
-                )
 
                 callbackHandler.post {
                     // 回调 app
@@ -131,7 +104,14 @@ class Monitor(
                 Log.e(TAG, "Error reading power data", e)
             }
 
-            awaitNext(recordIntervalMs)
+                if (isInteractive || screenOffRecord) {
+                    paused = false
+                    lock.wait(recordIntervalMs)
+                } else {
+                    paused = true
+                    lock.wait()
+                }
+            }
         }
     }, "MonitorThread")
 
@@ -169,11 +149,8 @@ class Monitor(
     }
 
     fun notifyLock() {
-        lock.lock()
-        try {
-            canRun.signalAll()
-        } finally {
-            lock.unlock()
+        synchronized(lock) {
+            lock.notifyAll()
         }
     }
 
