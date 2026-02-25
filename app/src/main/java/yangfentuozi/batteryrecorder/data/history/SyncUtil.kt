@@ -13,12 +13,10 @@ object SyncUtil {
         val readPfd = service.sync() ?: return
         val outDir = File(context.dataDir, Constants.APP_POWER_DATA_PATH)
 
-        Thread {
-            try {
-                PfdFileReceiver.receiveToDir(readPfd, outDir)
-            } catch (e: Exception) {
-                Log.e("Transfer", "Client receive error", e)
-            }
-        }.start()
+        try {
+            PfdFileReceiver.receiveToDir(readPfd, outDir)
+        } catch (e: Exception) {
+            Log.e("Transfer", "Client receive error", e)
+        }
     }
 }

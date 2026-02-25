@@ -7,7 +7,7 @@ import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Charging
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Discharging
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Full
-import yangfentuozi.batteryrecorder.shared.data.PowerRecord
+import yangfentuozi.batteryrecorder.shared.data.LineRecord
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -30,8 +30,10 @@ class PowerRecordWriter(
 
     @Volatile
     var batchSize = 200
+
     @Volatile
     var flushIntervalMs = 30 * 1000L
+
     @Volatile
     var maxSegmentDurationMs = 24 * 60 * 60 * 1000L
 
@@ -51,7 +53,7 @@ class PowerRecordWriter(
         makeSureExists(dischargeDir)
     }
 
-    fun write(record: PowerRecord) {
+    fun write(record: LineRecord) {
         when (record.status) {
             Charging -> {
                 chargeDataWriter.write(record, lastStatus != Charging)
@@ -61,7 +63,7 @@ class PowerRecordWriter(
                 dischargeDataWriter.write(record, lastStatus != Discharging)
             }
 
-            Full -> {}
+            else -> {}
         }
         lastStatus = record.status
     }
@@ -129,7 +131,7 @@ class PowerRecordWriter(
         }
 
         fun write(
-            record: PowerRecord,
+            record: LineRecord,
             justChangedStatus: Boolean
         ) {
 
@@ -233,6 +235,13 @@ class PowerRecordWriter(
                 }
                 segmentFile = null
             }
+        }
+
+        fun getCurrFile(
+            justChangedStatus: Boolean
+        ): File? {
+            if (needStartNewSegment(justChangedStatus)) closeCurrentSegment()
+            return segmentFile
         }
     }
 

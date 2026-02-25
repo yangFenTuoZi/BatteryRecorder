@@ -22,7 +22,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
-import yangfentuozi.batteryrecorder.data.history.RecordType
+import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
 import yangfentuozi.batteryrecorder.ui.components.home.BatteryRecorderTopAppBar
 import yangfentuozi.batteryrecorder.ui.components.home.CurrentRecordCard
@@ -40,8 +40,8 @@ fun HomeScreen(
     liveRecordViewModel: LiveRecordViewModel = viewModel(),
     settingsViewModel: SettingsViewModel,
     onNavigateToSettings: () -> Unit = {},
-    onNavigateToHistoryList: (RecordType) -> Unit = {},
-    onNavigateToRecordDetail: (RecordType, String) -> Unit = { _, _ -> }
+    onNavigateToHistoryList: (BatteryStatus) -> Unit = {},
+    onNavigateToRecordDetail: (BatteryStatus, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val serviceConnected by viewModel.serviceConnected.collectAsState()
@@ -63,6 +63,12 @@ fun HomeScreen(
 
     LaunchedEffect(intervalMs) {
         liveRecordViewModel.updateIntervalMs(intervalMs)
+    }
+
+    LaunchedEffect(serviceConnected) {
+        if (serviceConnected) {
+            viewModel.refreshStatistics(context)
+        }
     }
 
     LaunchedEffect(liveStatus) {
@@ -138,7 +144,7 @@ fun HomeScreen(
                                 summary = chargeSummary,
                                 dualCellEnabled = dualCellEnabled,
                                 calibrationValue = calibrationValue,
-                                onClick = { onNavigateToHistoryList(RecordType.CHARGE) }
+                                onClick = { onNavigateToHistoryList(BatteryStatus.Charging) }
                             )
                         }
                         item {
@@ -147,7 +153,7 @@ fun HomeScreen(
                                 summary = dischargeSummary,
                                 dualCellEnabled = dualCellEnabled,
                                 calibrationValue = calibrationValue,
-                                onClick = { onNavigateToHistoryList(RecordType.DISCHARGE) }
+                                onClick = { onNavigateToHistoryList(BatteryStatus.Discharging) }
                             )
                         }
                     }

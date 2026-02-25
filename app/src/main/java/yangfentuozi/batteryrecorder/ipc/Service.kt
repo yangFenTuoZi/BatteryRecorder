@@ -3,17 +3,19 @@ package yangfentuozi.batteryrecorder.ipc
 import android.os.IBinder
 import android.os.RemoteException
 import yangfentuozi.batteryrecorder.server.IService
-import java.util.LinkedList
+import java.util.concurrent.CopyOnWriteArrayList
 
 object Service {
+    @Volatile
     private var mBinder: IBinder? = null
+    @Volatile
     private var mService: IService? = null
     private val mDeathRecipient = IBinder.DeathRecipient {
         mBinder = null
         mService = null
         scheduleListeners()
     }
-    private var mListener: LinkedList<ServiceConnection> = LinkedList()
+    private val mListener = CopyOnWriteArrayList<ServiceConnection>()
 
     var binder: IBinder?
         get() = mBinder
@@ -43,24 +45,26 @@ object Service {
         }
 
     fun addListener(listener: ServiceConnection) {
-        if (listener !in mListener) {
-            mListener += listener
+        if (listener !in mListener) mListener += listener
+        if (mService != null) {
+            listener.onServiceConnected()
+        } else {
+            listener.onServiceDisconnected()
         }
     }
 
     fun removeListener(listener: ServiceConnection) {
-        if (listener in mListener) {
-            mListener -= listener
-        }
+        if (listener in mListener) mListener -= listener
     }
 
     private fun scheduleListeners() {
-        if (mService != null) {
-            for (listener in mListener)
+        val connected = mService != null
+        for (listener in mListener) {
+            if (connected) {
                 listener.onServiceConnected()
-        } else {
-            for (listener in mListener)
+            } else {
                 listener.onServiceDisconnected()
+            }
         }
     }
 

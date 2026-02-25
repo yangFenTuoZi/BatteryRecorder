@@ -9,9 +9,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import yangfentuozi.batteryrecorder.data.history.HistoryRecord
 import yangfentuozi.batteryrecorder.data.history.HistoryRepository
-import yangfentuozi.batteryrecorder.data.history.RecordType
+import yangfentuozi.batteryrecorder.data.history.HistoryRepository.toFile
+import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.data.model.ChartPoint
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
+import yangfentuozi.batteryrecorder.shared.data.RecordsFile
 import yangfentuozi.batteryrecorder.utils.computePowerW
 import kotlin.math.roundToLong
 
@@ -42,7 +44,7 @@ class HistoryViewModel : ViewModel() {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    fun loadRecords(context: Context, type: RecordType) {
+    fun loadRecords(context: Context, type: BatteryStatus) {
         if (_isLoading.value) return
         viewModelScope.launch {
             _isLoading.value = true
@@ -56,19 +58,25 @@ class HistoryViewModel : ViewModel() {
         }
     }
 
-    fun loadRecord(context: Context, type: RecordType, name: String) {
+    fun loadRecord(context: Context, recordsFile: RecordsFile) {
         if (_isLoading.value) return
         viewModelScope.launch {
             _isLoading.value = true
             try {
                 val dischargeDisplayPositive = getDischargeDisplayPositive(context)
-                _recordDetail.value = HistoryRepository.loadRecord(context, type, name)
+                val recordFile = recordsFile.toFile(context)
+                _recordDetail.value = recordFile
+                    ?.let { HistoryRepository.loadRecord(context, it) }
                     ?.let { mapHistoryRecordForDisplay(it, dischargeDisplayPositive) }
-                _recordPoints.value = mapChartPointsForDisplay(
-                    points = HistoryRepository.loadRecordPoints(context, type, name),
-                    recordType = type,
-                    dischargeDisplayPositive = dischargeDisplayPositive
-                )
+                _recordPoints.value = if (recordFile != null) {
+                    mapChartPointsForDisplay(
+                        points = HistoryRepository.loadRecordPoints(context, recordsFile),
+                        batteryStatus = recordsFile.type,
+                        dischargeDisplayPositive = dischargeDisplayPositive
+                    )
+                } else {
+                    emptyList()
+                }
                 recomputeRecordChartUiState()
             } finally {
                 _isLoading.value = false
@@ -76,18 +84,18 @@ class HistoryViewModel : ViewModel() {
         }
     }
 
-    fun deleteRecord(context: Context, type: RecordType, name: String) {
+    fun deleteRecord(context: Context, recordsFile: RecordsFile) {
         if (_isLoading.value) return
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val deleted = HistoryRepository.deleteRecord(context, type, name)
+                val deleted = HistoryRepository.deleteRecord(context, recordsFile)
                 if (deleted) {
                     val dischargeDisplayPositive = getDischargeDisplayPositive(context)
-                    _records.value = HistoryRepository.loadRecords(context, type)
+                    _records.value = HistoryRepository.loadRecords(context, recordsFile.type)
                         .map { mapHistoryRecordForDisplay(it, dischargeDisplayPositive) }
                     val detail = _recordDetail.value
-                    if (detail != null && detail.type == type && detail.name == name) {
+                    if (detail != null && detail.asRecordsFile() == recordsFile) {
                         _recordDetail.value = null
                         _recordPoints.value = emptyList()
                         recomputeRecordChartUiState()
@@ -120,7 +128,7 @@ class HistoryViewModel : ViewModel() {
                 dualCellEnabled = dualCellEnabled,
                 calibrationValue = calibrationValue
             )
-            val powerForChart = if (detail?.type == RecordType.CHARGE && displayPowerW < 0) {
+            val powerForChart = if (detail?.type == BatteryStatus.Charging && displayPowerW < 0) {
                 0.0
             } else {
                 displayPowerW

@@ -19,7 +19,7 @@ import yangfentuozi.batteryrecorder.server.Server.Companion.TAG
 import yangfentuozi.batteryrecorder.server.writer.PowerRecordWriter
 import yangfentuozi.batteryrecorder.shared.Constants
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
-import yangfentuozi.batteryrecorder.shared.data.PowerRecord
+import yangfentuozi.batteryrecorder.shared.data.LineRecord
 import java.io.IOException
 
 class Monitor(
@@ -76,7 +76,7 @@ class Monitor(
                     val status = Native.status
                     val temp = Native.temp
                 writer.write(
-                    PowerRecord(
+                    LineRecord(
                         timestamp,
                         power,
                         currForegroundApp,
@@ -93,7 +93,7 @@ class Monitor(
                     for (i in 0..<n) {
                         try {
                             callbacks.getBroadcastItem(i)
-                                .onRecord(timestamp, power, status.value, temp)
+                                .onRecord(timestamp, power, status, temp)
                         } catch (e: RemoteException) {
                             Log.e(TAG, "Failed to call back", e)
                         }

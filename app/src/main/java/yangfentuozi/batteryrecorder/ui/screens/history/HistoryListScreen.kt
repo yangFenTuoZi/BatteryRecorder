@@ -33,8 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import yangfentuozi.batteryrecorder.data.history.HistoryRecord
-import yangfentuozi.batteryrecorder.data.history.RecordType
+import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.ui.components.global.SwipeRevealRow
 import yangfentuozi.batteryrecorder.ui.viewmodel.HistoryViewModel
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
@@ -45,10 +44,10 @@ import yangfentuozi.batteryrecorder.utils.formatPower
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryListScreen(
-    recordType: RecordType,
+    batteryStatus: BatteryStatus,
     viewModel: HistoryViewModel = viewModel(),
     settingsViewModel: SettingsViewModel,
-    onNavigateToRecordDetail: (RecordType, String) -> Unit = { _, _ -> }
+    onNavigateToRecordDetail: (BatteryStatus, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val records by viewModel.records.collectAsState()
@@ -56,12 +55,12 @@ fun HistoryListScreen(
     val calibrationValue by settingsViewModel.calibrationValue.collectAsState()
     var openRecordName by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(recordType) {
+    LaunchedEffect(batteryStatus) {
         openRecordName = null
-        viewModel.loadRecords(context, recordType)
+        viewModel.loadRecords(context, batteryStatus)
     }
 
-    val title = if (recordType == RecordType.CHARGE) "充电历史" else "放电历史"
+    val title = if (batteryStatus == BatteryStatus.Charging) "充电历史" else "放电历史"
 
     Scaffold(
         topBar = {
@@ -109,19 +108,56 @@ fun HistoryListScreen(
                                 isGroupFirst = index == 0,
                                 isGroupLast = index == records.size - 1,
                                 actionContent = {
-                                    DeleteAction(
-                                        onClick = {
-                                            openRecordName = null
-                                            viewModel.deleteRecord(context, record.type, record.name)
-                                        }
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(12.dp)
+                                            .clickable(
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                indication = null,
+                                                onClick = {
+                                                    openRecordName = null
+                                                    viewModel.deleteRecord(context, record.asRecordsFile())
+                                                }
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Delete,
+                                            contentDescription = "删除",
+                                            tint = MaterialTheme.colorScheme.onError
+                                        )
+                                    }
                                 },
                                 content = {
-                                    HistoryRecordItem(
-                                        record = record,
-                                        dualCellEnabled = dualCellEnabled,
-                                        calibrationValue = calibrationValue,
-                                    )
+                                    val stats = record.stats
+                                    val durationMs = stats.endTime - stats.startTime
+                                    val capacityChange = if (record.type == BatteryStatus.Charging) {
+                                        stats.endCapacity - stats.startCapacity
+                                    } else {
+                                        stats.startCapacity - stats.endCapacity
+                                    }
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp)
+                                    ) {
+                                        Text(
+                                            text = formatDateTime(stats.startTime),
+                                            style = MaterialTheme.typography.titleSmall
+                                        )
+                                        Spacer(Modifier.height(6.dp))
+                                        Text(
+                                            text = "时长 ${formatDurationHours(durationMs)} · 电量 ${capacityChange}%",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            text = "平均功率 ${formatPower(stats.averagePower, dualCellEnabled, calibrationValue)}",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 },
                                 onContentClick = {
                                     onNavigateToRecordDetail(record.type, record.name)
@@ -134,68 +170,4 @@ fun HistoryListScreen(
             }
         }
     }
-}
-
-@Composable
-private fun HistoryRecordItem(
-    record: HistoryRecord,
-    dualCellEnabled: Boolean,
-    calibrationValue: Int,
-) {
-    val stats = record.stats
-    val durationMs = stats.endTime - stats.startTime
-    val capacityChange = if (record.type == RecordType.CHARGE) {
-        stats.endCapacity - stats.startCapacity
-    } else {
-        stats.startCapacity - stats.endCapacity
-    }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-    ) {
-        Text(
-            text = formatDateTime(stats.startTime),
-            style = MaterialTheme.typography.titleSmall
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = "时长 ${formatDurationHours(durationMs)} · 电量 ${capacityChange}%",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = "平均功率 ${formatPower(stats.averagePower, dualCellEnabled, calibrationValue)}",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@Composable
-private fun DeleteAction(
-    onClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(12.dp)
-            .noRippleClickable(onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = Icons.Filled.Delete,
-            contentDescription = "删除",
-            tint = MaterialTheme.colorScheme.onError
-        )
-    }
-}
-
-@Composable
-private fun Modifier.noRippleClickable(onClick: () -> Unit): Modifier {
-    return clickable(
-        interactionSource = remember { MutableInteractionSource() },
-        indication = null,
-        onClick = onClick
-    )
 }

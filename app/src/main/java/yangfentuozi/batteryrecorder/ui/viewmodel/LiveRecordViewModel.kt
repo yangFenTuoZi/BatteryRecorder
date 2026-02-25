@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.server.recorder.IRecordListener
+import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 
 private const val MAX_LIVE_POINTS = 20
 private const val DEFAULT_INTERVAL_MS = 1000L
@@ -18,7 +19,7 @@ private const val DEFAULT_INTERVAL_MS = 1000L
 data class LivePowerPoint(
     val timestamp: Long,
     val powerNw: Long,
-    val status: Int,
+    val status: BatteryStatus,
     val temp: Int = 0,
     val isGap: Boolean = false
 )
@@ -31,12 +32,12 @@ class LiveRecordViewModel : ViewModel() {
     private var intervalMs: Long = DEFAULT_INTERVAL_MS
     private var lastTimestamp: Long? = null
     private var lastPowerNw: Long? = null
-    private var lastStatus: Int? = null
+    private var lastStatus: BatteryStatus? = null
     private var isListenerRegistered = false
     private val buffer = ArrayList<LivePowerPoint>(MAX_LIVE_POINTS + 1)
 
     private val listener = object : IRecordListener.Stub() {
-        override fun onRecord(timestamp: Long, power: Long, status: Int, temp: Int) {
+        override fun onRecord(timestamp: Long, power: Long, status: BatteryStatus, temp: Int) {
             viewModelScope.launch(Dispatchers.Main.immediate) {
                 handleRecord(timestamp, power, status, temp)
             }
@@ -87,7 +88,7 @@ class LiveRecordViewModel : ViewModel() {
         isListenerRegistered = false
     }
 
-    private fun handleRecord(timestamp: Long, power: Long, status: Int, temp: Int) {
+    private fun handleRecord(timestamp: Long, power: Long, status: BatteryStatus, temp: Int) {
         val lastStatusValue = lastStatus
         if (lastStatusValue != null && lastStatusValue != status) {
             buffer.clear()

@@ -2,23 +2,25 @@ package yangfentuozi.batteryrecorder.data.history
 
 import android.content.Context
 import yangfentuozi.batteryrecorder.data.model.ChartPoint
+import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.shared.Constants
+import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
+import yangfentuozi.batteryrecorder.shared.data.RecordsFile
+import yangfentuozi.batteryrecorder.shared.data.RecordsStats
 import java.io.File
-
-enum class RecordType(val dirName: String) {
-    CHARGE("charge"),
-    DISCHARGE("discharge")
-}
 
 data class HistoryRecord(
     val name: String,
-    val type: RecordType,
-    val stats: PowerStats,
+    val type: BatteryStatus,
+    val stats: RecordsStats,
     val lastModified: Long
-)
+) {
+    fun asRecordsFile(): RecordsFile =
+        RecordsFile(type, name)
+}
 
 data class HistorySummary(
-    val type: RecordType,
+    val type: BatteryStatus,
     val recordCount: Int,
     val averagePower: Double,
     val totalDurationMs: Long,
@@ -27,14 +29,20 @@ data class HistorySummary(
 )
 
 object HistoryRepository {
-    private fun getDataDir(context: Context, type: RecordType) =
-        File(File(context.dataDir, Constants.APP_POWER_DATA_PATH), type.dirName)
+
+    fun RecordsFile.toFile(context: Context): File? {
+        val dataDir = dataDir(context, type)
+        return validFile(dataDir, name)
+    }
 
     private fun getCacheDir(context: Context) = File(context.cacheDir, "power_stats")
 
     // 验证目录有效性，返回 null 表示无效
-    private fun validDataDir(context: Context, type: RecordType): File? =
-        getDataDir(context, type).takeIf { it.isDirectory }
+    private fun dataDir(context: Context, type: BatteryStatus): File =
+        File(File(context.dataDir, Constants.APP_POWER_DATA_PATH), type.dataDirName).apply {
+            if (!isDirectory) delete()
+            if (!exists()) mkdirs()
+        }
 
     // 验证文件有效性，返回 null 表示无效
     private fun validFile(dir: File, name: String): File? =
@@ -43,54 +51,46 @@ object HistoryRepository {
     /** 加载统计数据并构建 HistoryRecord */
     private fun loadStats(
         context: Context,
-        type: RecordType,
         file: File,
-        dataDir: File,
-        latestFileName: String?
+        needCaching: Boolean
     ): HistoryRecord? {
         val stats = runCatching {
-            StatisticsUtil.getCachedPowerStats(
+            RecordsStats.getCachedStats(
                 cacheDir = getCacheDir(context),
-                dataDir = dataDir,
-                name = file.name,
-                lastestFileName = latestFileName
+                file = file,
+                needCaching = needCaching
             )
         }.getOrNull() ?: return null
 
         return HistoryRecord(
             name = file.name,
-            type = type,
+            type = BatteryStatus.fromDataDirName(file.parentFile?.name),
             stats = stats,
             lastModified = file.lastModified()
         )
     }
 
     /** 加载指定类型的所有记录，按修改时间降序 */
-    fun loadRecords(context: Context, type: RecordType): List<HistoryRecord> {
-        val dataDir = validDataDir(context, type) ?: return emptyList()
-        val files = dataDir.listFiles()?.filter { it.isFile }
+    fun loadRecords(context: Context, type: BatteryStatus): List<HistoryRecord> {
+        val files = dataDir(context, type).listFiles()?.filter { it.isFile }
             ?.sortedByDescending { it.lastModified() } ?: return emptyList()
-        val latestFileName = files.firstOrNull()?.name
+        val latestFile = files.firstOrNull()
 
-        return files.mapNotNull { loadStats(context, type, it, dataDir, latestFileName) }
+        return files.mapNotNull { loadStats(context, it, it != latestFile) }
     }
 
     /** 加载指定名称的单条记录 */
-    fun loadRecord(context: Context, type: RecordType, name: String): HistoryRecord? {
-        val dataDir = validDataDir(context, type) ?: return null
-        val file = validFile(dataDir, name) ?: return null
-        val latestFileName = dataDir.listFiles()?.filter { it.isFile }
-            ?.maxByOrNull { it.lastModified() }?.name
+    fun loadRecord(context: Context, file: File): HistoryRecord? {
+        val dataDir = file.parentFile!!
+        val latestFile = dataDir.listFiles()?.filter { it.isFile }
+            ?.maxByOrNull { it.lastModified() }
 
-        return loadStats(context, type, file, dataDir, latestFileName)
+        return loadStats(context, file, latestFile != file)
     }
 
     /** 加载记录的图表数据点，用于绘制功率曲线 */
-    fun loadRecordPoints(context: Context, type: RecordType, name: String): List<ChartPoint> {
-        val dataDir = validDataDir(context, type) ?: return emptyList()
-        val file = validFile(dataDir, name) ?: return emptyList()
-
-        return file.readLines()
+    fun loadRecordPoints(context: Context, recordsFile: RecordsFile): List<ChartPoint> {
+        return (recordsFile.toFile(context) ?: return emptyList()).readLines()
             .asSequence()
             .filter { it.isNotBlank() }
             .mapNotNull { line ->
@@ -110,25 +110,33 @@ object HistoryRepository {
 
     /** 获取最新记录，比较充电/放电两类的最后修改时间 */
     fun loadLatestRecord(context: Context): HistoryRecord? {
-        val charge = loadLatestRecordForType(context, RecordType.CHARGE)
-        val discharge = loadLatestRecordForType(context, RecordType.DISCHARGE)
-        return listOfNotNull(charge, discharge).maxByOrNull { it.lastModified }
+        val service = Service.service ?: return null
+        val serviceFile = runCatching { service.currRecordsFile }
+            .getOrNull()
+            ?.toFile(context)
+        return serviceFile?.let { file ->
+            loadStats(context, file, false)
+        }
     }
 
     /** 加载统计摘要，按时长加权计算平均功率 */
-    fun loadSummary(context: Context, type: RecordType, avgPowerLimit: Int = 20): HistorySummary? {
-        val dataDir = validDataDir(context, type) ?: return null
+    fun loadSummary(
+        context: Context,
+        type: BatteryStatus,
+        avgPowerLimit: Int = 20
+    ): HistorySummary? {
+        val dataDir = dataDir(context, type)
         val files = dataDir.listFiles()?.filter { it.isFile }
             ?.sortedByDescending { it.lastModified() } ?: return null
 
         val recordCount = files.size
         if (recordCount == 0) return null
 
-        val latestFileName = files.first().name
+        val latestFile = files.first()
         val sampleFiles = files.take(avgPowerLimit.coerceAtLeast(0))
         if (sampleFiles.isEmpty()) return null
 
-        val records = sampleFiles.mapNotNull { loadStats(context, type, it, dataDir, latestFileName) }
+        val records = sampleFiles.mapNotNull { loadStats(context, it, it != latestFile) }
         if (records.isEmpty()) return null
 
         var totalDurationMs = 0L
@@ -162,22 +170,13 @@ object HistoryRepository {
     }
 
     /** 删除记录及其缓存文件 */
-    fun deleteRecord(context: Context, type: RecordType, name: String): Boolean {
-        val dataDir = validDataDir(context, type) ?: return false
-        val recordFile = validFile(dataDir, name) ?: return false
+    fun deleteRecord(context: Context, recordsFile: RecordsFile): Boolean {
 
-        if (runCatching { recordFile.delete() }.getOrDefault(false)) {
+        if (runCatching { recordsFile.toFile(context)!!.delete() }.getOrDefault(false)) {
             // 同步删除缓存文件
-            runCatching { File(getCacheDir(context), name).delete() }
+            runCatching { File(getCacheDir(context), recordsFile.name).delete() }
             return true
         }
         return false
-    }
-
-    private fun loadLatestRecordForType(context: Context, type: RecordType): HistoryRecord? {
-        val dataDir = validDataDir(context, type) ?: return null
-        val latestFile = dataDir.listFiles()?.filter { it.isFile }
-            ?.maxByOrNull { it.lastModified() } ?: return null
-        return loadRecord(context, type, latestFile.name)
     }
 }

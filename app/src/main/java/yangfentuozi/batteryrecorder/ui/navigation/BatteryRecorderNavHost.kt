@@ -18,7 +18,8 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import yangfentuozi.batteryrecorder.data.history.RecordType
+import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
+import yangfentuozi.batteryrecorder.shared.data.RecordsFile
 import yangfentuozi.batteryrecorder.ui.screens.history.HistoryListScreen
 import yangfentuozi.batteryrecorder.ui.screens.history.RecordDetailScreen
 import yangfentuozi.batteryrecorder.ui.screens.home.HomeScreen
@@ -86,12 +87,12 @@ fun BatteryRecorderNavHost(
                     navController.navigate(NavRoute.Settings.route)
                 },
                 onNavigateToHistoryList = { type ->
-                    navController.navigate(NavRoute.HistoryList.createRoute(type.dirName))
+                    navController.navigate(NavRoute.HistoryList.createRoute(type.dataDirName))
                 },
                 onNavigateToRecordDetail = { type, name ->
                     navController.navigate(
                         NavRoute.RecordDetail.createRoute(
-                            type.dirName,
+                            type.dataDirName,
                             Uri.encode(name)
                         )
                     )
@@ -134,17 +135,17 @@ fun BatteryRecorderNavHost(
             },
             popExitTransition = { defaultPopExitTransition }
         ) { backStackEntry ->
-            val typeArg = backStackEntry.arguments?.getString("type") ?: RecordType.CHARGE.dirName
-            val recordType = if (typeArg == RecordType.DISCHARGE.dirName) {
-                RecordType.DISCHARGE
+            val typeArg = backStackEntry.arguments?.getString("type") ?: BatteryStatus.Charging.dataDirName
+            val batteryStatus = if (typeArg == BatteryStatus.Discharging.dataDirName) {
+                BatteryStatus.Discharging
             } else {
-                RecordType.CHARGE
+                BatteryStatus.Charging
             }
             HistoryListScreen(
-                recordType = recordType,
+                batteryStatus = batteryStatus,
                 onNavigateToRecordDetail = { type, name ->
                     navController.navigate(
-                        NavRoute.RecordDetail.createRoute(type.dirName, Uri.encode(name))
+                        NavRoute.RecordDetail.createRoute(type.dataDirName, Uri.encode(name))
                     )
                 },
                 settingsViewModel = settingsViewModel
@@ -161,16 +162,15 @@ fun BatteryRecorderNavHost(
             popEnterTransition = { defaultPopEnterTransition },
             popExitTransition = { defaultPopExitTransition }
         ) { backStackEntry ->
-            val typeArg = backStackEntry.arguments?.getString("type") ?: RecordType.CHARGE.dirName
+            val typeArg = backStackEntry.arguments?.getString("type") ?: BatteryStatus.Charging.dataDirName
             val nameArg = backStackEntry.arguments?.getString("name") ?: ""
-            val recordType = if (typeArg == RecordType.DISCHARGE.dirName) {
-                RecordType.DISCHARGE
+            val batteryStatus = if (typeArg == BatteryStatus.Discharging.dataDirName) {
+                BatteryStatus.Discharging
             } else {
-                RecordType.CHARGE
+                BatteryStatus.Charging
             }
             RecordDetailScreen(
-                recordType = recordType,
-                recordName = Uri.decode(nameArg),
+                recordsFile = RecordsFile(batteryStatus, Uri.decode(nameArg)),
                 settingsViewModel = settingsViewModel
             )
         }

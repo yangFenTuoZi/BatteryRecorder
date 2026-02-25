@@ -19,8 +19,11 @@ import yangfentuozi.batteryrecorder.shared.Constants
 import yangfentuozi.batteryrecorder.shared.config.Config
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.shared.config.ConfigUtil
+import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Charging
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Discharging
+import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Full
+import yangfentuozi.batteryrecorder.shared.data.RecordsFile
 import yangfentuozi.batteryrecorder.shared.sync.PfdFileSender
 import yangfentuozi.hiddenapi.compat.ActivityManagerCompat
 import yangfentuozi.hiddenapi.compat.PackageManagerCompat
@@ -136,6 +139,14 @@ class Server internal constructor() : IService.Stub() {
 
     override fun getVersion(): Int {
         return BuildConfig.VERSION
+    }
+
+    override fun getCurrRecordsFile(): RecordsFile? {
+        return RecordsFile.fromFile(when (writer.lastStatus) {
+            Charging -> writer.chargeDataWriter.getCurrFile(writer.lastStatus != Charging)
+            Discharging -> writer.dischargeDataWriter.getCurrFile(writer.lastStatus != Discharging)
+            else -> null
+        } ?: return null)
     }
 
     override fun registerRecordListener(listener: IRecordListener) {

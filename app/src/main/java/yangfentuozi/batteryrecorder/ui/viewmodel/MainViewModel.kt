@@ -15,9 +15,9 @@ import kotlinx.coroutines.withContext
 import yangfentuozi.batteryrecorder.data.history.HistoryRecord
 import yangfentuozi.batteryrecorder.data.history.HistoryRepository
 import yangfentuozi.batteryrecorder.data.history.HistorySummary
-import yangfentuozi.batteryrecorder.data.history.RecordType
 import yangfentuozi.batteryrecorder.data.history.SyncUtil
 import yangfentuozi.batteryrecorder.ipc.Service
+import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 
 class MainViewModel : ViewModel() {
     private val _serviceConnected = MutableStateFlow(false)
@@ -96,11 +96,24 @@ class MainViewModel : ViewModel() {
             _isLoadingStats.value = true
             try {
                 val dischargeDisplayPositive = getDischargeDisplayPositive(context)
-                _chargeSummary.value = HistoryRepository.loadSummary(context, RecordType.CHARGE)
-                    ?.let { mapHistorySummaryForDisplay(it, dischargeDisplayPositive) }
-                _dischargeSummary.value = HistoryRepository.loadSummary(context, RecordType.DISCHARGE)
-                    ?.let { mapHistorySummaryForDisplay(it, dischargeDisplayPositive) }
-                _currentRecord.value = loadLatestRecordForDisplay(context, dischargeDisplayPositive)
+
+                withContext(Dispatchers.IO) {
+                    runCatching { SyncUtil.sync(context) }
+                }
+
+                val chargeSummary = withContext(Dispatchers.IO) {
+                    HistoryRepository.loadSummary(context, BatteryStatus.Charging)
+                }
+                val dischargeSummary = withContext(Dispatchers.IO) {
+                    HistoryRepository.loadSummary(context, BatteryStatus.Discharging)
+                }
+                val currentRecord = loadLatestRecordForDisplay(context, dischargeDisplayPositive)
+
+                _chargeSummary.value =
+                    chargeSummary?.let { mapHistorySummaryForDisplay(it, dischargeDisplayPositive) }
+                _dischargeSummary.value =
+                    dischargeSummary?.let { mapHistorySummaryForDisplay(it, dischargeDisplayPositive) }
+                _currentRecord.value = currentRecord
             } finally {
                 _isLoadingStats.value = false
             }
@@ -108,6 +121,7 @@ class MainViewModel : ViewModel() {
     }
 
     fun refreshStatistics(context: Context) {
+        if (_isLoadingStats.value) return
         _chargeSummary.value = null
         _dischargeSummary.value = null
         _currentRecord.value = null
@@ -121,7 +135,7 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    suspend fun onLiveStatusChanged(context: Context, liveStatus: Int?, intervalMs: Long) {
+    suspend fun onLiveStatusChanged(context: Context, liveStatus: BatteryStatus?, intervalMs: Long) {
         if (liveStatus == null) return
 
         withContext(Dispatchers.IO) {

@@ -71,7 +71,7 @@ fun CurrentRecordCard(
     dischargeDisplayPositive: Boolean,
     onClick: (() -> Unit)? = null
 ) {
-    val isDischargingNow = livePoints.lastOrNull()?.status == BatteryStatus.Discharging.value
+    val isDischargingNow = livePoints.lastOrNull()?.status == BatteryStatus.Discharging
     val chargeStatusText = if (isDischargingNow) "放电" else "充电"
     val averageLabel = if (isDischargingNow) "平均功耗" else "平均功率"
     val currentLabel = if (isDischargingNow) "当前功耗" else "当前功率"
@@ -123,7 +123,6 @@ fun CurrentRecordCard(
                     points = livePoints,
                     dualCellEnabled = dualCellEnabled,
                     calibrationValue = calibrationValue,
-                    dischargeDisplayPositive = dischargeDisplayPositive,
                     modifier = Modifier
                         .weight(1f, fill = true)
                         .fillMaxHeight()
@@ -143,13 +142,17 @@ fun CurrentRecordCard(
                 Column(modifier = Modifier.weight(1f, fill = true)) {
                     StatRow(
                         currentLabel,
-                        if (latestPower != null && latestPoint != null) {
+                        if (latestPower != null) {
+                            val latestStatus = latestPoint.status
+                            val displayPowerNw =
+                                if (latestStatus == BatteryStatus.Discharging) {
+                                    val absPower = abs(latestPower.toDouble())
+                                    if (dischargeDisplayPositive) -absPower else absPower
+                                } else {
+                                    latestPower.toDouble()
+                                }
                             formatPower(
-                                powerW = applyDischargeSignForDisplay(
-                                    rawPowerNw = latestPower.toDouble(),
-                                    status = latestPoint.status,
-                                    dischargeDisplayPositive = dischargeDisplayPositive
-                                ),
+                                powerW = displayPowerNw,
                                 dualCellEnabled = dualCellEnabled,
                                 calibrationValue = calibrationValue
                             )
@@ -175,7 +178,6 @@ private fun LivePowerChart(
     points: List<LivePowerPoint>,
     dualCellEnabled: Boolean,
     calibrationValue: Int,
-    dischargeDisplayPositive: Boolean,
     modifier: Modifier = Modifier,
     lineColor: Color = MaterialTheme.colorScheme.primary
 ) {
@@ -195,7 +197,8 @@ private fun LivePowerChart(
                         dualCellEnabled = dualCellEnabled,
                         calibrationValue = calibrationValue
                     )
-                    val plotPowerW = applyDischargeSignForPlot(powerW, it.status)
+                    val plotPowerW =
+                        if (it.status == BatteryStatus.Discharging) abs(powerW) else powerW
                     LivePowerPointDisplay(it.timestamp, plotPowerW, it.isGap)
                 }.sortedBy { it.timestamp }
             }
@@ -379,17 +382,3 @@ private data class LiveChartPoint(
     val y: Float,
     val isGap: Boolean
 )
-
-private fun applyDischargeSignForDisplay(
-    rawPowerNw: Double,
-    status: Int?,
-    dischargeDisplayPositive: Boolean
-): Double {
-    if (status != BatteryStatus.Discharging.value) return rawPowerNw
-    val absPower = abs(rawPowerNw)
-    return if (dischargeDisplayPositive) -absPower else absPower
-}
-
-private fun applyDischargeSignForPlot(rawPowerW: Double, status: Int?): Double {
-    return if (status == BatteryStatus.Discharging.value) abs(rawPowerW) else rawPowerW
-}

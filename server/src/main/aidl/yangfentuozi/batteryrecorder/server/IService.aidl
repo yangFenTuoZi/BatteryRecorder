@@ -2,10 +2,13 @@ package yangfentuozi.batteryrecorder.server;
 
 import yangfentuozi.batteryrecorder.server.recorder.IRecordListener;
 import yangfentuozi.batteryrecorder.shared.config.Config;
+import yangfentuozi.batteryrecorder.shared.data.RecordsFile;
 
 interface IService {
     void stopService() = 1;
     int getVersion() = 2;
+
+    RecordsFile getCurrRecordsFile() = 10;
 
     void registerRecordListener(IRecordListener listener) = 100;
     void unregisterRecordListener(IRecordListener listener) = 101;

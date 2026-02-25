@@ -35,7 +35,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import yangfentuozi.batteryrecorder.data.history.RecordType
+import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
+import yangfentuozi.batteryrecorder.shared.data.RecordsFile
 import yangfentuozi.batteryrecorder.ui.components.charts.FixedPowerAxisMode
 import yangfentuozi.batteryrecorder.ui.components.charts.PowerCapacityChart
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
@@ -44,14 +45,11 @@ import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
 import yangfentuozi.batteryrecorder.utils.formatDateTime
 import yangfentuozi.batteryrecorder.utils.formatDurationHours
 import yangfentuozi.batteryrecorder.utils.formatPower
-import yangfentuozi.batteryrecorder.utils.formatRelativeTime
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecordDetailScreen(
-    recordType: RecordType,
-    recordName: String,
+    recordsFile: RecordsFile,
     viewModel: HistoryViewModel = viewModel(),
     settingsViewModel: SettingsViewModel,
 ) {
@@ -63,15 +61,15 @@ fun RecordDetailScreen(
     val dischargeDisplayPositive by settingsViewModel.dischargeDisplayPositive.collectAsState()
     val calibrationValue by settingsViewModel.calibrationValue.collectAsState()
     val recordScreenOffEnabled by settingsViewModel.screenOffRecord.collectAsState()
-    var isChartFullscreen by rememberSaveable(recordType, recordName) { mutableStateOf(false) }
-    var fullscreenViewportStartMs by rememberSaveable(recordType, recordName) { mutableStateOf<Long?>(null) }
+    var isChartFullscreen by rememberSaveable(recordsFile) { mutableStateOf(false) }
+    var fullscreenViewportStartMs by rememberSaveable(recordsFile) { mutableStateOf<Long?>(null) }
 
     LaunchedEffect(dualCellEnabled, calibrationValue) {
         viewModel.updatePowerDisplayConfig(dualCellEnabled, calibrationValue)
     }
 
-    LaunchedEffect(recordType, recordName) {
-        viewModel.loadRecord(context, recordType, recordName)
+    LaunchedEffect(recordsFile) {
+        viewModel.loadRecord(context, recordsFile)
     }
 
     BackHandler(enabled = isChartFullscreen) {
@@ -125,14 +123,14 @@ fun RecordDetailScreen(
 
         val stats = detail.stats
         val durationMs = stats.endTime - stats.startTime
-        val capacityChange = if (detail.type == RecordType.CHARGE) {
+        val capacityChange = if (detail.type == BatteryStatus.Charging) {
             stats.endCapacity - stats.startCapacity
         } else {
             stats.startCapacity - stats.endCapacity
         }
-        val typeLabel = if (detail.type == RecordType.CHARGE) "充电记录" else "放电记录"
+        val typeLabel = if (detail.type == BatteryStatus.Charging) "充电记录" else "放电记录"
 
-        val fixedPowerMode = if (detail.type == RecordType.DISCHARGE && !dischargeDisplayPositive) {
+        val fixedPowerMode = if (detail.type == BatteryStatus.Discharging && !dischargeDisplayPositive) {
             FixedPowerAxisMode.NegativeOnly
         } else {
             FixedPowerAxisMode.PositiveOnly
@@ -165,14 +163,10 @@ fun RecordDetailScreen(
             PowerCapacityChart(
                 points = chartUiState.displayPoints,
                 recordScreenOffEnabled = recordScreenOffEnabled,
+                recordStartTime = stats.startTime,
                 modifier = modifier,
-                useFixedPowerAxisSegments = true,
                 fixedPowerAxisMode = fixedPowerMode,
-                showCapacityAxis = false,
-                showCapacityMarkers = true,
-                showPeakPowerLine = true,
                 chartHeight = if (isFullscreenMode) 320.dp else 240.dp,
-                showFullscreenToggle = true,
                 isFullscreen = isFullscreenMode,
                 onToggleFullscreen = {
                     if (isChartFullscreen) {
@@ -194,25 +188,6 @@ fun RecordDetailScreen(
                     fullscreenViewportStartMs = (currentStart + deltaMs).coerceIn(minChartTime, maxViewportStart)
                 } else {
                     null
-                },
-                powerLabelFormatter = { value ->
-                    String.format(Locale.getDefault(), "%.2f W", value)
-                },
-                capacityLabelFormatter = { value -> "$value%" },
-                tempLabelFormatter = { value ->
-                    String.format(Locale.getDefault(), "%.1f ℃", value / 10.0)
-                },
-                timeLabelFormatter = { value ->
-                    val offset = (value - stats.startTime).coerceAtLeast(0L)
-                    formatRelativeTime(offset)
-                },
-                axisPowerLabelFormatter = { value ->
-                    String.format(Locale.getDefault(), "%.0f W", value)
-                },
-                axisCapacityLabelFormatter = { value -> "$value%" },
-                axisTimeLabelFormatter = { value ->
-                    val offset = (value - stats.startTime).coerceAtLeast(0L)
-                    formatRelativeTime(offset)
                 }
             )
         }

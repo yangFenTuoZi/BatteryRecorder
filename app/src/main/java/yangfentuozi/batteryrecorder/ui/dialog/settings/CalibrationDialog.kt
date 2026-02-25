@@ -37,22 +37,10 @@ import kotlinx.coroutines.launch
 import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.server.recorder.IRecordListener
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
+import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 import yangfentuozi.batteryrecorder.utils.computePowerW
 import kotlin.math.abs
-
-/** 调整校准值：decrease=true 时减小（负向），否则增大（正向） */
-private fun adjustCalibrationValue(current: Int, decrease: Boolean): Int {
-    val next = if (decrease) {
-        if (current < 0) current * 10 else current / 10
-    } else {
-        if (current > 0) current * 10 else current / 10
-    }
-    return if (next == 0) if (decrease) -1 else 1 else next.coerceIn(
-        ConfigConstants.MIN_CALIBRATION_VALUE,
-        ConfigConstants.MAX_CALIBRATION_VALUE
-    )
-}
 
 @Composable
 fun CalibrationDialog(
@@ -65,11 +53,26 @@ fun CalibrationDialog(
 ) {
     var value by remember(currentValue) { mutableIntStateOf(currentValue) }
     var rawPower by remember { mutableStateOf<Long?>(null) }
+    val adjustCalibrationValue: (Int, Boolean) -> Int = { current, decrease ->
+        val next = if (decrease) {
+            if (current < 0) current * 10 else current / 10
+        } else {
+            if (current > 0) current * 10 else current / 10
+        }
+        if (next == 0) {
+            if (decrease) -1 else 1
+        } else {
+            next.coerceIn(
+                ConfigConstants.MIN_CALIBRATION_VALUE,
+                ConfigConstants.MAX_CALIBRATION_VALUE
+            )
+        }
+    }
 
     val scope = rememberCoroutineScope()
     val listener = remember {
         object : IRecordListener.Stub() {
-            override fun onRecord(timestamp: Long, power: Long, status: Int, temp: Int) {
+            override fun onRecord(timestamp: Long, power: Long, status: BatteryStatus, temp: Int) {
                 scope.launch(Dispatchers.Main.immediate) {
                     rawPower = power
                 }
@@ -109,7 +112,7 @@ fun CalibrationDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
-                        onClick = { value = adjustCalibrationValue(value, decrease = true) },
+                        onClick = { value = adjustCalibrationValue(value, true) },
                         modifier = Modifier.size(48.dp)
                     ) {
                         Icon(Icons.Default.Remove, contentDescription = null)
@@ -130,7 +133,7 @@ fun CalibrationDialog(
                     Spacer(modifier = Modifier.width(24.dp))
 
                     IconButton(
-                        onClick = { value = adjustCalibrationValue(value, decrease = false) },
+                        onClick = { value = adjustCalibrationValue(value, false) },
                         modifier = Modifier.size(48.dp)
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null)
