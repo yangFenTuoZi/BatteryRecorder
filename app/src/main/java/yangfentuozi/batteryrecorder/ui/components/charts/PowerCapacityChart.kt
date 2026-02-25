@@ -64,6 +64,7 @@ private val TEMP_COLOR = Color(0xFFFF8A65)
 private val SCREEN_ON_COLOR = Color(0xFF2E7D32)
 private val SCREEN_OFF_COLOR = Color(0xFFD32F2F)
 private val LINE_STROKE_WIDTH = 1.3.dp
+private const val TEMP_EXPAND_STEP_TENTHS = 100.0    // 10℃
 
 /**
  * 图表坐标系统，封装坐标转换逻辑
@@ -311,8 +312,7 @@ fun PowerCapacityChart(
 
                 val minPower = powerAxisConfig.minValue
                 val maxPower = powerAxisConfig.maxValue
-                val minTemp = renderFilteredPoints.minOf { it.temp.toDouble() }
-                val maxTemp = renderFilteredPoints.maxOf { it.temp.toDouble() }
+                val (minTemp, maxTemp) = computeTempAxisRange(renderFilteredPoints)
                 val verticalGridSegments = if (useFivePercentTimeGrid) 20 else 4
                 val timeLabelSegments = if (useFivePercentTimeGrid) 20 else 3
                 val timeLabelStep = if (useFivePercentTimeGrid) 4 else 1
@@ -813,6 +813,26 @@ enum class FixedPowerAxisMode {
     NegativeOnly,
 }
 
+/** 温度轴范围：按数据自动扩展，20℃ 步进，无默认范围与硬限制。 */
+private fun computeTempAxisRange(points: List<ChartPoint>): Pair<Double, Double> {
+    val validTemps = points.asSequence()
+        .map { it.temp.toDouble() }
+        .filter { it > 0.0 }
+        .toList()
+    if (validTemps.isEmpty()) return 0.0 to TEMP_EXPAND_STEP_TENTHS
+
+    val observedMin = validTemps.min()
+    val observedMax = validTemps.max()
+    val minTemp = kotlin.math.floor(observedMin / TEMP_EXPAND_STEP_TENTHS) * TEMP_EXPAND_STEP_TENTHS
+    val maxTemp = kotlin.math.ceil(observedMax / TEMP_EXPAND_STEP_TENTHS) * TEMP_EXPAND_STEP_TENTHS
+
+    return if (maxTemp - minTemp < 1.0) {
+        minTemp to (minTemp + TEMP_EXPAND_STEP_TENTHS)
+    } else {
+        minTemp to maxTemp
+    }
+}
+
 /**
  * 根据最大功率值计算固定轴配置（自动选择合适的刻度范围）
  */
@@ -957,9 +977,10 @@ private fun DrawScope.drawTempExtremeMarkers(
     coords: ChartCoordinates,
     tempColor: Color,
 ) {
-    if (points.size < 2) return
-    val maxPoint = points.maxByOrNull { it.temp } ?: return
-    val minPoint = points.minByOrNull { it.temp } ?: return
+    val validPoints = points.filter { it.temp > 0 }
+    if (validPoints.size < 2) return
+    val maxPoint = validPoints.maxByOrNull { it.temp } ?: return
+    val minPoint = validPoints.minByOrNull { it.temp } ?: return
     if (maxPoint.temp == minPoint.temp) return
 
     val textPaint = createTextPaint(tempColor.toArgb(), 20f)
