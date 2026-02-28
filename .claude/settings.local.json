@@ -5,7 +5,8 @@
       "Bash(./gradlew:*)",
       "Bash(dir:*)",
       "Bash(findstr:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "mcp__fast-context__fast_context_search"
     ]
   }
 }
