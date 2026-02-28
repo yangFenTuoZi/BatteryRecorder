@@ -1,10 +1,16 @@
 package yangfentuozi.batteryrecorder.ui.screens.home
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -14,6 +20,10 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -29,6 +39,8 @@ import yangfentuozi.batteryrecorder.ui.components.home.CurrentRecordCard
 import yangfentuozi.batteryrecorder.ui.components.home.StartServerCard
 import yangfentuozi.batteryrecorder.ui.components.home.StatsCard
 import yangfentuozi.batteryrecorder.ui.dialog.home.AboutDialog
+import yangfentuozi.batteryrecorder.ui.dialog.home.AdbGuideDialog
+import yangfentuozi.batteryrecorder.ui.theme.AppShape
 import yangfentuozi.batteryrecorder.ui.viewmodel.LiveRecordViewModel
 import yangfentuozi.batteryrecorder.ui.viewmodel.MainViewModel
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
@@ -47,6 +59,7 @@ fun HomeScreen(
     val serviceConnected by viewModel.serviceConnected.collectAsState()
     val showStopDialog by viewModel.showStopDialog.collectAsState()
     val showAboutDialog by viewModel.showAboutDialog.collectAsState()
+    var showAdbGuideDialog by remember { mutableStateOf(false) }
     val chargeSummary by viewModel.chargeSummary.collectAsState()
     val dischargeSummary by viewModel.dischargeSummary.collectAsState()
     val currentRecord by viewModel.currentRecord.collectAsState()
@@ -116,9 +129,37 @@ fun HomeScreen(
                 SplicedColumnGroup(
                     modifier = Modifier.padding(horizontal = 16.dp)
                 ) {
-                    // 启动卡片（条件显示）
+                    // Root 启动卡片
                     item(visible = !serviceConnected) {
                         StartServerCard()
+                    }
+
+                    // ADB 启动卡片
+                    item(visible = !serviceConnected) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "启动（ADB）",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = "通过 ADB 命令启动",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(Modifier.width(16.dp))
+                            Button(
+                                shape = AppShape.SplicedGroup.single,
+                                onClick = { showAdbGuideDialog = true }
+                            ) {
+                                Text("查看命令")
+                            }
+                        }
                     }
 
                     item {
@@ -192,6 +233,13 @@ fun HomeScreen(
     if (showAboutDialog) {
         AboutDialog(
             onDismiss = viewModel::dismissAboutDialog
+        )
+    }
+
+    // ADB Guide Dialog
+    if (showAdbGuideDialog) {
+        AdbGuideDialog(
+            onDismiss = { showAdbGuideDialog = false }
         )
     }
 }

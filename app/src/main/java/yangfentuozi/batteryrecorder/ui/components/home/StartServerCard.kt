@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import yangfentuozi.batteryrecorder.ui.theme.AppShape
 
 @Composable
 fun StartServerCard(
@@ -41,12 +42,16 @@ fun StartServerCard(
         Spacer(Modifier.width(16.dp))
 
         Button(
+            shape = AppShape.SplicedGroup.single,
             onClick = {
                 Thread {
                     try {
-                        Runtime.getRuntime().exec(arrayOf("su", "-c",
-                            "app_process \"-Djava.class.path=${context.applicationInfo.sourceDir}\" / yangfentuozi.batteryrecorder.server.Main"
-                        ))
+                        Runtime.getRuntime().exec(
+                            arrayOf(
+                                "su", "-c",
+                                "app_process \"-Djava.class.path=${context.applicationInfo.sourceDir}\" / yangfentuozi.batteryrecorder.server.Main"
+                            )
+                        )
                     } catch (_: Throwable) {
                     }
                 }.start()
