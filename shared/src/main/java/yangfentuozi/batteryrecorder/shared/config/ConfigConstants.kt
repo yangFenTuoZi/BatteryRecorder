@@ -53,4 +53,20 @@ object ConfigConstants {
     const val MAX_CALIBRATION_VALUE = 100_000_000
     const val DEF_CALIBRATION_VALUE = -1
 
+    /** 是否启用“当次记录加权”续航预测 */
+    const val KEY_PRED_CURRENT_SESSION_WEIGHT_ENABLED = "pred_current_session_weight_enabled"
+    const val DEF_PRED_CURRENT_SESSION_WEIGHT_ENABLED = true
+
+    /** 当次记录加权最大倍率（x100 存储，例如 300 表示 3.00x） */
+    const val KEY_PRED_CURRENT_SESSION_WEIGHT_MAX_X100 = "pred_current_session_weight_max_x100"
+    const val MIN_PRED_CURRENT_SESSION_WEIGHT_MAX_X100 = 100
+    const val MAX_PRED_CURRENT_SESSION_WEIGHT_MAX_X100 = 500
+    const val DEF_PRED_CURRENT_SESSION_WEIGHT_MAX_X100 = 300
+
+    /** 当次记录加权半衰期（分钟） */
+    const val KEY_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN = "pred_current_session_weight_half_life_min"
+    const val MIN_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN = 5L
+    const val MAX_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN = 60L
+    const val DEF_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN = 30L
+
 }

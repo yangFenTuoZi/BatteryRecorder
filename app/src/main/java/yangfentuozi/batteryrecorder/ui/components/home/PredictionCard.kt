@@ -17,6 +17,8 @@ import yangfentuozi.batteryrecorder.utils.computePowerW
 import yangfentuozi.batteryrecorder.utils.formatDurationHours
 import yangfentuozi.batteryrecorder.utils.formatRemainingTime
 import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.roundToLong
 
 @Composable
 fun PredictionCard(
@@ -85,8 +87,13 @@ fun SceneStatsCard(
             val offPowerText = if (sceneStats.screenOffTotalMs > 0) {
                 var w = computePowerW(sceneStats.screenOffAvgPowerNw, dualCellEnabled, calibrationValue)
                 if (dischargeDisplayPositive) w = kotlin.math.abs(w)
-                val dur = formatDurationHours(sceneStats.screenOffTotalMs)
-                "${String.format(Locale.getDefault(), "%.2f W", w)}（$dur）"
+                val rawDur = formatDurationHours(sceneStats.screenOffTotalMs)
+                val effMs = sceneStats.screenOffEffectiveTotalMs.roundToLong().coerceAtLeast(0L)
+                val effDur = formatDurationHours(effMs)
+                val durText = if (abs(effMs - sceneStats.screenOffTotalMs) >= 10_000L) {
+                    "记录 $rawDur，加权 $effDur"
+                } else rawDur
+                "${String.format(Locale.getDefault(), "%.2f W", w)}（$durText）"
             } else "数据不足"
 
             StatRow(
@@ -99,8 +106,13 @@ fun SceneStatsCard(
             val dailyPowerText = if (sceneStats.screenOnDailyTotalMs > 0) {
                 var w = computePowerW(sceneStats.screenOnDailyAvgPowerNw, dualCellEnabled, calibrationValue)
                 if (dischargeDisplayPositive) w = kotlin.math.abs(w)
-                val dur = formatDurationHours(sceneStats.screenOnDailyTotalMs)
-                "${String.format(Locale.getDefault(), "%.2f W", w)}（$dur）"
+                val rawDur = formatDurationHours(sceneStats.screenOnDailyTotalMs)
+                val effMs = sceneStats.screenOnDailyEffectiveTotalMs.roundToLong().coerceAtLeast(0L)
+                val effDur = formatDurationHours(effMs)
+                val durText = if (abs(effMs - sceneStats.screenOnDailyTotalMs) >= 10_000L) {
+                    "记录 $rawDur，加权 $effDur"
+                } else rawDur
+                "${String.format(Locale.getDefault(), "%.2f W", w)}（$durText）"
             } else "数据不足"
 
             StatRow(
@@ -111,7 +123,7 @@ fun SceneStatsCard(
 
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "预测基于典型日常功耗，高负载行为会显著缩短续航",
+                text = "开启当次记录加权后，平均功耗按时间衰减加权计算",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

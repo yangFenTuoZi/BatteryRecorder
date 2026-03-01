@@ -57,6 +57,19 @@ class SettingsViewModel : ViewModel() {
     private val _gameBlacklist = MutableStateFlow<Set<String>>(emptySet())
     val gameBlacklist: StateFlow<Set<String>> = _gameBlacklist.asStateFlow()
 
+    // 当次记录加权预测
+    private val _predCurrentSessionWeightEnabled =
+        MutableStateFlow(ConfigConstants.DEF_PRED_CURRENT_SESSION_WEIGHT_ENABLED)
+    val predCurrentSessionWeightEnabled: StateFlow<Boolean> = _predCurrentSessionWeightEnabled.asStateFlow()
+
+    private val _predCurrentSessionWeightMaxX100 =
+        MutableStateFlow(ConfigConstants.DEF_PRED_CURRENT_SESSION_WEIGHT_MAX_X100)
+    val predCurrentSessionWeightMaxX100: StateFlow<Int> = _predCurrentSessionWeightMaxX100.asStateFlow()
+
+    private val _predCurrentSessionWeightHalfLifeMin =
+        MutableStateFlow(ConfigConstants.DEF_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN)
+    val predCurrentSessionWeightHalfLifeMin: StateFlow<Long> = _predCurrentSessionWeightHalfLifeMin.asStateFlow()
+
     private lateinit var serverConfig: Config
 
     /**
@@ -151,6 +164,30 @@ class SettingsViewModel : ViewModel() {
 
         _gameBlacklist.value =
             prefs.getStringSet(ConfigConstants.KEY_GAME_BLACKLIST, emptySet()) ?: emptySet()
+
+        _predCurrentSessionWeightEnabled.value =
+            prefs.getBoolean(
+                ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_ENABLED,
+                ConfigConstants.DEF_PRED_CURRENT_SESSION_WEIGHT_ENABLED
+            )
+
+        _predCurrentSessionWeightMaxX100.value =
+            prefs.getInt(
+                ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_MAX_X100,
+                ConfigConstants.DEF_PRED_CURRENT_SESSION_WEIGHT_MAX_X100
+            ).coerceIn(
+                ConfigConstants.MIN_PRED_CURRENT_SESSION_WEIGHT_MAX_X100,
+                ConfigConstants.MAX_PRED_CURRENT_SESSION_WEIGHT_MAX_X100
+            )
+
+        _predCurrentSessionWeightHalfLifeMin.value =
+            prefs.getLong(
+                ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN,
+                ConfigConstants.DEF_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN
+            ).coerceIn(
+                ConfigConstants.MIN_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN,
+                ConfigConstants.MAX_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN
+            )
     }
 
     /**
@@ -253,6 +290,35 @@ class SettingsViewModel : ViewModel() {
             }
             _gamePackages.value = packages
             _gameBlacklist.value = newBlacklist
+        }
+    }
+
+    fun setPredCurrentSessionWeightEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            prefs.edit { putBoolean(ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_ENABLED, enabled) }
+            _predCurrentSessionWeightEnabled.value = enabled
+        }
+    }
+
+    fun setPredCurrentSessionWeightMaxX100(value: Int) {
+        val finalValue = value.coerceIn(
+            ConfigConstants.MIN_PRED_CURRENT_SESSION_WEIGHT_MAX_X100,
+            ConfigConstants.MAX_PRED_CURRENT_SESSION_WEIGHT_MAX_X100
+        )
+        viewModelScope.launch {
+            prefs.edit { putInt(ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_MAX_X100, finalValue) }
+            _predCurrentSessionWeightMaxX100.value = finalValue
+        }
+    }
+
+    fun setPredCurrentSessionWeightHalfLifeMin(value: Long) {
+        val finalValue = value.coerceIn(
+            ConfigConstants.MIN_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN,
+            ConfigConstants.MAX_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN
+        )
+        viewModelScope.launch {
+            prefs.edit { putLong(ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN, finalValue) }
+            _predCurrentSessionWeightHalfLifeMin.value = finalValue
         }
     }
 

@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.CalibrationSection
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.GameListSection
+import yangfentuozi.batteryrecorder.ui.components.settings.sections.PredictionSection
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.ServerSection
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
 
@@ -43,6 +44,9 @@ fun SettingsScreen(
     val segmentDurationMin by settingsViewModel.segmentDurationMin.collectAsState()
     val gamePackages by settingsViewModel.gamePackages.collectAsState()
     val gameBlacklist by settingsViewModel.gameBlacklist.collectAsState()
+    val predCurrentSessionWeightEnabled by settingsViewModel.predCurrentSessionWeightEnabled.collectAsState()
+    val predCurrentSessionWeightMaxX100 by settingsViewModel.predCurrentSessionWeightMaxX100.collectAsState()
+    val predCurrentSessionWeightHalfLifeMin by settingsViewModel.predCurrentSessionWeightHalfLifeMin.collectAsState()
     val serviceConnected = Service.service != null
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -101,6 +105,17 @@ fun SettingsScreen(
                     gamePackages = gamePackages,
                     gameBlacklist = gameBlacklist,
                     onGamePackagesChange = settingsViewModel::setGamePackages
+                )
+            }
+            item { Spacer(modifier = Modifier.size(16.dp)) }
+            item {
+                PredictionSection(
+                    currentSessionWeightEnabled = predCurrentSessionWeightEnabled,
+                    onCurrentSessionWeightEnabledChange = settingsViewModel::setPredCurrentSessionWeightEnabled,
+                    currentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
+                    onCurrentSessionWeightMaxX100Change = settingsViewModel::setPredCurrentSessionWeightMaxX100,
+                    currentSessionWeightHalfLifeMin = predCurrentSessionWeightHalfLifeMin,
+                    onCurrentSessionWeightHalfLifeMinChange = settingsViewModel::setPredCurrentSessionWeightHalfLifeMin
                 )
             }
         }

@@ -74,6 +74,9 @@ fun HomeScreen(
     val intervalMs by settingsViewModel.recordIntervalMs.collectAsState()
     val dischargeDisplayPositive by settingsViewModel.dischargeDisplayPositive.collectAsState()
     val gamePackages by settingsViewModel.gamePackages.collectAsState()
+    val predCurrentSessionWeightEnabled by settingsViewModel.predCurrentSessionWeightEnabled.collectAsState()
+    val predCurrentSessionWeightMaxX100 by settingsViewModel.predCurrentSessionWeightMaxX100.collectAsState()
+    val predCurrentSessionWeightHalfLifeMin by settingsViewModel.predCurrentSessionWeightHalfLifeMin.collectAsState()
 
     // 场景统计和预测
     val sceneStats by viewModel.sceneStats.collectAsState()
@@ -87,7 +90,14 @@ fun HomeScreen(
 
     LaunchedEffect(serviceConnected) {
         if (serviceConnected) {
-            viewModel.refreshStatistics(context, gamePackages, intervalMs)
+            viewModel.refreshStatistics(
+                context = context,
+                gamePackages = gamePackages,
+                recordIntervalMs = intervalMs,
+                predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
+                predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
+                predCurrentSessionWeightHalfLifeMin = predCurrentSessionWeightHalfLifeMin
+            )
         }
     }
 
@@ -100,7 +110,14 @@ fun HomeScreen(
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_START -> {
-                    viewModel.refreshStatistics(context, gamePackages, intervalMs)
+                    viewModel.refreshStatistics(
+                        context = context,
+                        gamePackages = gamePackages,
+                        recordIntervalMs = intervalMs,
+                        predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
+                        predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
+                        predCurrentSessionWeightHalfLifeMin = predCurrentSessionWeightHalfLifeMin
+                    )
                 }
 
                 Lifecycle.Event.ON_STOP -> {

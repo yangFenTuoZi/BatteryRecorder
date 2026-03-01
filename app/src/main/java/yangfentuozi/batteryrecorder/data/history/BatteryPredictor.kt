@@ -16,6 +16,7 @@ object BatteryPredictor {
     fun predict(sceneStats: SceneStats?, currentSoc: Int): PredictionResult {
         if (sceneStats == null || sceneStats.fileCount < MIN_FILE_COUNT
             || sceneStats.totalSocDrop <= 0 || sceneStats.totalEnergyNwMs <= 0
+            || sceneStats.totalDurationMs <= 0
         ) {
             return PredictionResult(null, null, insufficientData = true)
         }
@@ -29,8 +30,7 @@ object BatteryPredictor {
         val k = sceneStats.totalSocDrop / sceneStats.totalEnergyNwMs
 
         // k 合理性校验：反推整体掉电速率，超过阈值视为 SOC 跳变等异常
-        val avgPowerNw = sceneStats.totalEnergyNwMs / sceneStats.totalDurationMs
-        val overallDrainPerHour = k * avgPowerNw * 3_600_000.0
+        val overallDrainPerHour = sceneStats.rawTotalSocDrop / sceneStats.totalDurationMs * 3_600_000.0
         if (overallDrainPerHour > MAX_DRAIN_RATE_PER_HOUR) {
             return PredictionResult(null, null, insufficientData = true)
         }

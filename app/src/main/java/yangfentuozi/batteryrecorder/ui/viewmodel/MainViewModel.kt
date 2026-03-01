@@ -99,7 +99,14 @@ class MainViewModel : ViewModel() {
         _showAboutDialog.value = false
     }
 
-    fun loadStatistics(context: Context, gamePackages: Set<String> = emptySet(), recordIntervalMs: Long = 1000L) {
+    fun loadStatistics(
+        context: Context,
+        gamePackages: Set<String> = emptySet(),
+        recordIntervalMs: Long = 1000L,
+        predCurrentSessionWeightEnabled: Boolean = true,
+        predCurrentSessionWeightMaxX100: Int = 300,
+        predCurrentSessionWeightHalfLifeMin: Long = 30L
+    ) {
         if (_isLoadingStats.value) return
 
         viewModelScope.launch {
@@ -127,7 +134,18 @@ class MainViewModel : ViewModel() {
 
                 // 场景统计 + 续航预测
                 val stats = withContext(Dispatchers.IO) {
-                    SceneStatsComputer.compute(context, gamePackages, recordIntervalMs)
+                    val currentDischargeFileName = currentRecord
+                        ?.takeIf { it.type == BatteryStatus.Discharging }
+                        ?.name
+                    SceneStatsComputer.compute(
+                        context = context,
+                        gamePackages = gamePackages,
+                        recordIntervalMs = recordIntervalMs,
+                        currentDischargeFileName = currentDischargeFileName,
+                        predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
+                        predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
+                        predCurrentSessionWeightHalfLifeMin = predCurrentSessionWeightHalfLifeMin
+                    )
                 }
                 _sceneStats.value = stats
 
@@ -139,14 +157,28 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    fun refreshStatistics(context: Context, gamePackages: Set<String> = emptySet(), recordIntervalMs: Long = 1000L) {
+    fun refreshStatistics(
+        context: Context,
+        gamePackages: Set<String> = emptySet(),
+        recordIntervalMs: Long = 1000L,
+        predCurrentSessionWeightEnabled: Boolean = true,
+        predCurrentSessionWeightMaxX100: Int = 300,
+        predCurrentSessionWeightHalfLifeMin: Long = 30L
+    ) {
         if (_isLoadingStats.value) return
         _chargeSummary.value = null
         _dischargeSummary.value = null
         _currentRecord.value = null
         _sceneStats.value = null
         _prediction.value = null
-        loadStatistics(context, gamePackages, recordIntervalMs)
+        loadStatistics(
+            context = context,
+            gamePackages = gamePackages,
+            recordIntervalMs = recordIntervalMs,
+            predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
+            predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
+            predCurrentSessionWeightHalfLifeMin = predCurrentSessionWeightHalfLifeMin
+        )
     }
 
     fun refreshCurrentRecord(context: Context) {
