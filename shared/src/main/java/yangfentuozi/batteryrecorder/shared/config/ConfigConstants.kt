@@ -41,6 +41,9 @@ object ConfigConstants {
     const val KEY_DISCHARGE_DISPLAY_POSITIVE = "discharge_display_positive"
     const val DEF_DISCHARGE_DISPLAY_POSITIVE = true
 
+    /** 游戏 App 包名列表（高负载排除） */
+    const val KEY_GAME_PACKAGES = "game_packages"
+
     /** 校准值 */
     const val KEY_CALIBRATION_VALUE = "calibration_value"
     const val MIN_CALIBRATION_VALUE = -100_000_000

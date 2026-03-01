@@ -92,3 +92,15 @@ fun formatPowerInt(
     val finalValue = computePowerW(powerW, dualCellEnabled, calibrationValue)
     return String.format(Locale.getDefault(), "%.0f W", finalValue)
 }
+
+fun formatRemainingTime(hours: Double): String {
+    if (hours < 0) return "0m"
+    val totalMinutes = (hours * 60).toLong()
+    val h = totalMinutes / 60
+    val m = totalMinutes % 60
+    return when {
+        h > 0 && m > 0 -> "约 ${h}h${m}m"
+        h > 0 -> "约 ${h}h"
+        else -> "约 ${m}m"
+    }
+}

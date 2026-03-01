@@ -12,9 +12,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import yangfentuozi.batteryrecorder.data.history.BatteryPredictor
 import yangfentuozi.batteryrecorder.data.history.HistoryRecord
 import yangfentuozi.batteryrecorder.data.history.HistoryRepository
 import yangfentuozi.batteryrecorder.data.history.HistorySummary
+import yangfentuozi.batteryrecorder.data.history.PredictionResult
+import yangfentuozi.batteryrecorder.data.history.SceneStats
+import yangfentuozi.batteryrecorder.data.history.SceneStatsComputer
 import yangfentuozi.batteryrecorder.data.history.SyncUtil
 import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
@@ -40,6 +44,12 @@ class MainViewModel : ViewModel() {
 
     private val _isLoadingStats = MutableStateFlow(false)
     val isLoadingStats: StateFlow<Boolean> = _isLoadingStats.asStateFlow()
+
+    private val _sceneStats = MutableStateFlow<SceneStats?>(null)
+    val sceneStats: StateFlow<SceneStats?> = _sceneStats.asStateFlow()
+
+    private val _prediction = MutableStateFlow<PredictionResult?>(null)
+    val prediction: StateFlow<PredictionResult?> = _prediction.asStateFlow()
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -89,7 +99,7 @@ class MainViewModel : ViewModel() {
         _showAboutDialog.value = false
     }
 
-    fun loadStatistics(context: Context) {
+    fun loadStatistics(context: Context, gamePackages: Set<String> = emptySet(), recordIntervalMs: Long = 1000L) {
         if (_isLoadingStats.value) return
 
         viewModelScope.launch {
@@ -114,18 +124,29 @@ class MainViewModel : ViewModel() {
                 _dischargeSummary.value =
                     dischargeSummary?.let { mapHistorySummaryForDisplay(it, dischargeDisplayPositive) }
                 _currentRecord.value = currentRecord
+
+                // 场景统计 + 续航预测
+                val stats = withContext(Dispatchers.IO) {
+                    SceneStatsComputer.compute(context, gamePackages, recordIntervalMs)
+                }
+                _sceneStats.value = stats
+
+                val soc = currentRecord?.stats?.endCapacity ?: 0
+                _prediction.value = BatteryPredictor.predict(stats, soc)
             } finally {
                 _isLoadingStats.value = false
             }
         }
     }
 
-    fun refreshStatistics(context: Context) {
+    fun refreshStatistics(context: Context, gamePackages: Set<String> = emptySet(), recordIntervalMs: Long = 1000L) {
         if (_isLoadingStats.value) return
         _chargeSummary.value = null
         _dischargeSummary.value = null
         _currentRecord.value = null
-        loadStatistics(context)
+        _sceneStats.value = null
+        _prediction.value = null
+        loadStatistics(context, gamePackages, recordIntervalMs)
     }
 
     fun refreshCurrentRecord(context: Context) {

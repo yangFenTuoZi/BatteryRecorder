@@ -49,6 +49,10 @@ class SettingsViewModel : ViewModel() {
     private val _segmentDurationMin = MutableStateFlow(ConfigConstants.DEF_SEGMENT_DURATION_MIN)
     val segmentDurationMin: StateFlow<Long> = _segmentDurationMin.asStateFlow()
 
+    // 游戏 App 包名列表
+    private val _gamePackages = MutableStateFlow<Set<String>>(emptySet())
+    val gamePackages: StateFlow<Set<String>> = _gamePackages.asStateFlow()
+
     private lateinit var serverConfig: Config
 
     /**
@@ -137,6 +141,9 @@ class SettingsViewModel : ViewModel() {
             screenOffRecordEnabled = _screenOffRecord.value,
             segmentDurationMin = _segmentDurationMin.value
         )
+
+        _gamePackages.value =
+            prefs.getStringSet(ConfigConstants.KEY_GAME_PACKAGES, emptySet()) ?: emptySet()
     }
 
     /**
@@ -226,6 +233,13 @@ class SettingsViewModel : ViewModel() {
             _segmentDurationMin.value = finalValue
             serverConfig = serverConfig.copy(segmentDurationMin = finalValue)
             Service.service?.updateConfig(serverConfig)
+        }
+    }
+
+    fun setGamePackages(packages: Set<String>) {
+        viewModelScope.launch {
+            prefs.edit { putStringSet(ConfigConstants.KEY_GAME_PACKAGES, packages) }
+            _gamePackages.value = packages
         }
     }
 

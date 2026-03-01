@@ -36,6 +36,8 @@ import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
 import yangfentuozi.batteryrecorder.ui.components.home.BatteryRecorderTopAppBar
 import yangfentuozi.batteryrecorder.ui.components.home.CurrentRecordCard
+import yangfentuozi.batteryrecorder.ui.components.home.PredictionCard
+import yangfentuozi.batteryrecorder.ui.components.home.SceneStatsCard
 import yangfentuozi.batteryrecorder.ui.components.home.StartServerCard
 import yangfentuozi.batteryrecorder.ui.components.home.StatsCard
 import yangfentuozi.batteryrecorder.ui.dialog.home.AboutDialog
@@ -71,6 +73,11 @@ fun HomeScreen(
     val calibrationValue by settingsViewModel.calibrationValue.collectAsState()
     val intervalMs by settingsViewModel.recordIntervalMs.collectAsState()
     val dischargeDisplayPositive by settingsViewModel.dischargeDisplayPositive.collectAsState()
+    val gamePackages by settingsViewModel.gamePackages.collectAsState()
+
+    // 场景统计和预测
+    val sceneStats by viewModel.sceneStats.collectAsState()
+    val prediction by viewModel.prediction.collectAsState()
 
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -80,7 +87,7 @@ fun HomeScreen(
 
     LaunchedEffect(serviceConnected) {
         if (serviceConnected) {
-            viewModel.refreshStatistics(context)
+            viewModel.refreshStatistics(context, gamePackages, intervalMs)
         }
     }
 
@@ -93,7 +100,7 @@ fun HomeScreen(
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_START -> {
-                    viewModel.refreshStatistics(context)
+                    viewModel.refreshStatistics(context, gamePackages, intervalMs)
                 }
 
                 Lifecycle.Event.ON_STOP -> {
@@ -177,6 +184,10 @@ fun HomeScreen(
                         )
                     }
 
+                    item {
+                        PredictionCard(prediction = prediction)
+                    }
+
                     // 统计卡片行（自动处理圆角）
                     rowItem {
                         item {
@@ -197,6 +208,14 @@ fun HomeScreen(
                                 onClick = { onNavigateToHistoryList(BatteryStatus.Discharging) }
                             )
                         }
+                    }
+
+                    item {
+                        SceneStatsCard(
+                            sceneStats = sceneStats,
+                            dualCellEnabled = dualCellEnabled,
+                            calibrationValue = calibrationValue
+                        )
                     }
                 }
             }

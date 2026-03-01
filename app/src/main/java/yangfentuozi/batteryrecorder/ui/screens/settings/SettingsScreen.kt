@@ -22,6 +22,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.CalibrationSection
+import yangfentuozi.batteryrecorder.ui.components.settings.sections.GameListSection
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.ServerSection
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
 
@@ -40,6 +41,7 @@ fun SettingsScreen(
     val batchSize by settingsViewModel.batchSize.collectAsState()
     val recordScreenOffEnabled by settingsViewModel.screenOffRecord.collectAsState()
     val segmentDurationMin by settingsViewModel.segmentDurationMin.collectAsState()
+    val gamePackages by settingsViewModel.gamePackages.collectAsState()
     val serviceConnected = Service.service != null
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -90,6 +92,13 @@ fun SettingsScreen(
                     onRecordScreenOffChange = settingsViewModel::setScreenOffRecordEnabled,
                     segmentDurationMin = segmentDurationMin,
                     onSegmentDurationChange = settingsViewModel::setSegmentDurationMin,
+                )
+            }
+            item { Spacer(modifier = Modifier.size(16.dp)) }
+            item {
+                GameListSection(
+                    gamePackages = gamePackages,
+                    onGamePackagesChange = settingsViewModel::setGamePackages
                 )
             }
         }
