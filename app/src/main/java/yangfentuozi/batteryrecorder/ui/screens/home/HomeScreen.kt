@@ -214,14 +214,12 @@ fun HomeScreen(
                         }
                     }
 
-                    if (isDischarging) {
-                        item {
-                            SceneStatsCard(
-                                sceneStats = sceneStats,
-                                dualCellEnabled = dualCellEnabled,
-                                calibrationValue = calibrationValue
-                            )
-                        }
+                    item {
+                        SceneStatsCard(
+                            sceneStats = sceneStats,
+                            dualCellEnabled = dualCellEnabled,
+                            calibrationValue = calibrationValue
+                        )
                     }
                 }
             }
