@@ -53,6 +53,10 @@ class SettingsViewModel : ViewModel() {
     private val _gamePackages = MutableStateFlow<Set<String>>(emptySet())
     val gamePackages: StateFlow<Set<String>> = _gamePackages.asStateFlow()
 
+    // 用户主动排除的非游戏包名（自动检测时跳过）
+    private val _gameBlacklist = MutableStateFlow<Set<String>>(emptySet())
+    val gameBlacklist: StateFlow<Set<String>> = _gameBlacklist.asStateFlow()
+
     private lateinit var serverConfig: Config
 
     /**
@@ -144,6 +148,9 @@ class SettingsViewModel : ViewModel() {
 
         _gamePackages.value =
             prefs.getStringSet(ConfigConstants.KEY_GAME_PACKAGES, emptySet()) ?: emptySet()
+
+        _gameBlacklist.value =
+            prefs.getStringSet(ConfigConstants.KEY_GAME_BLACKLIST, emptySet()) ?: emptySet()
     }
 
     /**
@@ -236,10 +243,16 @@ class SettingsViewModel : ViewModel() {
         }
     }
 
-    fun setGamePackages(packages: Set<String>) {
+    fun setGamePackages(packages: Set<String>, detectedGamePkgs: Set<String>) {
         viewModelScope.launch {
-            prefs.edit { putStringSet(ConfigConstants.KEY_GAME_PACKAGES, packages) }
+            // 用户取消勾选的自动检测游戏 → 加入 blacklist
+            val newBlacklist = _gameBlacklist.value + (detectedGamePkgs - packages)
+            prefs.edit {
+                putStringSet(ConfigConstants.KEY_GAME_PACKAGES, packages)
+                putStringSet(ConfigConstants.KEY_GAME_BLACKLIST, newBlacklist)
+            }
             _gamePackages.value = packages
+            _gameBlacklist.value = newBlacklist
         }
     }
 

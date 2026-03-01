@@ -44,6 +44,9 @@ object ConfigConstants {
     /** 游戏 App 包名列表（高负载排除） */
     const val KEY_GAME_PACKAGES = "game_packages"
 
+    /** 用户主动排除的非游戏包名（自动检测时跳过） */
+    const val KEY_GAME_BLACKLIST = "game_blacklist"
+
     /** 校准值 */
     const val KEY_CALIBRATION_VALUE = "calibration_value"
     const val MIN_CALIBRATION_VALUE = -100_000_000

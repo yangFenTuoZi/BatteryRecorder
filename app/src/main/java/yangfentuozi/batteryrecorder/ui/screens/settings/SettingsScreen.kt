@@ -42,6 +42,7 @@ fun SettingsScreen(
     val recordScreenOffEnabled by settingsViewModel.screenOffRecord.collectAsState()
     val segmentDurationMin by settingsViewModel.segmentDurationMin.collectAsState()
     val gamePackages by settingsViewModel.gamePackages.collectAsState()
+    val gameBlacklist by settingsViewModel.gameBlacklist.collectAsState()
     val serviceConnected = Service.service != null
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -98,6 +99,7 @@ fun SettingsScreen(
             item {
                 GameListSection(
                     gamePackages = gamePackages,
+                    gameBlacklist = gameBlacklist,
                     onGamePackagesChange = settingsViewModel::setGamePackages
                 )
             }
