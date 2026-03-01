@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+本文件用于指导 Codex CLI / Claude Code 在本仓库中进行代码检索、修改与交付。
 
 ## 项目概述
 
@@ -176,10 +176,19 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 
 - **预测算法**：能量比例法，`k = ΔSOC_total / E_total`，`drain_scene = k × P_scene`，不依赖电池容量 Wh
 - **场景分类**：息屏（displayOn=0）、亮屏日常（displayOn=1 且非游戏）、游戏（displayOn=1 且在游戏列表）；三场景均参与 E_total 和 ΔSOC_total 统计，保证 k 口径一致
+- **当次记录加权（时间衰减）**：在不改变“典型息屏/典型日常”两条预测语义的前提下，仅对**当前放电文件**引入指数衰减权重，强化“最近行为”对预测的影响；其余历史文件固定 `w=1`
+  - **当前放电文件定义**：以 `Service.currRecordsFile` 对应的 `HistoryRecord` 为准，且必须 `type == Discharging`；未命中则不启用当次加权
+  - **加权对象**：只对当前放电文件内每个采样区间（`dt`）同时加权 `energyNwMs`、`dt` 与 `capDelta`（`ΔSOC`），保证 `k` 与 `P_scene` 口径一致
+  - **门槛**：当前放电文件需满足“记录时长 ≥ 10 分钟 且 掉电 ≥ 1%”才启用，避免短样本噪声导致预测抖动
+  - **权重函数**：`w = 1 + (max - 1) * exp(-ln(2) * age / halfLife)`，其中 `age` 为区间时间点到当次文件末尾 `endTs` 的时间差（越新权重越高）
+  - **endTs 来源**：`endTs` 来自“当次文件末尾的最后一条有效记录 timestamp”（通过读取文件尾部并解析最后一行），不使用 `System.currentTimeMillis()`，保证统计可复现
+  - **相关设置**：`ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_ENABLED`、`ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_MAX_X100`（倍率 x100）、`ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN`（分钟）
+- **口径字段**：`SceneStats` 同时保留“原始时长（记录时长，用于展示/门槛判断）”与“加权时长（用于计算加权平均功耗）”；并保留 `rawTotalSocDrop` 用于整体异常校验，避免加权放大导致误判
+- **缓存兼容**：`SceneStatsComputer` 的 `cacheKey` 包含 `CACHE_VERSION` 与加权参数；`SceneStats.fromString()` 需兼容旧格式缓存（字段增量时不致解析失败）
 - **游戏检测规则**（`GameListSection.isGameApp()`）：FLAG_IS_GAME / CATEGORY_GAME、游戏引擎 so（Unity/UE/Cocos）、启动 Activity 横屏方向
 - **游戏 Blacklist**：预设 `PRESET_BLACKLIST`（硬编码误判包名）+ 用户 `gameBlacklist`（取消勾选的自动检测游戏），自动检测时排除两者
-- **数据范围**：最近 20 个放电文件，最少 3 个文件才出预测
-- **k 异常值校验**：反推整体掉电速率超过 50%/h 时判定数据异常
+- **数据范围**：最近 20 个放电文件，最少 3 个有效文件才出预测（异常文件会被跳过）
+- **异常值校验**：按文件与全局两层过滤，反推掉电速率超过 50%/h 时判定 SOC 跳变等异常并跳过/拒绝输出
 
 ## 编码约定
 
