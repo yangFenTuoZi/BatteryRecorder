@@ -218,7 +218,8 @@ fun HomeScreen(
                         SceneStatsCard(
                             sceneStats = sceneStats,
                             dualCellEnabled = dualCellEnabled,
-                            calibrationValue = calibrationValue
+                            calibrationValue = calibrationValue,
+                            dischargeDisplayPositive = dischargeDisplayPositive
                         )
                     }
                 }

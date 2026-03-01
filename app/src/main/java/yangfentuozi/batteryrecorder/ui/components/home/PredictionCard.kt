@@ -13,9 +13,10 @@ import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.data.history.PredictionResult
 import yangfentuozi.batteryrecorder.data.history.SceneStats
 import yangfentuozi.batteryrecorder.ui.components.global.StatRow
+import yangfentuozi.batteryrecorder.utils.computePowerW
 import yangfentuozi.batteryrecorder.utils.formatDurationHours
-import yangfentuozi.batteryrecorder.utils.formatPower
 import yangfentuozi.batteryrecorder.utils.formatRemainingTime
+import java.util.Locale
 
 @Composable
 fun PredictionCard(
@@ -59,6 +60,7 @@ fun SceneStatsCard(
     sceneStats: SceneStats?,
     dualCellEnabled: Boolean,
     calibrationValue: Int,
+    dischargeDisplayPositive: Boolean,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -79,14 +81,12 @@ fun SceneStatsCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
-            // 息屏功耗（取绝对值显示）
+            // 息屏功耗（先转瓦特再根据设置取绝对值，避免 calibrationValue 符号干扰）
             val offPowerText = if (sceneStats.screenOffTotalMs > 0) {
-                val pw = formatPower(
-                    kotlin.math.abs(sceneStats.screenOffAvgPowerNw),
-                    dualCellEnabled, calibrationValue
-                )
+                var w = computePowerW(sceneStats.screenOffAvgPowerNw, dualCellEnabled, calibrationValue)
+                if (dischargeDisplayPositive) w = kotlin.math.abs(w)
                 val dur = formatDurationHours(sceneStats.screenOffTotalMs)
-                "$pw（$dur）"
+                "${String.format(Locale.getDefault(), "%.2f W", w)}（$dur）"
             } else "数据不足"
 
             StatRow(
@@ -97,12 +97,10 @@ fun SceneStatsCard(
 
             // 亮屏日常功耗
             val dailyPowerText = if (sceneStats.screenOnDailyTotalMs > 0) {
-                val pw = formatPower(
-                    kotlin.math.abs(sceneStats.screenOnDailyAvgPowerNw),
-                    dualCellEnabled, calibrationValue
-                )
+                var w = computePowerW(sceneStats.screenOnDailyAvgPowerNw, dualCellEnabled, calibrationValue)
+                if (dischargeDisplayPositive) w = kotlin.math.abs(w)
                 val dur = formatDurationHours(sceneStats.screenOnDailyTotalMs)
-                "$pw（$dur）"
+                "${String.format(Locale.getDefault(), "%.2f W", w)}（$dur）"
             } else "数据不足"
 
             StatRow(
