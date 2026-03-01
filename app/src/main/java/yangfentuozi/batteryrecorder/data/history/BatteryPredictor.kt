@@ -1,5 +1,6 @@
 package yangfentuozi.batteryrecorder.data.history
 
+// 系统通常在 3-5% 时强制关机，预测终点设为 5% 而非 0%，使结果更贴近实际可用时间
 private const val SOC_CUTOFF = 5.0
 private const val MIN_SCENE_MS = 30 * 60 * 1000L  // 30 分钟
 private const val MIN_FILE_COUNT = 3
@@ -21,6 +22,7 @@ object BatteryPredictor {
             return PredictionResult(null, null, insufficientData = true)
         }
 
+        // 剩余可用电量（到 SOC_CUTOFF 为止，而非 0%）
         val remaining = currentSoc - SOC_CUTOFF
         if (remaining <= 0) {
             return PredictionResult(0.0, 0.0, insufficientData = false)
