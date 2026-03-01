@@ -184,8 +184,12 @@ fun HomeScreen(
                         )
                     }
 
-                    item {
-                        PredictionCard(prediction = prediction)
+                    val isDischarging = currentRecord?.type != BatteryStatus.Charging
+
+                    if (isDischarging) {
+                        item {
+                            PredictionCard(prediction = prediction)
+                        }
                     }
 
                     // 统计卡片行（自动处理圆角）
@@ -210,12 +214,14 @@ fun HomeScreen(
                         }
                     }
 
-                    item {
-                        SceneStatsCard(
-                            sceneStats = sceneStats,
-                            dualCellEnabled = dualCellEnabled,
-                            calibrationValue = calibrationValue
-                        )
+                    if (isDischarging) {
+                        item {
+                            SceneStatsCard(
+                                sceneStats = sceneStats,
+                                dualCellEnabled = dualCellEnabled,
+                                calibrationValue = calibrationValue
+                            )
+                        }
                     }
                 }
             }
