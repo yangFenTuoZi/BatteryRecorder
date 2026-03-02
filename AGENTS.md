@@ -65,7 +65,7 @@ Server 以 shell 权限运行时数据写入 `com.android.shell` 数据目录。
 
 ### 功率显示链路
 
-- 原始功率值单位为纳瓦 (nW)，统一通过 `FormatUtil.computePowerW()` 转换为瓦特
+- 原始功率值为记录文件中的原始数值（raw，平台单位可能不一致），统一通过 `FormatUtil.computePowerW()` 做缩放与校准后转换为瓦特用于展示
 - 放电记录显示正值的逻辑通过 `PowerDisplayMapper` 在 ViewModel 层统一处理，UI 层不做正负转换
 - `HistoryViewModel` 提供预转换的 `displayPoints`（通过 `RecordDetailChartUiState`），Screen 层直接使用
 
@@ -178,7 +178,7 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 - **场景分类**：息屏（displayOn=0）、亮屏日常（displayOn=1 且非游戏）、游戏（displayOn=1 且在游戏列表）；三场景均参与 E_total 和 ΔSOC_total 统计，保证 k 口径一致
 - **当次记录加权（时间衰减）**：在不改变“典型息屏/典型日常”两条预测语义的前提下，仅对**当前放电文件**引入指数衰减权重，强化“最近行为”对预测的影响；其余历史文件固定 `w=1`
   - **当前放电文件定义**：以 `Service.currRecordsFile` 对应的 `HistoryRecord` 为准，且必须 `type == Discharging`；未命中则不启用当次加权
-  - **加权对象**：只对当前放电文件内每个采样区间（`dt`）同时加权 `energyNwMs`、`dt` 与 `capDelta`（`ΔSOC`），保证 `k` 与 `P_scene` 口径一致
+  - **加权对象**：只对当前放电文件内每个采样区间（`dt`）同时加权 `energyRawMs`、`dt` 与 `capDelta`（`ΔSOC`），保证 `k` 与 `P_scene` 口径一致
   - **门槛**：当前放电文件需满足“记录时长 ≥ 10 分钟 且 掉电 ≥ 1%”才启用，避免短样本噪声导致预测抖动
   - **权重函数**：`w = 1 + (max - 1) * exp(-ln(2) * age / halfLife)`，其中 `age` 为区间时间点到当次文件末尾 `endTs` 的时间差（越新权重越高）
   - **endTs 来源**：`endTs` 来自“当次文件末尾的最后一条有效记录 timestamp”（通过读取文件尾部并解析最后一行），不使用 `System.currentTimeMillis()`，保证统计可复现

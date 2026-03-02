@@ -10,22 +10,22 @@ import kotlin.math.ln
 import kotlin.math.min
 
 data class SceneStats(
-    val screenOffAvgPowerNw: Double,
+    val screenOffAvgPowerRaw: Double,
     val screenOffTotalMs: Long,
     val screenOffEffectiveTotalMs: Double,
-    val screenOnDailyAvgPowerNw: Double,
+    val screenOnDailyAvgPowerRaw: Double,
     val screenOnDailyTotalMs: Long,
     val screenOnDailyEffectiveTotalMs: Double,
-    val totalEnergyNwMs: Double,
+    val totalEnergyRawMs: Double,
     val totalSocDrop: Double,
     val totalDurationMs: Long,
     val fileCount: Int,
     val rawTotalSocDrop: Double
 ) {
     override fun toString(): String =
-        "$screenOffAvgPowerNw,$screenOffTotalMs,$screenOffEffectiveTotalMs," +
-                "$screenOnDailyAvgPowerNw,$screenOnDailyTotalMs,$screenOnDailyEffectiveTotalMs," +
-                "$totalEnergyNwMs,$totalSocDrop,$totalDurationMs,$fileCount,$rawTotalSocDrop"
+        "$screenOffAvgPowerRaw,$screenOffTotalMs,$screenOffEffectiveTotalMs," +
+                "$screenOnDailyAvgPowerRaw,$screenOnDailyTotalMs,$screenOnDailyEffectiveTotalMs," +
+                "$totalEnergyRawMs,$totalSocDrop,$totalDurationMs,$fileCount,$rawTotalSocDrop"
 
     companion object {
         fun fromString(s: String): SceneStats? {
@@ -34,13 +34,13 @@ data class SceneStats(
             if (p.size == 8) {
                 val totalSocDrop = p[5].toDoubleOrNull() ?: return null
                 return SceneStats(
-                    screenOffAvgPowerNw = p[0].toDoubleOrNull() ?: return null,
+                    screenOffAvgPowerRaw = p[0].toDoubleOrNull() ?: return null,
                     screenOffTotalMs = p[1].toLongOrNull() ?: return null,
                     screenOffEffectiveTotalMs = (p[1].toLongOrNull() ?: return null).toDouble(),
-                    screenOnDailyAvgPowerNw = p[2].toDoubleOrNull() ?: return null,
+                    screenOnDailyAvgPowerRaw = p[2].toDoubleOrNull() ?: return null,
                     screenOnDailyTotalMs = p[3].toLongOrNull() ?: return null,
                     screenOnDailyEffectiveTotalMs = (p[3].toLongOrNull() ?: return null).toDouble(),
-                    totalEnergyNwMs = p[4].toDoubleOrNull() ?: return null,
+                    totalEnergyRawMs = p[4].toDoubleOrNull() ?: return null,
                     totalSocDrop = totalSocDrop,
                     totalDurationMs = p[6].toLongOrNull() ?: return null,
                     fileCount = p[7].toIntOrNull() ?: return null,
@@ -51,13 +51,13 @@ data class SceneStats(
                 val offTotalMs = p[1].toLongOrNull() ?: return null
                 val dailyTotalMs = p[3].toLongOrNull() ?: return null
                 return SceneStats(
-                    screenOffAvgPowerNw = p[0].toDoubleOrNull() ?: return null,
+                    screenOffAvgPowerRaw = p[0].toDoubleOrNull() ?: return null,
                     screenOffTotalMs = offTotalMs,
                     screenOffEffectiveTotalMs = offTotalMs.toDouble(),
-                    screenOnDailyAvgPowerNw = p[2].toDoubleOrNull() ?: return null,
+                    screenOnDailyAvgPowerRaw = p[2].toDoubleOrNull() ?: return null,
                     screenOnDailyTotalMs = dailyTotalMs,
                     screenOnDailyEffectiveTotalMs = dailyTotalMs.toDouble(),
-                    totalEnergyNwMs = p[4].toDoubleOrNull() ?: return null,
+                    totalEnergyRawMs = p[4].toDoubleOrNull() ?: return null,
                     totalSocDrop = p[5].toDoubleOrNull() ?: return null,
                     totalDurationMs = p[6].toLongOrNull() ?: return null,
                     fileCount = p[7].toIntOrNull() ?: return null,
@@ -70,13 +70,13 @@ data class SceneStats(
             val offTotalMs = p[1].toLongOrNull() ?: return null
             val dailyTotalMs = p[4].toLongOrNull() ?: return null
             return SceneStats(
-                screenOffAvgPowerNw = p[0].toDoubleOrNull() ?: return null,
+                screenOffAvgPowerRaw = p[0].toDoubleOrNull() ?: return null,
                 screenOffTotalMs = offTotalMs,
                 screenOffEffectiveTotalMs = p[2].toDoubleOrNull() ?: return null,
-                screenOnDailyAvgPowerNw = p[3].toDoubleOrNull() ?: return null,
+                screenOnDailyAvgPowerRaw = p[3].toDoubleOrNull() ?: return null,
                 screenOnDailyTotalMs = dailyTotalMs,
                 screenOnDailyEffectiveTotalMs = p[5].toDoubleOrNull() ?: return null,
-                totalEnergyNwMs = p[6].toDoubleOrNull() ?: return null,
+                totalEnergyRawMs = p[6].toDoubleOrNull() ?: return null,
                 totalSocDrop = p[7].toDoubleOrNull() ?: return null,
                 totalDurationMs = p[8].toLongOrNull() ?: return null,
                 fileCount = p[9].toIntOrNull() ?: return null,
@@ -218,7 +218,7 @@ object SceneStatsComputer {
                     val dt = ts - pTs
                     if (dt <= 0 || dt > maxGapMs) continue
 
-                    val energyNwMs = (pPower.toDouble() + power.toDouble()) * 0.5 * dt.toDouble()
+                    val energyRawMs = (pPower.toDouble() + power.toDouble()) * 0.5 * dt.toDouble()
                     val weight = if (isCurrentFile && fileEndTs != null) {
                         val midTs = pTs + dt / 2
                         computeTimeDecayWeight(
@@ -232,21 +232,21 @@ object SceneStatsComputer {
                     // 能量积分（三场景）
                     when {
                         pDisplay == 0 -> {
-                            fileRawOffEnergy += energyNwMs
+                            fileRawOffEnergy += energyRawMs
                             fileOffTime += dt
-                            fileWeightedOffEnergy += energyNwMs * weight
+                            fileWeightedOffEnergy += energyRawMs * weight
                             fileWeightedOffTime += dt.toDouble() * weight
                         }
                         pDisplay == 1 && (pPkg == null || pPkg !in gamePackages) -> {
-                            fileRawDailyEnergy += energyNwMs
+                            fileRawDailyEnergy += energyRawMs
                             fileDailyTime += dt
-                            fileWeightedDailyEnergy += energyNwMs * weight
+                            fileWeightedDailyEnergy += energyRawMs * weight
                             fileWeightedDailyTime += dt.toDouble() * weight
                         }
                         else -> {
-                            fileRawGameEnergy += energyNwMs
+                            fileRawGameEnergy += energyRawMs
                             fileGameTime += dt
-                            fileWeightedGameEnergy += energyNwMs * weight
+                            fileWeightedGameEnergy += energyRawMs * weight
                             fileWeightedGameTime += dt.toDouble() * weight
                         }
                     }
@@ -308,13 +308,13 @@ object SceneStatsComputer {
             val effectiveTotalEnergy = effectiveOffEnergy + effectiveDailyEnergy + effectiveGameEnergy
 
         val result = SceneStats(
-            screenOffAvgPowerNw = if (effectiveOffTimeWeighted > 0) effectiveOffEnergy / effectiveOffTimeWeighted else 0.0,
+            screenOffAvgPowerRaw = if (effectiveOffTimeWeighted > 0) effectiveOffEnergy / effectiveOffTimeWeighted else 0.0,
             screenOffTotalMs = offTime,
             screenOffEffectiveTotalMs = effectiveOffTimeWeighted,
-            screenOnDailyAvgPowerNw = if (effectiveDailyTimeWeighted > 0) effectiveDailyEnergy / effectiveDailyTimeWeighted else 0.0,
+            screenOnDailyAvgPowerRaw = if (effectiveDailyTimeWeighted > 0) effectiveDailyEnergy / effectiveDailyTimeWeighted else 0.0,
             screenOnDailyTotalMs = dailyTime,
             screenOnDailyEffectiveTotalMs = effectiveDailyTimeWeighted,
-            totalEnergyNwMs = effectiveTotalEnergy,
+            totalEnergyRawMs = effectiveTotalEnergy,
             totalSocDrop = effectiveTotalCapDrop,
             totalDurationMs = totalMs,
             fileCount = usedFileCount,

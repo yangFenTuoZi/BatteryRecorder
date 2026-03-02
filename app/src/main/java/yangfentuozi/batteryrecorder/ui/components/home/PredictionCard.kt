@@ -85,7 +85,7 @@ fun SceneStatsCard(
         } else {
             // 息屏功耗（先转瓦特再根据设置取绝对值，避免 calibrationValue 符号干扰）
             val offPowerText = if (sceneStats.screenOffTotalMs > 0) {
-                var w = computePowerW(sceneStats.screenOffAvgPowerNw, dualCellEnabled, calibrationValue)
+                var w = computePowerW(sceneStats.screenOffAvgPowerRaw, dualCellEnabled, calibrationValue)
                 if (dischargeDisplayPositive) w = kotlin.math.abs(w)
                 val rawDur = formatDurationHours(sceneStats.screenOffTotalMs)
                 val effMs = sceneStats.screenOffEffectiveTotalMs.roundToLong().coerceAtLeast(0L)
@@ -104,7 +104,7 @@ fun SceneStatsCard(
 
             // 亮屏日常功耗
             val dailyPowerText = if (sceneStats.screenOnDailyTotalMs > 0) {
-                var w = computePowerW(sceneStats.screenOnDailyAvgPowerNw, dualCellEnabled, calibrationValue)
+                var w = computePowerW(sceneStats.screenOnDailyAvgPowerRaw, dualCellEnabled, calibrationValue)
                 if (dischargeDisplayPositive) w = kotlin.math.abs(w)
                 val rawDur = formatDurationHours(sceneStats.screenOnDailyTotalMs)
                 val effMs = sceneStats.screenOnDailyEffectiveTotalMs.roundToLong().coerceAtLeast(0L)

@@ -10,9 +10,9 @@ import kotlinx.coroutines.launch
 import yangfentuozi.batteryrecorder.data.history.HistoryRecord
 import yangfentuozi.batteryrecorder.data.history.HistoryRepository
 import yangfentuozi.batteryrecorder.data.history.HistoryRepository.toFile
-import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.data.model.ChartPoint
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
+import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.shared.data.RecordsFile
 import yangfentuozi.batteryrecorder.utils.computePowerW
 import kotlin.math.roundToLong
@@ -124,7 +124,7 @@ class HistoryViewModel : ViewModel() {
 
         val displayPoints = rawPoints.map { point ->
             val displayPowerW = computePowerW(
-                rawPowerNw = point.power,
+                rawPower = point.power,
                 dualCellEnabled = dualCellEnabled,
                 calibrationValue = calibrationValue
             )

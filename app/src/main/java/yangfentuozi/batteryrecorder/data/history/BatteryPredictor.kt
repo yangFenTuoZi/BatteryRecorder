@@ -16,7 +16,7 @@ object BatteryPredictor {
 
     fun predict(sceneStats: SceneStats?, currentSoc: Int): PredictionResult {
         if (sceneStats == null || sceneStats.fileCount < MIN_FILE_COUNT
-            || sceneStats.totalSocDrop <= 0 || sceneStats.totalEnergyNwMs <= 0
+            || sceneStats.totalSocDrop <= 0 || sceneStats.totalEnergyRawMs <= 0
             || sceneStats.totalDurationMs <= 0
         ) {
             return PredictionResult(null, null, insufficientData = true)
@@ -28,8 +28,8 @@ object BatteryPredictor {
             return PredictionResult(0.0, 0.0, insufficientData = false)
         }
 
-        // k = ΔSOC_total / E_total，单位：% / (nW·ms)
-        val k = sceneStats.totalSocDrop / sceneStats.totalEnergyNwMs
+        // k = ΔSOC_total / E_total，单位：% / (raw·ms)
+        val k = sceneStats.totalSocDrop / sceneStats.totalEnergyRawMs
 
         // k 合理性校验：反推整体掉电速率，超过阈值视为 SOC 跳变等异常
         val overallDrainPerHour = sceneStats.rawTotalSocDrop / sceneStats.totalDurationMs * 3_600_000.0
@@ -38,14 +38,14 @@ object BatteryPredictor {
         }
 
         // 息屏预测：drain_rate = k × P_off (%/ms) → 转 %/h 后算剩余小时
-        val screenOffHours = if (sceneStats.screenOffTotalMs >= MIN_SCENE_MS && sceneStats.screenOffAvgPowerNw > 0) {
-            val drainPerMs = k * sceneStats.screenOffAvgPowerNw
+        val screenOffHours = if (sceneStats.screenOffTotalMs >= MIN_SCENE_MS && sceneStats.screenOffAvgPowerRaw > 0) {
+            val drainPerMs = k * sceneStats.screenOffAvgPowerRaw
             remaining / (drainPerMs * 3_600_000.0)
         } else null
 
         // 亮屏日常预测
-        val screenOnHours = if (sceneStats.screenOnDailyTotalMs >= MIN_SCENE_MS && sceneStats.screenOnDailyAvgPowerNw > 0) {
-            val drainPerMs = k * sceneStats.screenOnDailyAvgPowerNw
+        val screenOnHours = if (sceneStats.screenOnDailyTotalMs >= MIN_SCENE_MS && sceneStats.screenOnDailyAvgPowerRaw > 0) {
+            val drainPerMs = k * sceneStats.screenOnDailyAvgPowerRaw
             remaining / (drainPerMs * 3_600_000.0)
         } else null
 

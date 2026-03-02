@@ -146,7 +146,7 @@ fun CalibrationDialog(
                     val power = rawPower!!
                     val finalW = run {
                         val valueW = computePowerW(
-                            rawPowerNw = power.toDouble(),
+                            rawPower = power.toDouble(),
                             dualCellEnabled = dualCellEnabled,
                             calibrationValue = value
                         )

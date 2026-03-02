@@ -18,7 +18,7 @@ private const val DEFAULT_INTERVAL_MS = 1000L
 
 data class LivePowerPoint(
     val timestamp: Long,
-    val powerNw: Long,
+    val powerRaw: Long,
     val status: BatteryStatus,
     val temp: Int = 0,
     val isGap: Boolean = false
@@ -31,7 +31,7 @@ class LiveRecordViewModel : ViewModel() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var intervalMs: Long = DEFAULT_INTERVAL_MS
     private var lastTimestamp: Long? = null
-    private var lastPowerNw: Long? = null
+    private var lastPowerRaw: Long? = null
     private var lastStatus: BatteryStatus? = null
     private var isListenerRegistered = false
     private val buffer = ArrayList<LivePowerPoint>(MAX_LIVE_POINTS + 1)
@@ -93,14 +93,14 @@ class LiveRecordViewModel : ViewModel() {
         if (lastStatusValue != null && lastStatusValue != status) {
             buffer.clear()
             lastTimestamp = null
-            lastPowerNw = null
+            lastPowerRaw = null
         }
 
         val last = lastTimestamp
         val resetThresholdMs = intervalMs * 2
         if (last != null && timestamp - last > resetThresholdMs && lastStatusValue == status) {
             val gapTimestamp = last + (timestamp - last) / 2
-            val gapPower = lastPowerNw?.let { (it + power) / 2 } ?: power
+            val gapPower = lastPowerRaw?.let { (it + power) / 2 } ?: power
             buffer.add(LivePowerPoint(gapTimestamp, gapPower, status, temp, isGap = true))
         }
 
@@ -110,7 +110,7 @@ class LiveRecordViewModel : ViewModel() {
         }
 
         lastTimestamp = timestamp
-        lastPowerNw = power
+        lastPowerRaw = power
         lastStatus = status
         _livePoints.value = buffer.toList()
     }

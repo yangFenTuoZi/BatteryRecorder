@@ -91,7 +91,7 @@ fun CurrentRecordCard(
             Spacer(Modifier.height(12.dp))
             val stats = record.stats
             val latestPoint = livePoints.lastOrNull()
-            val latestPower = latestPoint?.powerNw
+            val latestPowerRaw = latestPoint?.powerRaw
 
             Row(
                 modifier = Modifier
@@ -142,17 +142,17 @@ fun CurrentRecordCard(
                 Column(modifier = Modifier.weight(1f, fill = true)) {
                     StatRow(
                         currentLabel,
-                        if (latestPower != null) {
+                        if (latestPowerRaw != null) {
                             val latestStatus = latestPoint.status
-                            val displayPowerNw =
+                            val displayPowerRaw =
                                 if (latestStatus == BatteryStatus.Discharging) {
-                                    val absPower = abs(latestPower.toDouble())
+                                    val absPower = abs(latestPowerRaw.toDouble())
                                     if (dischargeDisplayPositive) -absPower else absPower
                                 } else {
-                                    latestPower.toDouble()
+                                    latestPowerRaw.toDouble()
                                 }
                             formatPower(
-                                powerW = displayPowerNw,
+                                powerW = displayPowerRaw,
                                 dualCellEnabled = dualCellEnabled,
                                 calibrationValue = calibrationValue
                             )
@@ -193,7 +193,7 @@ private fun LivePowerChart(
             val displayPoints = run {
                 points.map {
                     val powerW = computePowerW(
-                        rawPowerNw = it.powerNw.toDouble(),
+                        rawPower = it.powerRaw.toDouble(),
                         dualCellEnabled = dualCellEnabled,
                         calibrationValue = calibrationValue
                     )
