@@ -17,6 +17,9 @@ import yangfentuozi.batteryrecorder.ui.dialog.settings.SceneStatsRecentFileCount
 
 @Composable
 fun PredictionSection(
+    gamePackages: Set<String>,
+    gameBlacklist: Set<String>,
+    onGamePackagesChange: (selected: Set<String>, detectedGamePkgs: Set<String>) -> Unit,
     sceneStatsRecentFileCount: Int,
     onSceneStatsRecentFileCountChange: (Int) -> Unit,
     currentSessionWeightEnabled: Boolean,
@@ -33,6 +36,14 @@ fun PredictionSection(
         title = "预测",
         modifier = Modifier.padding(horizontal = 16.dp)
     ) {
+        item {
+            PredictionGameFilterItem(
+                gamePackages = gamePackages,
+                gameBlacklist = gameBlacklist,
+                onGamePackagesChange = onGamePackagesChange
+            )
+        }
+
         item {
             SettingsItem(
                 title = "样本次数",

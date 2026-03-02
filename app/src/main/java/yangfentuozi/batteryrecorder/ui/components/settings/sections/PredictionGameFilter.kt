@@ -49,7 +49,6 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
 import yangfentuozi.batteryrecorder.ui.components.settings.SettingsItem
 import java.io.File
 
@@ -89,7 +88,7 @@ private val PRESET_BLACKLIST = setOf(
 )
 
 @Composable
-fun GameListSection(
+fun PredictionGameFilterItem(
     gamePackages: Set<String>,
     gameBlacklist: Set<String>,
     onGamePackagesChange: (selected: Set<String>, detectedGamePkgs: Set<String>) -> Unit
@@ -98,20 +97,13 @@ fun GameListSection(
 
     val summary = if (gamePackages.isEmpty()) "未选择" else "已选 ${gamePackages.size} 个"
 
-    SplicedColumnGroup(
-        title = "续航预测",
-        modifier = Modifier.padding(horizontal = 16.dp)
-    ) {
-        item {
-            SettingsItem(
-                title = "排除高负载 App",
-                summary = summary
-            ) { showDialog = true }
-        }
-    }
+    SettingsItem(
+        title = "排除高负载 App",
+        summary = summary
+    ) { showDialog = true }
 
     if (showDialog) {
-        GamePickerDialog(
+        PredictionGameFilterDialog(
             currentSelection = gamePackages,
             userBlacklist = gameBlacklist,
             onDismiss = { showDialog = false },
@@ -153,7 +145,7 @@ private fun isGameApp(appInfo: ApplicationInfo, pm: PackageManager): Boolean {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun GamePickerDialog(
+private fun PredictionGameFilterDialog(
     currentSelection: Set<String>,
     userBlacklist: Set<String>,
     onDismiss: () -> Unit,

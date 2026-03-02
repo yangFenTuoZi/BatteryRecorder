@@ -22,7 +22,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.CalibrationSection
-import yangfentuozi.batteryrecorder.ui.components.settings.sections.GameListSection
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.PredictionSection
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.ServerSection
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
@@ -102,15 +101,10 @@ fun SettingsScreen(
             }
             item { Spacer(modifier = Modifier.size(16.dp)) }
             item {
-                GameListSection(
+                PredictionSection(
                     gamePackages = gamePackages,
                     gameBlacklist = gameBlacklist,
-                    onGamePackagesChange = settingsViewModel::setGamePackages
-                )
-            }
-            item { Spacer(modifier = Modifier.size(16.dp)) }
-            item {
-                PredictionSection(
+                    onGamePackagesChange = settingsViewModel::setGamePackages,
                     sceneStatsRecentFileCount = sceneStatsRecentFileCount,
                     onSceneStatsRecentFileCountChange = settingsViewModel::setSceneStatsRecentFileCount,
                     currentSessionWeightEnabled = predCurrentSessionWeightEnabled,
