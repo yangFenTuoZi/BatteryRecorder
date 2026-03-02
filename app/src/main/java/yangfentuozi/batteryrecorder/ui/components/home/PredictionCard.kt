@@ -17,8 +17,6 @@ import yangfentuozi.batteryrecorder.utils.computePowerW
 import yangfentuozi.batteryrecorder.utils.formatDurationHours
 import yangfentuozi.batteryrecorder.utils.formatRemainingTime
 import java.util.Locale
-import kotlin.math.abs
-import kotlin.math.roundToLong
 
 @Composable
 fun PredictionCard(
@@ -88,12 +86,7 @@ fun SceneStatsCard(
                 var w = computePowerW(sceneStats.screenOffAvgPowerRaw, dualCellEnabled, calibrationValue)
                 if (dischargeDisplayPositive) w = kotlin.math.abs(w)
                 val rawDur = formatDurationHours(sceneStats.screenOffTotalMs)
-                val effMs = sceneStats.screenOffEffectiveTotalMs.roundToLong().coerceAtLeast(0L)
-                val effDur = formatDurationHours(effMs)
-                val durText = if (abs(effMs - sceneStats.screenOffTotalMs) >= 10_000L) {
-                    "记录 $rawDur，加权 $effDur"
-                } else rawDur
-                "${String.format(Locale.getDefault(), "%.2f W", w)}（$durText）"
+                "${String.format(Locale.getDefault(), "%.2f W", w)}（$rawDur）"
             } else "数据不足"
 
             StatRow(
@@ -107,25 +100,13 @@ fun SceneStatsCard(
                 var w = computePowerW(sceneStats.screenOnDailyAvgPowerRaw, dualCellEnabled, calibrationValue)
                 if (dischargeDisplayPositive) w = kotlin.math.abs(w)
                 val rawDur = formatDurationHours(sceneStats.screenOnDailyTotalMs)
-                val effMs = sceneStats.screenOnDailyEffectiveTotalMs.roundToLong().coerceAtLeast(0L)
-                val effDur = formatDurationHours(effMs)
-                val durText = if (abs(effMs - sceneStats.screenOnDailyTotalMs) >= 10_000L) {
-                    "记录 $rawDur，加权 $effDur"
-                } else rawDur
-                "${String.format(Locale.getDefault(), "%.2f W", w)}（$durText）"
+                "${String.format(Locale.getDefault(), "%.2f W", w)}（$rawDur）"
             } else "数据不足"
 
             StatRow(
                 label = "亮屏日常",
                 value = dailyPowerText,
                 modifier = Modifier.padding(vertical = 4.dp)
-            )
-
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = "开启当次记录加权后，平均功耗按时间衰减加权计算",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

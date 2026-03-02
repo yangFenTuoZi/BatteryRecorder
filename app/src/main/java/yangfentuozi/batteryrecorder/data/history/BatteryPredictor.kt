@@ -14,7 +14,7 @@ data class PredictionResult(
 
 object BatteryPredictor {
 
-    fun predict(sceneStats: SceneStats?, currentSoc: Int): PredictionResult {
+    fun predict(sceneStats: SceneStats?, currentSoc: Int, medianK: Double? = null): PredictionResult {
         if (sceneStats == null || sceneStats.fileCount < MIN_FILE_COUNT
             || sceneStats.totalSocDrop <= 0 || sceneStats.totalEnergyRawMs <= 0
             || sceneStats.totalDurationMs <= 0
@@ -29,7 +29,8 @@ object BatteryPredictor {
         }
 
         // k = ΔSOC_total / E_total，单位：% / (raw·ms)
-        val k = sceneStats.totalSocDrop / sceneStats.totalEnergyRawMs
+        // 优先使用分文件加权中位数 k，对异常文件更鲁棒
+        val k = medianK ?: (sceneStats.totalSocDrop / sceneStats.totalEnergyRawMs)
 
         // k 合理性校验：反推整体掉电速率，超过阈值视为 SOC 跳变等异常
         val overallDrainPerHour = sceneStats.rawTotalSocDrop / sceneStats.totalDurationMs * 3_600_000.0

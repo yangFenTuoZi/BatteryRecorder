@@ -256,9 +256,10 @@ class MainViewModel : ViewModel() {
                 }
 
                 if (generation == statisticsGeneration) {
-                    _sceneStats.value = stats
+                    _sceneStats.value = stats?.displayStats
                     val soc = currentRecord?.stats?.endCapacity ?: 0
-                    _prediction.value = BatteryPredictor.predict(stats, soc)
+                    _prediction.value =
+                        BatteryPredictor.predict(stats?.predictionStats, soc, stats?.medianK)
                 }
             } finally {
                 if (generation == statisticsGeneration) {

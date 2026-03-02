@@ -86,6 +86,12 @@ data class SceneStats(
     }
 }
 
+data class SceneComputeResult(
+    val displayStats: SceneStats,
+    val predictionStats: SceneStats,
+    val medianK: Double?
+)
+
 object SceneStatsComputer {
 
     private const val MAX_FILES = 20
@@ -93,7 +99,7 @@ object SceneStatsComputer {
     private const val MAX_DRAIN_RATE_PER_HOUR = 50.0   // %/h，超过视为数据异常
     private const val MIN_CURRENT_SESSION_MS = 10 * 60 * 1000L
     private const val MIN_CURRENT_SESSION_SOC_DROP = 1.0
-    private const val CACHE_VERSION = 2
+    private const val CACHE_VERSION = 4
 
     fun compute(
         context: Context,
@@ -103,7 +109,7 @@ object SceneStatsComputer {
         predCurrentSessionWeightEnabled: Boolean = true,
         predCurrentSessionWeightMaxX100: Int = 300,
         predCurrentSessionWeightHalfLifeMin: Long = 30L
-    ): SceneStats? {
+    ): SceneComputeResult? {
         val dataDir = File(
             File(context.dataDir, Constants.APP_POWER_DATA_PATH),
             BatteryStatus.Discharging.dataDirName
@@ -128,7 +134,13 @@ object SceneStatsComputer {
         )
         val cacheFile = File(cacheDir, "$cacheKey.csv")
         if (cacheFile.exists()) {
-            SceneStats.fromString(cacheFile.readText().trim())?.let { return it }
+            val cacheLines = cacheFile.readText().trim().lines()
+            val displayStats = cacheLines.getOrNull(0)?.let { SceneStats.fromString(it) }
+            val predictionStats = cacheLines.getOrNull(1)?.let { SceneStats.fromString(it) }
+            if (displayStats != null && predictionStats != null) {
+                val cachedMedianK = cacheLines.getOrNull(2)?.toDoubleOrNull()
+                return SceneComputeResult(displayStats, predictionStats, cachedMedianK)
+            }
             cacheFile.delete()
         }
 
@@ -160,6 +172,10 @@ object SceneStatsComputer {
                 currentDischargeFileName != null &&
                 maxMultiplier > 1.0 &&
                 halfLifeMs > 0.0
+
+        // 分文件 k 输入，用于加权中位数
+        data class FileKInput(val capDrop: Double, val energy: Double)
+        val fileKInputs = mutableListOf<FileKInput>()
 
         for (file in files) {
             val isCurrentFile = enableTimeDecayWeight && file.name == currentDischargeFileName
@@ -274,6 +290,8 @@ object SceneStatsComputer {
                     fileCapDrop >= MIN_CURRENT_SESSION_SOC_DROP
 
             usedFileCount++
+            val fileEnergy = fileRawOffEnergy + fileRawDailyEnergy + fileRawGameEnergy
+            fileKInputs.add(FileKInput(capDrop = fileCapDrop, energy = fileEnergy))
             rawOffEnergy += fileRawOffEnergy
             offTime += fileOffTime
             rawDailyEnergy += fileRawDailyEnergy
@@ -301,13 +319,39 @@ object SceneStatsComputer {
             }
         }
 
+        // 分文件加权中位数 k
+        val minCapDropForMedian = 3.0
+        val medianK = run {
+            val entries = fileKInputs.mapNotNull { input ->
+                if (input.energy > 0 && input.capDrop >= minCapDropForMedian)
+                    input.capDrop / input.energy to input.capDrop
+                else null
+            }
+            weightedMedian(entries)
+        }
+
         // totalDurationMs 包含所有场景（含 game），保证与 drainRate 口径一致
         val totalMs = offTime + dailyTime + gameTime
         if (totalMs <= 0) return null
 
-            val effectiveTotalEnergy = effectiveOffEnergy + effectiveDailyEnergy + effectiveGameEnergy
+        val rawTotalEnergy = rawOffEnergy + rawDailyEnergy + rawGameEnergy
+        val effectiveTotalEnergy = effectiveOffEnergy + effectiveDailyEnergy + effectiveGameEnergy
 
-        val result = SceneStats(
+        val displayStats = SceneStats(
+            screenOffAvgPowerRaw = if (offTime > 0) rawOffEnergy / offTime.toDouble() else 0.0,
+            screenOffTotalMs = offTime,
+            screenOffEffectiveTotalMs = offTime.toDouble(),
+            screenOnDailyAvgPowerRaw = if (dailyTime > 0) rawDailyEnergy / dailyTime.toDouble() else 0.0,
+            screenOnDailyTotalMs = dailyTime,
+            screenOnDailyEffectiveTotalMs = dailyTime.toDouble(),
+            totalEnergyRawMs = rawTotalEnergy,
+            totalSocDrop = rawTotalCapDrop,
+            totalDurationMs = totalMs,
+            fileCount = usedFileCount,
+            rawTotalSocDrop = rawTotalCapDrop
+        )
+
+        val predictionStats = SceneStats(
             screenOffAvgPowerRaw = if (effectiveOffTimeWeighted > 0) effectiveOffEnergy / effectiveOffTimeWeighted else 0.0,
             screenOffTotalMs = offTime,
             screenOffEffectiveTotalMs = effectiveOffTimeWeighted,
@@ -321,11 +365,11 @@ object SceneStatsComputer {
             rawTotalSocDrop = rawTotalCapDrop
         )
 
-        // 写入缓存
+        // 写入缓存：displayStats + predictionStats + medianK
         if (!cacheDir.exists()) cacheDir.mkdirs()
-        cacheFile.writeText(result.toString())
+        cacheFile.writeText(displayStats.toString() + "\n" + predictionStats.toString() + "\n" + (medianK ?: ""))
 
-        return result
+        return SceneComputeResult(displayStats, predictionStats, medianK)
     }
 
     private fun buildCacheKey(
@@ -402,5 +446,26 @@ object SceneStatsComputer {
             end = start - 1
         }
         return null
+    }
+
+    /** 加权中位数：entries = [(k, weight), ...]，按 k 升序累积权重到 50% 处线性插值 */
+    private fun weightedMedian(entries: List<Pair<Double, Double>>): Double? {
+        if (entries.size < 2) return null
+        val sorted = entries.sortedBy { it.first }
+        val totalWeight = sorted.sumOf { it.second }
+        if (totalWeight <= 0) return null
+        val halfWeight = totalWeight * 0.5
+        var cumulative = 0.0
+        for (i in sorted.indices) {
+            val prev = cumulative
+            cumulative += sorted[i].second
+            if (cumulative >= halfWeight) {
+                if (i == 0 || prev >= halfWeight) return sorted[i].first
+                // 在 sorted[i-1] 和 sorted[i] 之间线性插值
+                val fraction = (halfWeight - prev) / sorted[i].second
+                return sorted[i - 1].first + (sorted[i].first - sorted[i - 1].first) * fraction
+            }
+        }
+        return sorted.last().first
     }
 }
