@@ -57,6 +57,11 @@ class SettingsViewModel : ViewModel() {
     private val _gameBlacklist = MutableStateFlow<Set<String>>(emptySet())
     val gameBlacklist: StateFlow<Set<String>> = _gameBlacklist.asStateFlow()
 
+    // 场景统计与预测样本数量
+    private val _sceneStatsRecentFileCount =
+        MutableStateFlow(ConfigConstants.DEF_SCENE_STATS_RECENT_FILE_COUNT)
+    val sceneStatsRecentFileCount: StateFlow<Int> = _sceneStatsRecentFileCount.asStateFlow()
+
     // 当次记录加权预测
     private val _predCurrentSessionWeightEnabled =
         MutableStateFlow(ConfigConstants.DEF_PRED_CURRENT_SESSION_WEIGHT_ENABLED)
@@ -164,6 +169,15 @@ class SettingsViewModel : ViewModel() {
 
         _gameBlacklist.value =
             prefs.getStringSet(ConfigConstants.KEY_GAME_BLACKLIST, emptySet()) ?: emptySet()
+
+        _sceneStatsRecentFileCount.value =
+            prefs.getInt(
+                ConfigConstants.KEY_SCENE_STATS_RECENT_FILE_COUNT,
+                ConfigConstants.DEF_SCENE_STATS_RECENT_FILE_COUNT
+            ).coerceIn(
+                ConfigConstants.MIN_SCENE_STATS_RECENT_FILE_COUNT,
+                ConfigConstants.MAX_SCENE_STATS_RECENT_FILE_COUNT
+            )
 
         _predCurrentSessionWeightEnabled.value =
             prefs.getBoolean(
@@ -290,6 +304,17 @@ class SettingsViewModel : ViewModel() {
             }
             _gamePackages.value = packages
             _gameBlacklist.value = newBlacklist
+        }
+    }
+
+    fun setSceneStatsRecentFileCount(value: Int) {
+        val finalValue = value.coerceIn(
+            ConfigConstants.MIN_SCENE_STATS_RECENT_FILE_COUNT,
+            ConfigConstants.MAX_SCENE_STATS_RECENT_FILE_COUNT
+        )
+        viewModelScope.launch {
+            prefs.edit { putInt(ConfigConstants.KEY_SCENE_STATS_RECENT_FILE_COUNT, finalValue) }
+            _sceneStatsRecentFileCount.value = finalValue
         }
     }
 

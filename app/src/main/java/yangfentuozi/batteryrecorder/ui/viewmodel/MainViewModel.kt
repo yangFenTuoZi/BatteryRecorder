@@ -22,6 +22,7 @@ import yangfentuozi.batteryrecorder.data.history.SceneStats
 import yangfentuozi.batteryrecorder.data.history.SceneStatsComputer
 import yangfentuozi.batteryrecorder.data.history.SyncUtil
 import yangfentuozi.batteryrecorder.ipc.Service
+import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 
 class MainViewModel : ViewModel() {
@@ -106,6 +107,7 @@ class MainViewModel : ViewModel() {
     fun loadStatistics(
         context: Context,
         gamePackages: Set<String> = emptySet(),
+        sceneStatsRecentFileCount: Int = ConfigConstants.DEF_SCENE_STATS_RECENT_FILE_COUNT,
         recordIntervalMs: Long = 1000L,
         predCurrentSessionWeightEnabled: Boolean = true,
         predCurrentSessionWeightMaxX100: Int = 300,
@@ -116,6 +118,7 @@ class MainViewModel : ViewModel() {
         startLoadStatistics(
             context = context,
             gamePackages = gamePackages,
+            sceneStatsRecentFileCount = sceneStatsRecentFileCount,
             recordIntervalMs = recordIntervalMs,
             predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
             predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
@@ -126,6 +129,7 @@ class MainViewModel : ViewModel() {
     fun refreshStatistics(
         context: Context,
         gamePackages: Set<String> = emptySet(),
+        sceneStatsRecentFileCount: Int = ConfigConstants.DEF_SCENE_STATS_RECENT_FILE_COUNT,
         recordIntervalMs: Long = 1000L,
         predCurrentSessionWeightEnabled: Boolean = true,
         predCurrentSessionWeightMaxX100: Int = 300,
@@ -140,6 +144,7 @@ class MainViewModel : ViewModel() {
         loadStatistics(
             context = context,
             gamePackages = gamePackages,
+            sceneStatsRecentFileCount = sceneStatsRecentFileCount,
             recordIntervalMs = recordIntervalMs,
             predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
             predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
@@ -150,6 +155,7 @@ class MainViewModel : ViewModel() {
     fun forceRefreshStatistics(
         context: Context,
         gamePackages: Set<String> = emptySet(),
+        sceneStatsRecentFileCount: Int = ConfigConstants.DEF_SCENE_STATS_RECENT_FILE_COUNT,
         recordIntervalMs: Long = 1000L,
         predCurrentSessionWeightEnabled: Boolean = true,
         predCurrentSessionWeightMaxX100: Int = 300,
@@ -164,6 +170,7 @@ class MainViewModel : ViewModel() {
         startLoadStatistics(
             context = context,
             gamePackages = gamePackages,
+            sceneStatsRecentFileCount = sceneStatsRecentFileCount,
             recordIntervalMs = recordIntervalMs,
             predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
             predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
@@ -209,6 +216,7 @@ class MainViewModel : ViewModel() {
     private fun startLoadStatistics(
         context: Context,
         gamePackages: Set<String>,
+        sceneStatsRecentFileCount: Int,
         recordIntervalMs: Long,
         predCurrentSessionWeightEnabled: Boolean,
         predCurrentSessionWeightMaxX100: Int,
@@ -247,6 +255,7 @@ class MainViewModel : ViewModel() {
                     SceneStatsComputer.compute(
                         context = context,
                         gamePackages = gamePackages,
+                        recentFileCount = sceneStatsRecentFileCount,
                         recordIntervalMs = recordIntervalMs,
                         currentDischargeFileName = currentDischargeFileName,
                         predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,

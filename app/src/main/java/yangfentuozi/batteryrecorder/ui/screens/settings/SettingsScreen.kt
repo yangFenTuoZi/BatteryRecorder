@@ -44,6 +44,7 @@ fun SettingsScreen(
     val segmentDurationMin by settingsViewModel.segmentDurationMin.collectAsState()
     val gamePackages by settingsViewModel.gamePackages.collectAsState()
     val gameBlacklist by settingsViewModel.gameBlacklist.collectAsState()
+    val sceneStatsRecentFileCount by settingsViewModel.sceneStatsRecentFileCount.collectAsState()
     val predCurrentSessionWeightEnabled by settingsViewModel.predCurrentSessionWeightEnabled.collectAsState()
     val predCurrentSessionWeightMaxX100 by settingsViewModel.predCurrentSessionWeightMaxX100.collectAsState()
     val predCurrentSessionWeightHalfLifeMin by settingsViewModel.predCurrentSessionWeightHalfLifeMin.collectAsState()
@@ -110,6 +111,8 @@ fun SettingsScreen(
             item { Spacer(modifier = Modifier.size(16.dp)) }
             item {
                 PredictionSection(
+                    sceneStatsRecentFileCount = sceneStatsRecentFileCount,
+                    onSceneStatsRecentFileCountChange = settingsViewModel::setSceneStatsRecentFileCount,
                     currentSessionWeightEnabled = predCurrentSessionWeightEnabled,
                     onCurrentSessionWeightEnabledChange = settingsViewModel::setPredCurrentSessionWeightEnabled,
                     currentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,

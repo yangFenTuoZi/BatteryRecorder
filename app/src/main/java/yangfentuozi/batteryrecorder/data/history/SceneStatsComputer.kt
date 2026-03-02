@@ -3,6 +3,7 @@ package yangfentuozi.batteryrecorder.data.history
 import android.content.Context
 import yangfentuozi.batteryrecorder.BuildConfig
 import yangfentuozi.batteryrecorder.shared.Constants
+import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import java.io.File
 import java.io.RandomAccessFile
@@ -95,16 +96,16 @@ data class SceneComputeResult(
 
 object SceneStatsComputer {
 
-    private const val MAX_FILES = 20
     private const val MAX_GAP_FACTOR = 5
     private const val MAX_DRAIN_RATE_PER_HOUR = 50.0   // %/h，超过视为数据异常
     private const val MIN_CURRENT_SESSION_MS = 10 * 60 * 1000L
     private const val MIN_CURRENT_SESSION_SOC_DROP = 1.0
-    private const val CACHE_VERSION = 4
+    private const val CACHE_VERSION = 5
 
     fun compute(
         context: Context,
         gamePackages: Set<String>,
+        recentFileCount: Int = ConfigConstants.DEF_SCENE_STATS_RECENT_FILE_COUNT,
         recordIntervalMs: Long,
         currentDischargeFileName: String? = null,
         predCurrentSessionWeightEnabled: Boolean = true,
@@ -117,9 +118,13 @@ object SceneStatsComputer {
         )
         if (!dataDir.isDirectory) return null
 
+        val effectiveRecentFileCount = recentFileCount.coerceIn(
+            ConfigConstants.MIN_SCENE_STATS_RECENT_FILE_COUNT,
+            ConfigConstants.MAX_SCENE_STATS_RECENT_FILE_COUNT
+        )
         val files = dataDir.listFiles()?.filter { it.isFile }
             ?.sortedByDescending { it.lastModified() }
-            ?.take(MAX_FILES) ?: return null
+            ?.take(effectiveRecentFileCount) ?: return null
         if (files.isEmpty()) return null
 
         // 缓存检查
@@ -127,6 +132,7 @@ object SceneStatsComputer {
         val cacheKey = buildCacheKey(
             files = files,
             gamePackages = gamePackages,
+            recentFileCount = effectiveRecentFileCount,
             recordIntervalMs = recordIntervalMs,
             currentDischargeFileName = currentDischargeFileName,
             predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
@@ -376,6 +382,7 @@ object SceneStatsComputer {
     private fun buildCacheKey(
         files: List<File>,
         gamePackages: Set<String>,
+        recentFileCount: Int,
         recordIntervalMs: Long,
         currentDischargeFileName: String?,
         predCurrentSessionWeightEnabled: Boolean,
@@ -385,7 +392,7 @@ object SceneStatsComputer {
         val filesHash = files.joinToString(",") { "${it.name}:${it.lastModified()}" }.hashCode()
         val gamesHash = gamePackages.sorted().joinToString(",").hashCode()
         val currentNameHash = (currentDischargeFileName ?: "").hashCode()
-        return "${CACHE_VERSION}_${filesHash}_${gamesHash}_${recordIntervalMs}_${MAX_GAP_FACTOR}_" +
+        return "${CACHE_VERSION}_${filesHash}_${gamesHash}_${recentFileCount}_${recordIntervalMs}_${MAX_GAP_FACTOR}_" +
                 "${predCurrentSessionWeightEnabled}_${predCurrentSessionWeightMaxX100}_${predCurrentSessionWeightHalfLifeMin}_${currentNameHash}"
     }
 

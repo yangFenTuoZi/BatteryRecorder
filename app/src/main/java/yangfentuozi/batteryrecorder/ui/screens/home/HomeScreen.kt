@@ -74,6 +74,7 @@ fun HomeScreen(
     val intervalMs by settingsViewModel.recordIntervalMs.collectAsState()
     val dischargeDisplayPositive by settingsViewModel.dischargeDisplayPositive.collectAsState()
     val gamePackages by settingsViewModel.gamePackages.collectAsState()
+    val sceneStatsRecentFileCount by settingsViewModel.sceneStatsRecentFileCount.collectAsState()
     val predCurrentSessionWeightEnabled by settingsViewModel.predCurrentSessionWeightEnabled.collectAsState()
     val predCurrentSessionWeightMaxX100 by settingsViewModel.predCurrentSessionWeightMaxX100.collectAsState()
     val predCurrentSessionWeightHalfLifeMin by settingsViewModel.predCurrentSessionWeightHalfLifeMin.collectAsState()
@@ -93,6 +94,7 @@ fun HomeScreen(
             viewModel.refreshStatistics(
                 context = context,
                 gamePackages = gamePackages,
+                sceneStatsRecentFileCount = sceneStatsRecentFileCount,
                 recordIntervalMs = intervalMs,
                 predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
                 predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
@@ -113,6 +115,7 @@ fun HomeScreen(
                     viewModel.refreshStatistics(
                         context = context,
                         gamePackages = gamePackages,
+                        sceneStatsRecentFileCount = sceneStatsRecentFileCount,
                         recordIntervalMs = intervalMs,
                         predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
                         predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
@@ -144,6 +147,7 @@ fun HomeScreen(
                         viewModel.forceRefreshStatistics(
                             context = context,
                             gamePackages = gamePackages,
+                            sceneStatsRecentFileCount = sceneStatsRecentFileCount,
                             recordIntervalMs = intervalMs,
                             predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
                             predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,

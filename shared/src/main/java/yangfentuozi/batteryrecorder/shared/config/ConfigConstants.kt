@@ -47,6 +47,12 @@ object ConfigConstants {
     /** 用户主动排除的非游戏包名（自动检测时跳过） */
     const val KEY_GAME_BLACKLIST = "game_blacklist"
 
+    /** 场景统计与预测使用的最近放电文件数量 */
+    const val KEY_SCENE_STATS_RECENT_FILE_COUNT = "scene_stats_recent_file_count"
+    const val MIN_SCENE_STATS_RECENT_FILE_COUNT = 5
+    const val MAX_SCENE_STATS_RECENT_FILE_COUNT = 100
+    const val DEF_SCENE_STATS_RECENT_FILE_COUNT = 30
+
     /** 校准值 */
     const val KEY_CALIBRATION_VALUE = "calibration_value"
     const val MIN_CALIBRATION_VALUE = -100_000_000
