@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -28,6 +29,7 @@ import yangfentuozi.batteryrecorder.ui.theme.AppShape
 @Composable
 fun BatteryRecorderTopAppBar(
     onSettingsClick: () -> Unit = {},
+    onRefreshClick: () -> Unit = {},
     onStopServerClick: () -> Unit = {},
     onAboutClick: () -> Unit = {},
     showStopServer: Boolean = true,
@@ -49,6 +51,9 @@ fun BatteryRecorderTopAppBar(
         },
         actions = {
             if (!showBackButton) {
+                IconButton(onClick = onRefreshClick) {
+                    Icon(Icons.Default.Refresh, contentDescription = "刷新")
+                }
                 IconButton(onClick = onSettingsClick) {
                     Icon(Icons.Default.Settings, contentDescription = "设置")
                 }

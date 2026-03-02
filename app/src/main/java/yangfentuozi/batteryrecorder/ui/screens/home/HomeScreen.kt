@@ -140,6 +140,16 @@ fun HomeScreen(
                     onSettingsClick = onNavigateToSettings,
                     onStopServerClick = viewModel::showStopDialog,
                     onAboutClick = viewModel::showAboutDialog,
+                    onRefreshClick = {
+                        viewModel.forceRefreshStatistics(
+                            context = context,
+                            gamePackages = gamePackages,
+                            recordIntervalMs = intervalMs,
+                            predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
+                            predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
+                            predCurrentSessionWeightHalfLifeMin = predCurrentSessionWeightHalfLifeMin
+                        )
+                    },
                     showStopServer = serviceConnected
                 )
             }

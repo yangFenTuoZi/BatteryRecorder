@@ -6,6 +6,7 @@ import android.os.Looper
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -52,6 +53,9 @@ class MainViewModel : ViewModel() {
     val prediction: StateFlow<PredictionResult?> = _prediction.asStateFlow()
 
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    private var statisticsJob: Job? = null
+    private var statisticsGeneration: Long = 0L
 
     private val serviceListener = object : Service.ServiceConnection {
         override fun onServiceConnected() {
@@ -109,52 +113,14 @@ class MainViewModel : ViewModel() {
     ) {
         if (_isLoadingStats.value) return
 
-        viewModelScope.launch {
-            _isLoadingStats.value = true
-            try {
-                val dischargeDisplayPositive = getDischargeDisplayPositive(context)
-
-                withContext(Dispatchers.IO) {
-                    runCatching { SyncUtil.sync(context) }
-                }
-
-                val chargeSummary = withContext(Dispatchers.IO) {
-                    HistoryRepository.loadSummary(context, BatteryStatus.Charging)
-                }
-                val dischargeSummary = withContext(Dispatchers.IO) {
-                    HistoryRepository.loadSummary(context, BatteryStatus.Discharging)
-                }
-                val currentRecord = loadLatestRecordForDisplay(context, dischargeDisplayPositive)
-
-                _chargeSummary.value =
-                    chargeSummary?.let { mapHistorySummaryForDisplay(it, dischargeDisplayPositive) }
-                _dischargeSummary.value =
-                    dischargeSummary?.let { mapHistorySummaryForDisplay(it, dischargeDisplayPositive) }
-                _currentRecord.value = currentRecord
-
-                // 场景统计 + 续航预测
-                val stats = withContext(Dispatchers.IO) {
-                    val currentDischargeFileName = currentRecord
-                        ?.takeIf { it.type == BatteryStatus.Discharging }
-                        ?.name
-                    SceneStatsComputer.compute(
-                        context = context,
-                        gamePackages = gamePackages,
-                        recordIntervalMs = recordIntervalMs,
-                        currentDischargeFileName = currentDischargeFileName,
-                        predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
-                        predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
-                        predCurrentSessionWeightHalfLifeMin = predCurrentSessionWeightHalfLifeMin
-                    )
-                }
-                _sceneStats.value = stats
-
-                val soc = currentRecord?.stats?.endCapacity ?: 0
-                _prediction.value = BatteryPredictor.predict(stats, soc)
-            } finally {
-                _isLoadingStats.value = false
-            }
-        }
+        startLoadStatistics(
+            context = context,
+            gamePackages = gamePackages,
+            recordIntervalMs = recordIntervalMs,
+            predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
+            predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
+            predCurrentSessionWeightHalfLifeMin = predCurrentSessionWeightHalfLifeMin
+        )
     }
 
     fun refreshStatistics(
@@ -172,6 +138,30 @@ class MainViewModel : ViewModel() {
         _sceneStats.value = null
         _prediction.value = null
         loadStatistics(
+            context = context,
+            gamePackages = gamePackages,
+            recordIntervalMs = recordIntervalMs,
+            predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
+            predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
+            predCurrentSessionWeightHalfLifeMin = predCurrentSessionWeightHalfLifeMin
+        )
+    }
+
+    fun forceRefreshStatistics(
+        context: Context,
+        gamePackages: Set<String> = emptySet(),
+        recordIntervalMs: Long = 1000L,
+        predCurrentSessionWeightEnabled: Boolean = true,
+        predCurrentSessionWeightMaxX100: Int = 300,
+        predCurrentSessionWeightHalfLifeMin: Long = 30L
+    ) {
+        statisticsJob?.cancel()
+        _chargeSummary.value = null
+        _dischargeSummary.value = null
+        _currentRecord.value = null
+        _sceneStats.value = null
+        _prediction.value = null
+        startLoadStatistics(
             context = context,
             gamePackages = gamePackages,
             recordIntervalMs = recordIntervalMs,
@@ -214,5 +204,68 @@ class MainViewModel : ViewModel() {
         return withContext(Dispatchers.IO) {
             HistoryRepository.loadLatestRecord(context)
         }?.let { mapHistoryRecordForDisplay(it, dischargeDisplayPositive) }
+    }
+
+    private fun startLoadStatistics(
+        context: Context,
+        gamePackages: Set<String>,
+        recordIntervalMs: Long,
+        predCurrentSessionWeightEnabled: Boolean,
+        predCurrentSessionWeightMaxX100: Int,
+        predCurrentSessionWeightHalfLifeMin: Long
+    ) {
+        val generation = (++statisticsGeneration)
+        _isLoadingStats.value = true
+        val job = viewModelScope.launch {
+            try {
+                val dischargeDisplayPositive = getDischargeDisplayPositive(context)
+
+                withContext(Dispatchers.IO) {
+                    runCatching { SyncUtil.sync(context) }
+                }
+
+                val chargeSummary = withContext(Dispatchers.IO) {
+                    HistoryRepository.loadSummary(context, BatteryStatus.Charging)
+                }
+                val dischargeSummary = withContext(Dispatchers.IO) {
+                    HistoryRepository.loadSummary(context, BatteryStatus.Discharging)
+                }
+                val currentRecord = loadLatestRecordForDisplay(context, dischargeDisplayPositive)
+
+                if (generation == statisticsGeneration) {
+                    _chargeSummary.value =
+                        chargeSummary?.let { mapHistorySummaryForDisplay(it, dischargeDisplayPositive) }
+                    _dischargeSummary.value =
+                        dischargeSummary?.let { mapHistorySummaryForDisplay(it, dischargeDisplayPositive) }
+                    _currentRecord.value = currentRecord
+                }
+
+                val stats = withContext(Dispatchers.IO) {
+                    val currentDischargeFileName = currentRecord
+                        ?.takeIf { it.type == BatteryStatus.Discharging }
+                        ?.name
+                    SceneStatsComputer.compute(
+                        context = context,
+                        gamePackages = gamePackages,
+                        recordIntervalMs = recordIntervalMs,
+                        currentDischargeFileName = currentDischargeFileName,
+                        predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
+                        predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
+                        predCurrentSessionWeightHalfLifeMin = predCurrentSessionWeightHalfLifeMin
+                    )
+                }
+
+                if (generation == statisticsGeneration) {
+                    _sceneStats.value = stats
+                    val soc = currentRecord?.stats?.endCapacity ?: 0
+                    _prediction.value = BatteryPredictor.predict(stats, soc)
+                }
+            } finally {
+                if (generation == statisticsGeneration) {
+                    _isLoadingStats.value = false
+                }
+            }
+        }
+        statisticsJob = job
     }
 }
