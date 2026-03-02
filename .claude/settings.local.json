@@ -6,7 +6,8 @@
       "Bash(dir:*)",
       "Bash(findstr:*)",
       "Bash(find:*)",
-      "mcp__fast-context__fast_context_search"
+      "mcp__fast-context__fast_context_search",
+      "Bash(xargs:*)"
     ]
   }
 }
