@@ -10,6 +10,7 @@ import java.io.RandomAccessFile
 import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.min
+import kotlin.math.sqrt
 
 data class SceneStats(
     val screenOffAvgPowerRaw: Double,
@@ -91,7 +92,9 @@ data class SceneStats(
 data class SceneComputeResult(
     val displayStats: SceneStats,
     val predictionStats: SceneStats,
-    val medianK: Double?
+    val medianK: Double?,
+    val kCV: Double?,
+    val kEffectiveN: Double
 )
 
 object SceneStatsComputer {
@@ -100,7 +103,7 @@ object SceneStatsComputer {
     private const val MAX_DRAIN_RATE_PER_HOUR = 50.0   // %/h，超过视为数据异常
     private const val MIN_CURRENT_SESSION_MS = 10 * 60 * 1000L
     private const val MIN_CURRENT_SESSION_SOC_DROP = 1.0
-    private const val CACHE_VERSION = 5
+    private const val CACHE_VERSION = 6
 
     fun compute(
         context: Context,
@@ -146,7 +149,9 @@ object SceneStatsComputer {
             val predictionStats = cacheLines.getOrNull(1)?.let { SceneStats.fromString(it) }
             if (displayStats != null && predictionStats != null) {
                 val cachedMedianK = cacheLines.getOrNull(2)?.toDoubleOrNull()
-                return SceneComputeResult(displayStats, predictionStats, cachedMedianK)
+                val cachedKCV = cacheLines.getOrNull(3)?.toDoubleOrNull()
+                val cachedKEffN = cacheLines.getOrNull(4)?.toDoubleOrNull() ?: 0.0
+                return SceneComputeResult(displayStats, predictionStats, cachedMedianK, cachedKCV, cachedKEffN)
             }
             cacheFile.delete()
         }
@@ -326,16 +331,16 @@ object SceneStatsComputer {
             }
         }
 
-        // 分文件加权中位数 k
+        // 分文件加权中位数 k + 置信度指标
         val minCapDropForMedian = 3.0
-        val medianK = run {
-            val entries = fileKInputs.mapNotNull { input ->
-                if (input.energy > 0 && input.capDrop >= minCapDropForMedian)
-                    input.capDrop / input.energy to input.capDrop
-                else null
-            }
-            weightedMedian(entries)
+        val kEntries = fileKInputs.mapNotNull { input ->
+            if (input.energy > 0 && input.capDrop >= minCapDropForMedian)
+                input.capDrop / input.energy to input.capDrop
+            else null
         }
+        val medianK = weightedMedian(kEntries)
+        val kCV = weightedCV(kEntries)
+        val kEffectiveN = effectiveSampleCount(kEntries)
 
         // totalDurationMs 包含所有场景（含 game），保证与 drainRate 口径一致
         val totalMs = offTime + dailyTime + gameTime
@@ -372,11 +377,14 @@ object SceneStatsComputer {
             rawTotalSocDrop = rawTotalCapDrop
         )
 
-        // 写入缓存：displayStats + predictionStats + medianK
+        // 写入缓存：displayStats + predictionStats + medianK + kCV + kEffectiveN
         if (!cacheDir.exists()) cacheDir.mkdirs()
-        cacheFile.writeText(displayStats.toString() + "\n" + predictionStats.toString() + "\n" + (medianK ?: ""))
+        cacheFile.writeText(
+            displayStats.toString() + "\n" + predictionStats.toString() + "\n" +
+                    (medianK ?: "") + "\n" + (kCV ?: "") + "\n" + kEffectiveN
+        )
 
-        return SceneComputeResult(displayStats, predictionStats, medianK)
+        return SceneComputeResult(displayStats, predictionStats, medianK, kCV, kEffectiveN)
     }
 
     private fun buildCacheKey(
@@ -454,6 +462,27 @@ object SceneStatsComputer {
             end = start - 1
         }
         return null
+    }
+
+    /** 加权变异系数 CV = σ_weighted / μ_weighted */
+    private fun weightedCV(entries: List<Pair<Double, Double>>): Double? {
+        if (entries.size < 2) return null
+        val sumW = entries.sumOf { it.second }
+        if (sumW <= 0) return null
+        val kMean = entries.sumOf { it.first * it.second } / sumW
+        if (kMean <= 0 || !kMean.isFinite()) return null
+        val variance = entries.sumOf { it.second * (it.first - kMean) * (it.first - kMean) } / sumW
+        if (!variance.isFinite()) return null
+        return sqrt(variance) / kMean
+    }
+
+    /** 加权有效样本量 n_eff = (Σw)² / Σ(w²) */
+    private fun effectiveSampleCount(entries: List<Pair<Double, Double>>): Double {
+        if (entries.isEmpty()) return 0.0
+        val sumW = entries.sumOf { it.second }
+        val sumW2 = entries.sumOf { it.second * it.second }
+        if (sumW2 <= 0) return 0.0
+        return sumW * sumW / sumW2
     }
 
     /** 加权中位数：entries = [(k, weight), ...]，按 k 升序累积权重到 50% 处线性插值 */

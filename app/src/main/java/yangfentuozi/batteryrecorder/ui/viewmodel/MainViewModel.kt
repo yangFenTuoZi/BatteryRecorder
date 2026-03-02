@@ -268,7 +268,10 @@ class MainViewModel : ViewModel() {
                     _sceneStats.value = stats?.displayStats
                     val soc = currentRecord?.stats?.endCapacity ?: 0
                     _prediction.value =
-                        BatteryPredictor.predict(stats?.predictionStats, soc, stats?.medianK)
+                        BatteryPredictor.predict(
+                            stats?.predictionStats, soc, stats?.medianK,
+                            kCV = stats?.kCV, kEffectiveN = stats?.kEffectiveN ?: 0.0
+                        )
                 }
             } finally {
                 if (generation == statisticsGeneration) {

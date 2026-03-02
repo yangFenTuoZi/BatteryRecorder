@@ -27,8 +27,11 @@ fun PredictionCard(
             .fillMaxWidth()
             .padding(16.dp)
     ) {
+        val title = if (prediction != null && !prediction.insufficientData)
+            "续航预测 - 置信评分 ${prediction.confidenceScore}"
+        else "续航预测"
         Text(
-            text = "续航预测",
+            text = title,
             style = MaterialTheme.typography.titleMedium
         )
         Spacer(Modifier.height(12.dp))
