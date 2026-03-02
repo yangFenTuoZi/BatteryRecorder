@@ -14,7 +14,6 @@ import yangfentuozi.batteryrecorder.data.history.PredictionResult
 import yangfentuozi.batteryrecorder.data.history.SceneStats
 import yangfentuozi.batteryrecorder.ui.components.global.StatRow
 import yangfentuozi.batteryrecorder.utils.computePowerW
-import yangfentuozi.batteryrecorder.utils.formatDurationHours
 import yangfentuozi.batteryrecorder.utils.formatRemainingTime
 import java.util.Locale
 
@@ -85,8 +84,7 @@ fun SceneStatsCard(
             val offPowerText = if (sceneStats.screenOffTotalMs > 0) {
                 var w = computePowerW(sceneStats.screenOffAvgPowerRaw, dualCellEnabled, calibrationValue)
                 if (dischargeDisplayPositive) w = kotlin.math.abs(w)
-                val rawDur = formatDurationHours(sceneStats.screenOffTotalMs)
-                "${String.format(Locale.getDefault(), "%.2f W", w)}（$rawDur）"
+                String.format(Locale.getDefault(), "%.2f W", w)
             } else "数据不足"
 
             StatRow(
@@ -99,8 +97,7 @@ fun SceneStatsCard(
             val dailyPowerText = if (sceneStats.screenOnDailyTotalMs > 0) {
                 var w = computePowerW(sceneStats.screenOnDailyAvgPowerRaw, dualCellEnabled, calibrationValue)
                 if (dischargeDisplayPositive) w = kotlin.math.abs(w)
-                val rawDur = formatDurationHours(sceneStats.screenOnDailyTotalMs)
-                "${String.format(Locale.getDefault(), "%.2f W", w)}（$rawDur）"
+                String.format(Locale.getDefault(), "%.2f W", w)
             } else "数据不足"
 
             StatRow(

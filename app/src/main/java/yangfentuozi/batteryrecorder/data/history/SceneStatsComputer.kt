@@ -1,6 +1,7 @@
 package yangfentuozi.batteryrecorder.data.history
 
 import android.content.Context
+import yangfentuozi.batteryrecorder.BuildConfig
 import yangfentuozi.batteryrecorder.shared.Constants
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import java.io.File
@@ -286,8 +287,8 @@ object SceneStatsComputer {
 
             val useWeightedCurrentSession = isCurrentFile &&
                     fileEndTs != null &&
-                    fileTotalMs >= MIN_CURRENT_SESSION_MS &&
-                    fileCapDrop >= MIN_CURRENT_SESSION_SOC_DROP
+                    (BuildConfig.DEBUG || fileTotalMs >= MIN_CURRENT_SESSION_MS) &&
+                    (BuildConfig.DEBUG || fileCapDrop >= MIN_CURRENT_SESSION_SOC_DROP)
 
             usedFileCount++
             val fileEnergy = fileRawOffEnergy + fileRawDailyEnergy + fileRawGameEnergy
