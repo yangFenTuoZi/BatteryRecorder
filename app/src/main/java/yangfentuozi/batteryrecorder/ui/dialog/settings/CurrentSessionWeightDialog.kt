@@ -33,9 +33,13 @@ fun CurrentSessionWeightDialog(
 ) {
     val minMaxX = ConfigConstants.MIN_PRED_CURRENT_SESSION_WEIGHT_MAX_X100 / 100f
     val maxMaxX = ConfigConstants.MAX_PRED_CURRENT_SESSION_WEIGHT_MAX_X100 / 100f
+    val maxXSteps = ((ConfigConstants.MAX_PRED_CURRENT_SESSION_WEIGHT_MAX_X100 -
+            ConfigConstants.MIN_PRED_CURRENT_SESSION_WEIGHT_MAX_X100) / 10 - 1).coerceAtLeast(0)
     var maxX by remember {
-        val initial = (currentMaxX100 / 100f).coerceIn(minMaxX, maxMaxX)
-        mutableFloatStateOf(initial)
+        val initial = ((currentMaxX100 / 100f) * 10).roundToInt() / 10f
+        val normalized = initial.coerceIn(minMaxX, maxMaxX)
+        val snapped = (normalized * 10).roundToInt() / 10f
+        mutableFloatStateOf(snapped)
     }
 
     val minHalfLife = ConfigConstants.MIN_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN
@@ -67,8 +71,11 @@ fun CurrentSessionWeightDialog(
                 ) {
                     Slider(
                         value = maxX,
-                        onValueChange = { v -> maxX = v },
+                        onValueChange = { v ->
+                            maxX = ((v * 10).roundToInt() / 10f).coerceIn(minMaxX, maxMaxX)
+                        },
                         valueRange = minMaxX..maxMaxX,
+                        steps = maxXSteps,
                         modifier = Modifier.weight(1F)
                     )
                     val shown = (maxX * 10).roundToInt() / 10.0
