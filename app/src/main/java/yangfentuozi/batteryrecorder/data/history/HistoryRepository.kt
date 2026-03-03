@@ -49,7 +49,7 @@ object HistoryRepository {
         File(dir, name).takeIf { it.isFile }
 
     /** 加载统计数据并构建 HistoryRecord */
-    private fun loadStats(
+    fun loadStats(
         context: Context,
         file: File,
         needCaching: Boolean
@@ -109,7 +109,9 @@ object HistoryRepository {
     }
 
     /** 获取最新记录，比较充电/放电两类的最后修改时间 */
-    fun loadLatestRecord(context: Context): HistoryRecord? {
+    fun loadLatestRecord(
+        context: Context
+    ): HistoryRecord? {
         val service = Service.service ?: return null
         val serviceFile = runCatching { service.currRecordsFile }
             .getOrNull()

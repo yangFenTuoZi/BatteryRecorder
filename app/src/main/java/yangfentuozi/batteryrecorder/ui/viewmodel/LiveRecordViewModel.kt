@@ -1,7 +1,5 @@
 package yangfentuozi.batteryrecorder.ui.viewmodel
 
-import android.os.Handler
-import android.os.Looper
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
@@ -9,12 +7,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import yangfentuozi.batteryrecorder.ipc.Service
-import yangfentuozi.batteryrecorder.server.recorder.IRecordListener
+import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 
 private const val MAX_LIVE_POINTS = 20
-private const val DEFAULT_INTERVAL_MS = 1000L
 
 data class LivePowerPoint(
     val timestamp: Long,
@@ -28,90 +24,42 @@ class LiveRecordViewModel : ViewModel() {
     private val _livePoints = MutableStateFlow<List<LivePowerPoint>>(emptyList())
     val livePoints: StateFlow<List<LivePowerPoint>> = _livePoints.asStateFlow()
 
-    private val mainHandler = Handler(Looper.getMainLooper())
-    private var intervalMs: Long = DEFAULT_INTERVAL_MS
+    private var intervalMs: Long = ConfigConstants.DEF_RECORD_INTERVAL_MS
     private var lastTimestamp: Long? = null
     private var lastPowerRaw: Long? = null
     private var lastStatus: BatteryStatus? = null
-    private var isListenerRegistered = false
     private val buffer = ArrayList<LivePowerPoint>(MAX_LIVE_POINTS + 1)
-
-    private val listener = object : IRecordListener.Stub() {
-        override fun onRecord(timestamp: Long, power: Long, status: BatteryStatus, temp: Int) {
-            viewModelScope.launch(Dispatchers.Main.immediate) {
-                handleRecord(timestamp, power, status, temp)
-            }
-        }
-    }
-
-    private val serviceListener = object : Service.ServiceConnection {
-        override fun onServiceConnected() {
-            mainHandler.post {
-                registerListenerIfNeeded()
-            }
-        }
-
-        override fun onServiceDisconnected() {
-            mainHandler.post {
-                unregisterListener()
-            }
-        }
-    }
-
-    init {
-        Service.addListener(serviceListener)
-        if (Service.service != null) {
-            registerListenerIfNeeded()
-        }
-    }
-
-    override fun onCleared() {
-        unregisterListener()
-        Service.removeListener(serviceListener)
-        mainHandler.removeCallbacksAndMessages(null)
-    }
 
     fun updateIntervalMs(value: Long) {
         intervalMs = value.coerceAtLeast(1L)
     }
 
-    fun registerListenerIfNeeded() {
-        if (isListenerRegistered) return
-        val service = Service.service ?: return
-        service.registerRecordListener(listener)
-        isListenerRegistered = true
-    }
+    fun handleRecord(timestamp: Long, power: Long, status: BatteryStatus, temp: Int) {
+        viewModelScope.launch(Dispatchers.Main.immediate) {
+            val lastStatusValue = lastStatus
+            if (lastStatusValue != null && lastStatusValue != status) {
+                buffer.clear()
+                lastTimestamp = null
+                lastPowerRaw = null
+            }
 
-    fun unregisterListener() {
-        if (!isListenerRegistered) return
-        Service.service?.unregisterRecordListener(listener)
-        isListenerRegistered = false
-    }
+            val last = lastTimestamp
+            val resetThresholdMs = intervalMs * 2
+            if (last != null && timestamp - last > resetThresholdMs && lastStatusValue == status) {
+                val gapTimestamp = last + (timestamp - last) / 2
+                val gapPower = lastPowerRaw?.let { (it + power) / 2 } ?: power
+                buffer.add(LivePowerPoint(gapTimestamp, gapPower, status, temp, isGap = true))
+            }
 
-    private fun handleRecord(timestamp: Long, power: Long, status: BatteryStatus, temp: Int) {
-        val lastStatusValue = lastStatus
-        if (lastStatusValue != null && lastStatusValue != status) {
-            buffer.clear()
-            lastTimestamp = null
-            lastPowerRaw = null
+            buffer.add(LivePowerPoint(timestamp, power, status, temp))
+            while (buffer.size > MAX_LIVE_POINTS) {
+                buffer.removeAt(0)
+            }
+
+            lastTimestamp = timestamp
+            lastPowerRaw = power
+            lastStatus = status
+            _livePoints.value = buffer.toList()
         }
-
-        val last = lastTimestamp
-        val resetThresholdMs = intervalMs * 2
-        if (last != null && timestamp - last > resetThresholdMs && lastStatusValue == status) {
-            val gapTimestamp = last + (timestamp - last) / 2
-            val gapPower = lastPowerRaw?.let { (it + power) / 2 } ?: power
-            buffer.add(LivePowerPoint(gapTimestamp, gapPower, status, temp, isGap = true))
-        }
-
-        buffer.add(LivePowerPoint(timestamp, power, status, temp))
-        while (buffer.size > MAX_LIVE_POINTS) {
-            buffer.removeAt(0)
-        }
-
-        lastTimestamp = timestamp
-        lastPowerRaw = power
-        lastStatus = status
-        _livePoints.value = buffer.toList()
     }
 }

@@ -143,9 +143,24 @@ class Monitor(
         callbackThread.start()
         callbackHandler = Handler(callbackThread.looper)
         thread.start()
+        writer.onChangedCurrRecordsFile = {
+            callbackHandler.post {
+                // 回调 app
+                val n: Int = callbacks.beginBroadcast()
+                for (i in 0..<n) {
+                    try {
+                        callbacks.getBroadcastItem(i).onChangedCurrRecordsFile()
+                    } catch (e: RemoteException) {
+                        Log.e(TAG, "Failed to call back", e)
+                    }
+                }
+                callbacks.finishBroadcast()
+            }
+        }
     }
 
     fun stop() {
+        writer.onChangedCurrRecordsFile = null
         stopped = true
         notifyLock()
         thread.interrupt()

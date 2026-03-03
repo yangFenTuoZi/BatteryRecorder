@@ -6,7 +6,6 @@ import android.util.Log
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Charging
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Discharging
-import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Full
 import yangfentuozi.batteryrecorder.shared.data.LineRecord
 import java.io.File
 import java.io.FileOutputStream
@@ -36,6 +35,9 @@ class PowerRecordWriter(
 
     @Volatile
     var maxSegmentDurationMs = 24 * 60 * 60 * 1000L
+
+    @Volatile
+    var onChangedCurrRecordsFile: (() -> Unit)? = null
 
     init {
         fun makeSureExists(file: File) {
@@ -170,6 +172,7 @@ class PowerRecordWriter(
                     postDelayedWriting()
                 }
             }
+            if (justChangedStatus) onChangedCurrRecordsFile?.invoke()
         }
 
         private fun startNewSegmentIfNeed(

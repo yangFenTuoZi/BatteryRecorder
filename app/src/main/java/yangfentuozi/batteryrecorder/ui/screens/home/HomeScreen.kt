@@ -32,6 +32,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.delay
+import yangfentuozi.batteryrecorder.ipc.Service
+import yangfentuozi.batteryrecorder.server.recorder.IRecordListener
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
 import yangfentuozi.batteryrecorder.ui.components.home.BatteryRecorderTopAppBar
@@ -85,21 +88,44 @@ fun HomeScreen(
 
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    val listener = remember { object : IRecordListener.Stub() {
+            override fun onRecord(timestamp: Long, power: Long, status: BatteryStatus, temp: Int) {
+                liveRecordViewModel.handleRecord(timestamp, power, status, temp)
+            }
+
+            override fun onChangedCurrRecordsFile() {
+                viewModel.forceRefreshStatistics(
+                    context = context,
+                    gamePackages = gamePackages,
+                    sceneStatsRecentFileCount = sceneStatsRecentFileCount,
+                    recordIntervalMs = intervalMs,
+                    predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
+                    predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
+                    predCurrentSessionWeightHalfLifeMin = predCurrentSessionWeightHalfLifeMin
+                )
+            }
+        }
+    }
+
     LaunchedEffect(intervalMs) {
         liveRecordViewModel.updateIntervalMs(intervalMs)
     }
 
     LaunchedEffect(serviceConnected) {
         if (serviceConnected) {
-            viewModel.refreshStatistics(
-                context = context,
-                gamePackages = gamePackages,
-                sceneStatsRecentFileCount = sceneStatsRecentFileCount,
-                recordIntervalMs = intervalMs,
-                predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
-                predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
-                predCurrentSessionWeightHalfLifeMin = predCurrentSessionWeightHalfLifeMin
-            )
+            Service.service?.registerRecordListener(listener)
+            run {
+                delay(1000)
+                viewModel.refreshStatistics(
+                    context = context,
+                    gamePackages = gamePackages,
+                    sceneStatsRecentFileCount = sceneStatsRecentFileCount,
+                    recordIntervalMs = intervalMs,
+                    predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
+                    predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
+                    predCurrentSessionWeightHalfLifeMin = predCurrentSessionWeightHalfLifeMin
+                )
+            }
         }
     }
 
@@ -121,11 +147,11 @@ fun HomeScreen(
                         predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
                         predCurrentSessionWeightHalfLifeMin = predCurrentSessionWeightHalfLifeMin
                     )
-                    liveRecordViewModel.registerListenerIfNeeded()
+                    Service.service?.registerRecordListener(listener)
                 }
 
                 Lifecycle.Event.ON_STOP -> {
-                    liveRecordViewModel.unregisterListener()
+                    Service.service?.unregisterRecordListener(listener)
                 }
 
                 else -> {}
