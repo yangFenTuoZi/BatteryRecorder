@@ -68,8 +68,7 @@ fun HomeScreen(
     val chargeSummary by viewModel.chargeSummary.collectAsState()
     val dischargeSummary by viewModel.dischargeSummary.collectAsState()
     val currentRecord by viewModel.currentRecord.collectAsState()
-    val livePoints by liveRecordViewModel.livePoints.collectAsState()
-    val liveStatus = livePoints.lastOrNull()?.status
+    val liveStatus by liveRecordViewModel.lastStatus.collectAsState()
 
     // 读取设置值
     val dualCellEnabled by settingsViewModel.dualCellEnabled.collectAsState()
@@ -229,7 +228,7 @@ fun HomeScreen(
                             record = currentRecord,
                             dualCellEnabled = dualCellEnabled,
                             calibrationValue = calibrationValue,
-                            livePoints = livePoints,
+                            viewModel = liveRecordViewModel,
                             dischargeDisplayPositive = dischargeDisplayPositive,
                             onClick = {
                                 currentRecord?.let { record ->

@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -37,7 +39,7 @@ import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.data.history.HistoryRecord
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.ui.components.global.StatRow
-import yangfentuozi.batteryrecorder.ui.viewmodel.LivePowerPoint
+import yangfentuozi.batteryrecorder.ui.viewmodel.LiveRecordViewModel
 import yangfentuozi.batteryrecorder.utils.computePowerW
 import yangfentuozi.batteryrecorder.utils.formatDateTime
 import yangfentuozi.batteryrecorder.utils.formatDurationHours
@@ -66,11 +68,14 @@ fun CurrentRecordCard(
     modifier: Modifier = Modifier,
     dualCellEnabled: Boolean,
     calibrationValue: Int,
-    livePoints: List<LivePowerPoint>,
+    viewModel: LiveRecordViewModel,
     dischargeDisplayPositive: Boolean,
     onClick: (() -> Unit)? = null
 ) {
-    val isDischargingNow = livePoints.lastOrNull()?.status == BatteryStatus.Discharging
+    val livePoints by viewModel.livePoints.collectAsState()
+    val lastStatus by viewModel.lastStatus.collectAsState()
+    val lastTemp by viewModel.lastTemp.collectAsState()
+    val isDischargingNow = lastStatus == BatteryStatus.Discharging
     val chargeStatusText = if (isDischargingNow) "放电" else "充电"
     val averageLabel = if (isDischargingNow) "平均功耗" else "平均功率"
     val currentLabel = if (isDischargingNow) "当前功耗" else "当前功率"
@@ -89,8 +94,7 @@ fun CurrentRecordCard(
         if (record != null) {
             Spacer(Modifier.height(12.dp))
             val stats = record.stats
-            val latestPoint = livePoints.lastOrNull()
-            val latestPowerRaw = latestPoint?.powerRaw
+            val latestPowerRaw = livePoints.lastOrNull()
 
             Row(
                 modifier = Modifier
@@ -115,10 +119,11 @@ fun CurrentRecordCard(
                             calibrationValue = calibrationValue
                         )
                     )
-                    StatRow("温度", latestPoint?.let { "${it.temp / 10.0}°C" } ?: "--")
+                    StatRow("温度", latestPowerRaw?.let { "${lastTemp / 10.0}°C" } ?: "--")
                 }
 
                 LivePowerChart(
+                    status = lastStatus,
                     points = livePoints,
                     dualCellEnabled = dualCellEnabled,
                     calibrationValue = calibrationValue,
@@ -142,9 +147,8 @@ fun CurrentRecordCard(
                     StatRow(
                         currentLabel,
                         if (latestPowerRaw != null) {
-                            val latestStatus = latestPoint.status
                             val displayPowerRaw =
-                                if (latestStatus == BatteryStatus.Discharging) {
+                                if (lastStatus == BatteryStatus.Discharging) {
                                     val absPower = abs(latestPowerRaw.toDouble())
                                     if (dischargeDisplayPositive) -absPower else absPower
                                 } else {
@@ -174,7 +178,8 @@ fun CurrentRecordCard(
 
 @Composable
 private fun LivePowerChart(
-    points: List<LivePowerPoint>,
+    status: BatteryStatus,
+    points: List<Long>,
     dualCellEnabled: Boolean,
     calibrationValue: Int,
     modifier: Modifier = Modifier,
@@ -192,12 +197,12 @@ private fun LivePowerChart(
             val displayPoints = run {
                 points.map {
                     val powerW = computePowerW(
-                        rawPower = it.powerRaw.toDouble(),
+                        rawPower = it.toDouble(),
                         dualCellEnabled = dualCellEnabled,
                         calibrationValue = calibrationValue
                     )
                     val plotPowerW =
-                        if (it.status == BatteryStatus.Discharging) abs(powerW) else powerW
+                        if (status == BatteryStatus.Discharging) abs(powerW) else powerW
                     LivePowerPointDisplay(plotPowerW)
                 }
             }

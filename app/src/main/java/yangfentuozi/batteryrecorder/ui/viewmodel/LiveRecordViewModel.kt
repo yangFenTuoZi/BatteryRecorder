@@ -11,32 +11,32 @@ import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 
 private const val MAX_LIVE_POINTS = 20
 
-data class LivePowerPoint(
-    val powerRaw: Long,
-    val status: BatteryStatus,
-    val temp: Int = 0
-)
-
 class LiveRecordViewModel : ViewModel() {
-    private val _livePoints = MutableStateFlow<List<LivePowerPoint>>(emptyList())
-    val livePoints: StateFlow<List<LivePowerPoint>> = _livePoints.asStateFlow()
+    private val _livePoints = MutableStateFlow<List<Long>>(emptyList())
+    val livePoints: StateFlow<List<Long>> = _livePoints.asStateFlow()
 
-    private var lastStatus: BatteryStatus? = null
-    private val buffer = ArrayList<LivePowerPoint>(MAX_LIVE_POINTS + 1)
+    private var _lastStatus = MutableStateFlow(BatteryStatus.Unknown)
+    val lastStatus: StateFlow<BatteryStatus> = _lastStatus.asStateFlow()
+
+    private var _lastTemp = MutableStateFlow(0)
+    val lastTemp: StateFlow<Int> = _lastTemp.asStateFlow()
+
+    private val buffer = ArrayList<Long>(MAX_LIVE_POINTS + 1)
 
     fun handleRecord(power: Long, status: BatteryStatus, temp: Int) {
         viewModelScope.launch(Dispatchers.Main.immediate) {
-            val lastStatusValue = lastStatus
-            if (lastStatusValue != null && lastStatusValue != status) {
+            val lastStatusValue = _lastStatus.value
+            if (lastStatusValue != status) {
                 buffer.clear()
             }
 
-            buffer.add(LivePowerPoint(power, status, temp))
+            buffer.add(power)
             while (buffer.size > MAX_LIVE_POINTS) {
                 buffer.removeAt(0)
             }
 
-            lastStatus = status
+            _lastTemp.value = temp
+            _lastStatus.value = status
             _livePoints.value = buffer.toList()
         }
     }
