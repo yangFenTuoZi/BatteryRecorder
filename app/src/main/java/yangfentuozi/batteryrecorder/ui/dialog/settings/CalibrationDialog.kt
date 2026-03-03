@@ -77,6 +77,8 @@ fun CalibrationDialog(
                     rawPower = power
                 }
             }
+
+            override fun onChangedCurrRecordsFile() {}
         }
     }
 
