@@ -31,7 +31,7 @@ fun AdbGuideDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
     val apkPath = context.applicationInfo.sourceDir
     val adbCommand = remember(apkPath) {
-        "adb shell app_process \"-Djava.class.path=$apkPath\" / yangfentuozi.batteryrecorder.server.Main"
+        "adb shell CLASSPATH=$(pm path yangfentuozi.batteryrecorder | cut -d: -f2) app_process /system/bin yangfentuozi.batteryrecorder.server.Main"
     }
 
     AlertDialog(
