@@ -100,7 +100,7 @@ class PowerRecordWriter(
         }
 
         override fun needDeleteSegment(nowTime: Long): Boolean {
-            return nowTime - startTime < 5 * 60 * 1000 // 5min
+            return nowTime - startTime < 10 * 60 * 1000 // 10min
         }
     }
 
