@@ -1,18 +1,21 @@
 package yangfentuozi.batteryrecorder.shared.data
 
+import android.os.BatteryManager
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 import yangfentuozi.batteryrecorder.shared.Constants
 
 @Parcelize
 enum class BatteryStatus(val value: Int) : Parcelable {
-    Charging(0),
-    Discharging(1),
-    Full(2);
+    Unknown(BatteryManager.BATTERY_STATUS_UNKNOWN),
+    Charging(BatteryManager.BATTERY_STATUS_CHARGING),
+    Discharging(BatteryManager.BATTERY_STATUS_DISCHARGING),
+    NotCharging(BatteryManager.BATTERY_STATUS_NOT_CHARGING),
+    Full(BatteryManager.BATTERY_STATUS_FULL);
 
     companion object {
-        fun fromValue(value: Int): BatteryStatus? =
-            entries.find { it.value == value }
+        fun fromValue(value: Int): BatteryStatus =
+            entries.find { it.value == value } ?: Unknown
 
         fun fromDataDirName(dataDirName: String?): BatteryStatus = when (dataDirName) {
             Constants.CHARGE_DATA_DIR -> Charging
@@ -25,6 +28,6 @@ enum class BatteryStatus(val value: Int) : Parcelable {
         get() = when (this) {
             Charging -> Constants.CHARGE_DATA_DIR
             Discharging -> Constants.DISCHARGE_DATA_DIR
-            Full -> throw IllegalStateException()
+            else -> throw IllegalStateException()
         }
 }

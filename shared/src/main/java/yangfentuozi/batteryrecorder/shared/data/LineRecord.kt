@@ -7,10 +7,10 @@ import kotlinx.parcelize.Parcelize
 data class LineRecord(
     val timestamp: Long, val power: Long, val packageName: String?,
     val capacity: Int, val isDisplayOn: Int, val status: BatteryStatus?,
-    val temp: Int
+    val temp: Int, val voltage: Long, val current: Long
 ) : Parcelable {
     override fun toString(): String {
-        return "$timestamp,$power,$packageName,$capacity,$isDisplayOn,$temp"
+        return "$timestamp,$power,$packageName,$capacity,$isDisplayOn,$temp,$voltage,$current"
     }
 
     companion object {
@@ -25,9 +25,10 @@ data class LineRecord(
             val isDisplayOn = parts[4].toIntOrNull() ?: return null
 
             val temp = if (parts.size > 5) parts[5].toIntOrNull() ?: return null else 0
-
+            val voltage = if (parts.size > 7) parts[6].toLongOrNull() ?: return null else 0
+            val current = if (parts.size > 7)parts[7].toLongOrNull() ?: return null else 0
             return LineRecord(
-                timestamp, power, packageName, capacity, isDisplayOn, null, temp
+                timestamp, power, packageName, capacity, isDisplayOn, null, temp, voltage, current
             )
         }
     }

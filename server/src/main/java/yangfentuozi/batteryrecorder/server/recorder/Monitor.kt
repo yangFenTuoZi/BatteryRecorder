@@ -16,6 +16,7 @@ import android.os.ServiceManager
 import android.util.Log
 import androidx.annotation.Keep
 import yangfentuozi.batteryrecorder.server.Server.Companion.TAG
+import yangfentuozi.batteryrecorder.server.recorder.sampler.Sampler
 import yangfentuozi.batteryrecorder.server.writer.PowerRecordWriter
 import yangfentuozi.batteryrecorder.shared.Constants
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
@@ -24,7 +25,8 @@ import java.io.IOException
 
 class Monitor(
     private val writer: PowerRecordWriter,
-    private val sendBinder: (() -> Unit)
+    private val sendBinder: (() -> Unit),
+    private val sampler: Sampler
 ) {
 
     private val iActivityTaskManager =
@@ -51,6 +53,7 @@ class Monitor(
 
     @Volatile
     private var currForegroundApp: String? = null
+
     @Volatile
     private var isInteractive = true
 
@@ -58,10 +61,13 @@ class Monitor(
 
     @Volatile
     var recordIntervalMs: Long = ConfigConstants.DEF_RECORD_INTERVAL_MS
+
     @Volatile
     var screenOffRecord: Boolean = ConfigConstants.DEF_SCREEN_OFF_RECORD_ENABLED
+
     @Volatile
     private var paused = false
+
     @Volatile
     private var stopped = false
     private val lock = Object()
@@ -72,37 +78,40 @@ class Monitor(
             while (!stopped) {
                 try {
                     val timestamp = System.currentTimeMillis()
-                    val power = Native.power
-                    val status = Native.status
-                    val temp = Native.temp
-                writer.write(
-                    LineRecord(
-                        timestamp,
-                        power,
-                        currForegroundApp,
-                        Native.capacity,
-                        if (isInteractive) 1 else 0,
-                        status,
-                        temp
+                    val sample = sampler.sample()
+                    val power = sample.voltage * sample.current
+                    val status = sample.status
+                    val temp = sample.temp
+                    writer.write(
+                        LineRecord(
+                            timestamp,
+                            power,
+                            currForegroundApp,
+                            sample.capacity,
+                            if (isInteractive) 1 else 0,
+                            sample.status,
+                            sample.temp,
+                            sample.voltage,
+                            sample.current
                         )
                     )
 
-                callbackHandler.post {
-                    // 回调 app
-                    val n: Int = callbacks.beginBroadcast()
-                    for (i in 0..<n) {
-                        try {
-                            callbacks.getBroadcastItem(i)
-                                .onRecord(timestamp, power, status, temp)
-                        } catch (e: RemoteException) {
-                            Log.e(TAG, "Failed to call back", e)
+                    callbackHandler.post {
+                        // 回调 app
+                        val n: Int = callbacks.beginBroadcast()
+                        for (i in 0..<n) {
+                            try {
+                                callbacks.getBroadcastItem(i)
+                                    .onRecord(timestamp, power, status, temp)
+                            } catch (e: RemoteException) {
+                                Log.e(TAG, "Failed to call back", e)
+                            }
                         }
+                        callbacks.finishBroadcast()
                     }
-                    callbacks.finishBroadcast()
+                } catch (e: IOException) {
+                    Log.e(TAG, "Error reading power data", e)
                 }
-            } catch (e: IOException) {
-                Log.e(TAG, "Error reading power data", e)
-            }
 
                 if (isInteractive || screenOffRecord) {
                     paused = false

@@ -13,16 +13,15 @@ import android.system.Os
 import android.util.Log
 import yangfentuozi.batteryrecorder.server.recorder.IRecordListener
 import yangfentuozi.batteryrecorder.server.recorder.Monitor
-import yangfentuozi.batteryrecorder.server.recorder.Native
+import yangfentuozi.batteryrecorder.server.recorder.sampler.DumpsysSampler
+import yangfentuozi.batteryrecorder.server.recorder.sampler.SysfsSampler
 import yangfentuozi.batteryrecorder.server.writer.PowerRecordWriter
 import yangfentuozi.batteryrecorder.shared.Constants
 import yangfentuozi.batteryrecorder.shared.config.Config
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.shared.config.ConfigUtil
-import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Charging
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Discharging
-import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Full
 import yangfentuozi.batteryrecorder.shared.data.RecordsFile
 import yangfentuozi.batteryrecorder.shared.sync.PfdFileSender
 import yangfentuozi.hiddenapi.compat.ActivityManagerCompat
@@ -66,7 +65,7 @@ class Server internal constructor() : IService.Stub() {
         appConfigFile = File("${appInfo.dataDir}/shared_prefs/${ConfigConstants.PREFS_NAME}.xml")
         appPowerDataDir = File("${appInfo.dataDir}/${Constants.APP_POWER_DATA_PATH}")
 
-        Native.init(appInfo)
+        val sampler = if (SysfsSampler.init(appInfo)) SysfsSampler else DumpsysSampler()
 
         appInfo = getAppInfo(Constants.SHELL_PACKAGE_NAME)
         shellDataDir = File(appInfo.dataDir)
@@ -105,7 +104,8 @@ class Server internal constructor() : IService.Stub() {
 
         monitor = Monitor(
             writer = writer,
-            sendBinder = this::sendBinder
+            sendBinder = this::sendBinder,
+            sampler
         )
 
         if (Os.getuid() == 0) {

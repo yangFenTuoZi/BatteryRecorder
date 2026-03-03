@@ -158,7 +158,7 @@ static jint native_get_temp(JNIEnv *env __attribute__((unused)), jclass clazz __
 }
 
 static int register_native_methods(JNIEnv *env) {
-    const char *class_name = "yangfentuozi/batteryrecorder/server/recorder/Native";
+    const char *class_name = "yangfentuozi/batteryrecorder/server/recorder/sampler/SysfsSampler";
     jclass clazz = (*env)->FindClass(env, class_name);
     if (!clazz) {
         LOGE("Failed to find class %s", class_name);
