@@ -10,6 +10,7 @@ import android.os.ParcelFileDescriptor
 import android.os.RemoteException
 import android.system.ErrnoException
 import android.system.Os
+import android.system.OsConstants
 import android.util.Log
 import yangfentuozi.batteryrecorder.server.recorder.IRecordListener
 import yangfentuozi.batteryrecorder.server.recorder.Monitor
@@ -159,6 +160,7 @@ class Server internal constructor() : IService.Stub() {
 
     override fun updateConfig(config: Config) {
         monitor.recordIntervalMs = config.recordIntervalMs
+        unlockOPlusSampleTimeLimit(config.recordIntervalMs.coerceAtLeast(200))
         monitor.screenOffRecord = config.screenOffRecordEnabled
         writer.flushIntervalMs = config.writeLatencyMs
         writer.batchSize = config.batchSize
@@ -166,6 +168,22 @@ class Server internal constructor() : IService.Stub() {
         monitor.notifyLock()
     }
 
+    private fun unlockOPlusSampleTimeLimit(intervalMs: Long) {
+        runCatching {
+            val forceActive = "/proc/oplus-votable/GAUGE_UPDATE/force_active"
+            val forceVal = "/proc/oplus-votable/GAUGE_UPDATE/force_val"
+            if (Os.access(forceActive, OsConstants.R_OK)) {
+                val forceActiveFile = File(forceActive)
+                val forceValFile = File(forceVal)
+                if (forceValFile.readText().trim().toLong() > intervalMs) {
+                    Os.chmod(forceActive, "666".toInt(8))
+                    Os.chmod(forceVal, "666".toInt(8))
+                    forceActiveFile.writeText("1\n")
+                    forceValFile.writeText("$intervalMs\n")
+                }
+            }
+        }
+    }
 
     override fun sync(): ParcelFileDescriptor? {
         writer.flushBuffer()
