@@ -121,9 +121,11 @@ fun HomeScreen(
                         predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
                         predCurrentSessionWeightHalfLifeMin = predCurrentSessionWeightHalfLifeMin
                     )
+                    liveRecordViewModel.registerListenerIfNeeded()
                 }
 
                 Lifecycle.Event.ON_STOP -> {
+                    liveRecordViewModel.unregisterListener()
                 }
 
                 else -> {}
