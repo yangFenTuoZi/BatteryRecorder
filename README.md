@@ -13,20 +13,21 @@
 - [ ] 分场景预测续航
 - [x] ~~曲线放大缩小~~
 - [ ] 临时隐藏某条曲线
+- [ ] BOOT_COMPLETED 自启动
 
 ### server
 
 - [x] ~~解决 Monitor 唤醒锁异常(实际为 callback 阻塞)~~
-- [ ] Magisk 模块开机自启
+- [ ] ~~Magisk 模块开机自启~~
 - [ ] 监听 app 安装，并在适当时机重启 Server
 - [ ] 重启 server 时，续接之前 server 的状态
-- [ ] 额外电压记录
+- [x] 额外电压记录
 - [x] ~~电池温度信息 `/sys/class/power_supply/battery/temp` 记录~~
 
 ### ext
 
-~~- [ ] 开机功耗曲线~~
-- [x] ~~充电复位~~
+- [ ] 开机功耗曲线
+- [ ] ~~充电复位~~
 
 ## 下载
 
