@@ -24,7 +24,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asAndroidPath
@@ -199,16 +198,12 @@ private fun LivePowerChart(
                     )
                     val plotPowerW =
                         if (it.status == BatteryStatus.Discharging) abs(powerW) else powerW
-                    LivePowerPointDisplay(it.timestamp, plotPowerW, it.isGap)
-                }.sortedBy { it.timestamp }
+                    LivePowerPointDisplay(plotPowerW)
+                }
             }
 
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val padding = 4.dp.toPx()
-                val minTime = displayPoints.first().timestamp
-                val maxTime = displayPoints.last().timestamp
-                val timeRange = max(1L, maxTime - minTime).toDouble()
-
                 val minPower = displayPoints.minOf { it.power }
                 val maxPower = displayPoints.maxOf { it.power }
                 val powerRange = max(1e-6, maxPower - minPower)
@@ -223,162 +218,130 @@ private fun LivePowerChart(
 
                 val floorMarginPx = 8.dp.toPx()
                 val effectiveChartHeight = (chartHeight - floorMarginPx).coerceAtLeast(1f)
+                val pointCount = displayPoints.size
+                val xStep = if (pointCount > 1) chartWidth / (pointCount - 1) else 0f
 
-                val chartPoints = displayPoints.map { point ->
-                    val x = left + ((point.timestamp - minTime) / timeRange).toFloat() * chartWidth
-                    val y = top + (1f - ((point.power - minPower) / powerRange).toFloat()) * effectiveChartHeight
-                    LiveChartPoint(x, y, point.isGap)
+                val chartPoints = displayPoints.mapIndexed { index, point ->
+                    val x = left + xStep * index
+                    val y =
+                        top + (1f - ((point.power - minPower) / powerRange).toFloat()) * effectiveChartHeight
+                    LiveChartPoint(x, y)
                 }
 
-                fun buildSmoothedPath(run: List<LiveChartPoint>, yOffsetPx: Float = 0f): Path {
-                    val path = Path().apply { moveTo(run.first().x, run.first().y + yOffsetPx) }
-                    for (i in 1 until run.size) {
-                        val previous = run[i - 1]
-                        val current = run[i]
+                fun buildSmoothedPath(yOffsetPx: Float = 0f): Path {
+                    val path = Path().apply {
+                        moveTo(
+                            chartPoints.first().x,
+                            chartPoints.first().y + yOffsetPx
+                        )
+                    }
+                    for (i in 1 until chartPoints.size) {
+                        val previous = chartPoints[i - 1]
+                        val current = chartPoints[i]
                         val midX = (previous.x + current.x) / 2f
                         val midY = (previous.y + current.y) / 2f + yOffsetPx
                         path.quadraticTo(previous.x, previous.y + yOffsetPx, midX, midY)
                     }
-                    path.lineTo(run.last().x, run.last().y + yOffsetPx)
+                    path.lineTo(chartPoints.last().x, chartPoints.last().y + yOffsetPx)
                     return path
                 }
 
-                fun forEachNonGapRun(action: (List<LiveChartPoint>) -> Unit) {
-                    var runStart = -1
-                    for (index in chartPoints.indices) {
-                        val point = chartPoints[index]
-                        if (point.isGap) {
-                            if (runStart != -1 && index - runStart >= 2) {
-                                action(chartPoints.subList(runStart, index))
-                            }
-                            runStart = -1
-                            continue
-                        }
-                        if (runStart == -1) runStart = index
-                    }
-                    if (runStart != -1 && chartPoints.size - runStart >= 2) {
-                        action(chartPoints.subList(runStart, chartPoints.size))
-                    }
-                }
-
                 clipRect(left = left, top = top, right = right, bottom = bottom) {
-                    forEachNonGapRun { run ->
-                        val smoothedPath = buildSmoothedPath(run)
-                        val runTop = run.minOf { it.y }
-                        val glowBrush = Brush.verticalGradient(
-                            colorStops = arrayOf(
-                                0f to lineColor.copy(alpha = GLOW_MAX_ALPHA),
-                                1.0f to Color.Transparent
-                            ),
-                            startY = runTop,
-                            endY = bottom
-                        )
-                        val fillPath = Path().apply {
-                            addPath(smoothedPath)
-                            lineTo(run.last().x, bottom)
-                            lineTo(run.first().x, bottom)
-                            close()
-                        }
-                        drawPath(path = fillPath, brush = glowBrush)
+                    val smoothedPath = buildSmoothedPath()
+                    val runTop = chartPoints.minOf { it.y }
+                    val glowBrush = Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0f to lineColor.copy(alpha = GLOW_MAX_ALPHA),
+                            1.0f to Color.Transparent
+                        ),
+                        startY = runTop,
+                        endY = bottom
+                    )
+                    val fillPath = Path().apply {
+                        addPath(smoothedPath)
+                        lineTo(chartPoints.last().x, bottom)
+                        lineTo(chartPoints.first().x, bottom)
+                        close()
                     }
+                    drawPath(path = fillPath, brush = glowBrush)
                 }
 
-                val dashEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()), 0f)
                 val lineStrokeWidth = 3.dp.toPx() * LINE_STROKE_WIDTH_MULTIPLIER
-                val solidStroke = Stroke(width = lineStrokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
-                val dashStroke = Stroke(
-                    width = lineStrokeWidth,
-                    cap = StrokeCap.Round,
-                    join = StrokeJoin.Round,
-                    pathEffect = dashEffect
-                )
-
-                for (index in 1 until chartPoints.size) {
-                    val previous = chartPoints[index - 1]
-                    val current = chartPoints[index]
-                    if (!previous.isGap && !current.isGap) continue
-                    val segmentPath = Path().apply {
-                        moveTo(previous.x, previous.y)
-                        lineTo(current.x, current.y)
-                    }
-                    drawPath(path = segmentPath, color = lineColor, style = dashStroke)
-                }
+                val solidStroke =
+                    Stroke(width = lineStrokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
 
                 clipRect(left = left, top = top, right = right, bottom = bottom) {
-                    forEachNonGapRun { run ->
-                        val path = buildSmoothedPath(run)
-                        val androidPath = path.asAndroidPath()
-                        val baseColor = lineColor.toArgb()
+                    val path = buildSmoothedPath()
+                    val androidPath = path.asAndroidPath()
+                    val baseColor = lineColor.toArgb()
 
-                        val clipBoundaryPath = buildSmoothedPath(run, yOffsetPx = -GLOW_CLIP_TOLERANCE_PX)
-                        val underClipPath = Path().apply {
-                            addPath(clipBoundaryPath)
-                            lineTo(run.last().x, bottom)
-                            lineTo(run.first().x, bottom)
-                            close()
-                        }
+                    val clipBoundaryPath = buildSmoothedPath(yOffsetPx = -GLOW_CLIP_TOLERANCE_PX)
+                    val underClipPath = Path().apply {
+                        addPath(clipBoundaryPath)
+                        lineTo(chartPoints.last().x, bottom)
+                        lineTo(chartPoints.first().x, bottom)
+                        close()
+                    }
 
-                        clipPath(path = underClipPath, clipOp = ClipOp.Intersect) {
-                            drawIntoCanvas { canvas ->
-                                val outerPaint = android.graphics.Paint().apply {
-                                    isAntiAlias = true
-                                    style = android.graphics.Paint.Style.STROKE
-                                    strokeCap = android.graphics.Paint.Cap.ROUND
-                                    strokeJoin = android.graphics.Paint.Join.ROUND
-                                    strokeWidth = lineStrokeWidth * OUTER_GLOW_STROKE_MULTIPLIER
-                                    color = baseColor
-                                    alpha = (255 * OUTER_GLOW_ALPHA).toInt().coerceIn(0, 255)
-                                    maskFilter = BlurMaskFilter(lineStrokeWidth * OUTER_GLOW_BLUR_MULTIPLIER, BlurMaskFilter.Blur.NORMAL)
-                                }
-                                canvas.nativeCanvas.drawPath(androidPath, outerPaint)
-
-                                val innerPaint = android.graphics.Paint().apply {
-                                    isAntiAlias = true
-                                    style = android.graphics.Paint.Style.STROKE
-                                    strokeCap = android.graphics.Paint.Cap.ROUND
-                                    strokeJoin = android.graphics.Paint.Join.ROUND
-                                    strokeWidth = lineStrokeWidth * INNER_GLOW_STROKE_MULTIPLIER
-                                    color = baseColor
-                                    alpha = (255 * INNER_GLOW_ALPHA).toInt().coerceIn(0, 255)
-                                    maskFilter = BlurMaskFilter(lineStrokeWidth * INNER_GLOW_BLUR_MULTIPLIER, BlurMaskFilter.Blur.NORMAL)
-                                }
-                                canvas.nativeCanvas.drawPath(androidPath, innerPaint)
+                    clipPath(path = underClipPath, clipOp = ClipOp.Intersect) {
+                        drawIntoCanvas { canvas ->
+                            val outerPaint = android.graphics.Paint().apply {
+                                isAntiAlias = true
+                                style = android.graphics.Paint.Style.STROKE
+                                strokeCap = android.graphics.Paint.Cap.ROUND
+                                strokeJoin = android.graphics.Paint.Join.ROUND
+                                strokeWidth = lineStrokeWidth * OUTER_GLOW_STROKE_MULTIPLIER
+                                color = baseColor
+                                alpha = (255 * OUTER_GLOW_ALPHA).toInt().coerceIn(0, 255)
+                                maskFilter = BlurMaskFilter(
+                                    lineStrokeWidth * OUTER_GLOW_BLUR_MULTIPLIER,
+                                    BlurMaskFilter.Blur.NORMAL
+                                )
                             }
+                            canvas.nativeCanvas.drawPath(androidPath, outerPaint)
+
+                            val innerPaint = android.graphics.Paint().apply {
+                                isAntiAlias = true
+                                style = android.graphics.Paint.Style.STROKE
+                                strokeCap = android.graphics.Paint.Cap.ROUND
+                                strokeJoin = android.graphics.Paint.Join.ROUND
+                                strokeWidth = lineStrokeWidth * INNER_GLOW_STROKE_MULTIPLIER
+                                color = baseColor
+                                alpha = (255 * INNER_GLOW_ALPHA).toInt().coerceIn(0, 255)
+                                maskFilter = BlurMaskFilter(
+                                    lineStrokeWidth * INNER_GLOW_BLUR_MULTIPLIER,
+                                    BlurMaskFilter.Blur.NORMAL
+                                )
+                            }
+                            canvas.nativeCanvas.drawPath(androidPath, innerPaint)
                         }
                     }
                 }
 
-                forEachNonGapRun { run ->
-                    val path = buildSmoothedPath(run)
-                    drawPath(path = path, color = lineColor, style = solidStroke)
-                }
+                val path = buildSmoothedPath()
+                drawPath(path = path, color = lineColor, style = solidStroke)
 
-                val lastSolidPoint = chartPoints.asReversed().firstOrNull { !it.isGap }
-                if (lastSolidPoint != null) {
-                    drawCircle(
-                        color = lineColor.copy(alpha = LAST_POINT_OUTER_ALPHA),
-                        radius = LAST_POINT_OUTER_RADIUS,
-                        center = Offset(lastSolidPoint.x, lastSolidPoint.y)
-                    )
-                    drawCircle(
-                        color = lineColor.copy(alpha = LAST_POINT_INNER_ALPHA),
-                        radius = LAST_POINT_INNER_RADIUS,
-                        center = Offset(lastSolidPoint.x, lastSolidPoint.y)
-                    )
-                }
+                val lastPoint = chartPoints.last()
+                drawCircle(
+                    color = lineColor.copy(alpha = LAST_POINT_OUTER_ALPHA),
+                    radius = LAST_POINT_OUTER_RADIUS,
+                    center = Offset(lastPoint.x, lastPoint.y)
+                )
+                drawCircle(
+                    color = lineColor.copy(alpha = LAST_POINT_INNER_ALPHA),
+                    radius = LAST_POINT_INNER_RADIUS,
+                    center = Offset(lastPoint.x, lastPoint.y)
+                )
             }
         }
     }
 }
 
 private data class LivePowerPointDisplay(
-    val timestamp: Long,
-    val power: Double,
-    val isGap: Boolean
+    val power: Double
 )
 
 private data class LiveChartPoint(
     val x: Float,
-    val y: Float,
-    val isGap: Boolean
+    val y: Float
 )

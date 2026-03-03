@@ -90,7 +90,7 @@ fun HomeScreen(
 
     val listener = remember { object : IRecordListener.Stub() {
             override fun onRecord(timestamp: Long, power: Long, status: BatteryStatus, temp: Int) {
-                liveRecordViewModel.handleRecord(timestamp, power, status, temp)
+                liveRecordViewModel.handleRecord(power, status, temp)
             }
 
             override fun onChangedCurrRecordsFile() {
@@ -105,10 +105,6 @@ fun HomeScreen(
                 )
             }
         }
-    }
-
-    LaunchedEffect(intervalMs) {
-        liveRecordViewModel.updateIntervalMs(intervalMs)
     }
 
     LaunchedEffect(serviceConnected) {
