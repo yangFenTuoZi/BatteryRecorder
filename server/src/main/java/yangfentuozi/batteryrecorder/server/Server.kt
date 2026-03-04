@@ -295,7 +295,12 @@ class Server internal constructor() : IService.Stub() {
         try {
             val lockFile = File(SINGLETON_LOCK_FILE_PATH)
             lockFile.parentFile?.mkdirs()
+            if (!lockFile.exists()) {
+                lockFile.createNewFile()
+            }
+            ensureLockFileWritable(lockFile)
             val randomAccessFile = RandomAccessFile(lockFile, "rw")
+            ensureLockFileWritable(lockFile)
             val lock = randomAccessFile.channel.tryLock()
             if (lock == null) {
                 randomAccessFile.close()
@@ -311,6 +316,14 @@ class Server internal constructor() : IService.Stub() {
         } catch (e: Throwable) {
             Log.e(TAG, "[SINGLETON] 获取实例锁失败，当前进程退出", e)
             exitProcess(1)
+        }
+    }
+
+    private fun ensureLockFileWritable(lockFile: File) {
+        runCatching {
+            Os.chmod(lockFile.absolutePath, SINGLETON_LOCK_FILE_MODE)
+        }.onFailure {
+            Log.w(TAG, "[SINGLETON] 设置锁文件权限失败 path=${lockFile.absolutePath}", it)
         }
     }
 
@@ -343,6 +356,7 @@ class Server internal constructor() : IService.Stub() {
         const val TAG: String = "Server"
         private const val BINDER_RETRY_DELAY_MS = 300L
         private const val SINGLETON_LOCK_FILE_PATH = "/data/local/tmp/batteryrecorder_server.lock"
+        private val SINGLETON_LOCK_FILE_MODE = "666".toInt(8)
 
         var appUid: Int = 0
 
