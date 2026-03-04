@@ -6,6 +6,7 @@ import android.content.Intent
 import android.provider.Settings
 import android.util.Log
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
+import androidx.core.content.edit
 
 class BootCompletedReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -48,20 +49,21 @@ class BootCompletedReceiver : BroadcastReceiver() {
                             Log.i(TAG, "[BOOT] 命中 boot_count 去重，跳过自启动，boot_count=$currentBootCount")
                             return@Thread
                         }
-                        prefs.edit()
-                            .putInt(
+                        prefs.edit {
+                            putInt(
                                 ConfigConstants.KEY_ROOT_BOOT_AUTO_START_LAST_BOOT_COUNT,
                                 currentBootCount
                             )
-                            .apply()
+                        }
                         Log.i(TAG, "[BOOT] 已记录 boot_count 去重标记，boot_count=$currentBootCount")
                     }
 
                     Log.i(TAG, "[BOOT] 满足自启动条件，准备拉起服务")
-                    RootServerStarter.start(
+                    val started = RootServerStarter.start(
                         context = appContext,
                         source = RootServerStarter.Source.BOOT
                     )
+                    BootAutoStartNotification.notifyBootAutoStartResult(appContext, started)
                 } catch (e: Throwable) {
                     Log.e(TAG, "[BOOT] 开机自启动执行失败", e)
                 } finally {

@@ -1,7 +1,12 @@
 package yangfentuozi.batteryrecorder.ui.components.settings.sections
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.layout.padding
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -10,6 +15,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import yangfentuozi.batteryrecorder.startup.BootAutoStartNotification
 import yangfentuozi.batteryrecorder.ui.components.global.M3ESwitchWidget
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
 import yangfentuozi.batteryrecorder.ui.components.settings.SettingsItem
@@ -31,6 +38,9 @@ fun ServerSection(
     var showWriteLatencyDialog by remember { mutableStateOf(false) }
     var showBatchSizeDialog by remember { mutableStateOf(false) }
     var showSegmentDurationDialog by remember { mutableStateOf(false) }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { _ -> }
 
     SplicedColumnGroup(
         title = "服务端",
@@ -42,13 +52,21 @@ fun ServerSection(
                 checked = state.rootBootAutoStartEnabled,
                 onCheckedChange = { enabled ->
                     actions.setRootBootAutoStartEnabled(enabled)
-                    if (enabled) {
-                        Toast.makeText(
+                    if (!enabled) return@M3ESwitchWidget
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        val granted = ContextCompat.checkSelfPermission(
                             context,
-                            "请手动在系统设置中允许自启动",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                            Manifest.permission.POST_NOTIFICATIONS
+                        ) == PackageManager.PERMISSION_GRANTED
+                        if (!granted) {
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
                     }
+                    Toast.makeText(
+                        context,
+                        BootAutoStartNotification.CONTENT_TEXT,
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             )
         }
