@@ -34,6 +34,8 @@ object ConfigConstants {
     /** 开机后尝试 ROOT 自启动 */
     const val KEY_ROOT_BOOT_AUTO_START_ENABLED = "root_boot_auto_start_enabled"
     const val DEF_ROOT_BOOT_AUTO_START_ENABLED = false
+    const val KEY_ROOT_BOOT_AUTO_START_LAST_BOOT_COUNT = "root_boot_auto_start_last_boot_count"
+    const val DEF_ROOT_BOOT_AUTO_START_LAST_BOOT_COUNT = -1
 
 
     // app

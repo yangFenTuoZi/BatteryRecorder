@@ -1,5 +1,6 @@
 package yangfentuozi.batteryrecorder.ui.components.home
 
+import android.util.Log
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -45,8 +46,12 @@ fun StartServerCard(
         Button(
             shape = AppShape.SplicedGroup.single,
             onClick = {
+                Log.i("BootAutoStart", "[启动请求] 来源=${RootServerStarter.Source.HOME_BUTTON}，用户点击启动按钮")
                 Thread {
-                    RootServerStarter.start(context)
+                    RootServerStarter.start(
+                        context = context,
+                        source = RootServerStarter.Source.HOME_BUTTON
+                    )
                 }.start()
             }
         ) {

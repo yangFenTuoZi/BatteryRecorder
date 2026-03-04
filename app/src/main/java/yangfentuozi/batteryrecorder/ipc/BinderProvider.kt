@@ -13,12 +13,17 @@ class BinderProvider : ContentProvider() {
     override fun onCreate(): Boolean = true
 
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle? {
-        if (method == "setBinder" && extras != null) {
-            val binder: IBinder? = extras.getBinder("binder")
-            Service.binder = binder
-            Log.i("BatteryRecorderApp", "Binder received: ${binder?.pingBinder() ?: false}")
+        if (method != "setBinder" || extras == null) {
+            return Bundle().apply { putBoolean("accepted", false) }
         }
-        return null
+
+        val binder: IBinder? = extras.getBinder("binder")
+        val binderAlive = binder?.pingBinder() == true
+        if (binderAlive) {
+            Service.binder = binder
+        }
+        Log.i("BatteryRecorderApp", "[BINDER] received=${binderAlive}")
+        return Bundle().apply { putBoolean("accepted", binderAlive) }
     }
 
     override fun query(uri: Uri, projection: Array<out String>?, selection: String?, selectionArgs: Array<out String>?, sortOrder: String?): Cursor? = null

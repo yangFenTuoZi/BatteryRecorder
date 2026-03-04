@@ -6,10 +6,19 @@ import android.util.Log
 object RootServerStarter {
     private const val TAG = "BootAutoStart"
 
-    fun start(context: Context): Boolean {
+    object Source {
+        const val BOOT = "开机广播"
+        const val HOME_BUTTON = "首页按钮"
+    }
+
+    fun start(
+        context: Context,
+        source: String
+    ): Boolean {
         val appContext = context.applicationContext
         val command =
             "app_process \"-Djava.class.path=${appContext.applicationInfo.sourceDir}\" / yangfentuozi.batteryrecorder.server.Main"
+        Log.i(TAG, "[启动请求] 来源=$source，准备执行 ROOT 启动命令")
         return try {
             Runtime.getRuntime().exec(
                 arrayOf(
@@ -18,10 +27,10 @@ object RootServerStarter {
                     command
                 )
             )
-            Log.i(TAG, "[ROOT] 已发起启动命令")
+            Log.i(TAG, "[启动请求] 来源=$source，已发起启动命令")
             true
         } catch (e: Throwable) {
-            Log.e(TAG, "[ROOT] 发起启动命令失败", e)
+            Log.e(TAG, "[启动请求] 来源=$source，发起启动命令失败", e)
             false
         }
     }

@@ -30,6 +30,8 @@ import yangfentuozi.hiddenapi.compat.PackageManagerCompat
 import yangfentuozi.hiddenapi.compat.ServiceManagerCompat
 import java.io.File
 import java.io.IOException
+import java.io.RandomAccessFile
+import java.nio.channels.FileLock
 import java.nio.file.Files
 import java.util.Scanner
 import kotlin.system.exitProcess
@@ -45,6 +47,8 @@ class Server internal constructor() : IService.Stub() {
     private lateinit var appPowerDataDir: File
     private lateinit var shellDataDir: File
     private lateinit var shellPowerDataDir: File
+    private var instanceLockFile: RandomAccessFile? = null
+    private var instanceLock: FileLock? = null
 
     private fun startService() {
         fun getAppInfo(packageName: String): ApplicationInfo {
@@ -233,20 +237,25 @@ class Server internal constructor() : IService.Stub() {
     }
 
     private fun stopServiceImmediately() {
-        monitor.stop()
-
-        try {
-            writer.flushBuffer()
-        } catch (e: IOException) {
-            Log.e(TAG, Log.getStackTraceString(e))
+        if (::monitor.isInitialized) {
+            monitor.stop()
         }
 
-        writer.close()
+        if (::writer.isInitialized) {
+            try {
+                writer.flushBuffer()
+            } catch (e: IOException) {
+                Log.e(TAG, Log.getStackTraceString(e))
+            }
+            writer.close()
+        }
+
+        releaseInstanceLock()
     }
 
-    private fun sendBinder() {
+    private fun sendBinder(attempt: Int): Boolean {
         try {
-            ActivityManagerCompat.contentProviderCall(
+            val reply = ActivityManagerCompat.contentProviderCall(
                 "yangfentuozi.batteryrecorder.binderProvider",
                 "setBinder",
                 null,
@@ -254,10 +263,64 @@ class Server internal constructor() : IService.Stub() {
                     putBinder("binder", this@Server)
                 }
             )
-            Log.i(TAG, "Send binder")
+            val accepted = reply?.getBoolean("accepted", false) == true
+            if (accepted) {
+                Log.i(TAG, "[BINDER] 推送成功 attempt=$attempt")
+            } else {
+                Log.w(TAG, "[BINDER] 推送被拒绝 attempt=$attempt")
+            }
+            return accepted
         } catch (e: RemoteException) {
-            Log.e(TAG, "Failed send binder", e)
+            Log.e(TAG, "[BINDER] 推送失败 attempt=$attempt", e)
         }
+        return false
+    }
+
+    private fun scheduleSendBinderRetry() {
+        mMainHandler.postDelayed(
+            {
+                sendBinder(2)
+            },
+            BINDER_RETRY_DELAY_MS
+        )
+    }
+
+    private fun sendBinder() {
+        if (!sendBinder(1)) {
+            scheduleSendBinderRetry()
+        }
+    }
+
+    private fun acquireInstanceLockOrExit() {
+        try {
+            val lockFile = File(SINGLETON_LOCK_FILE_PATH)
+            lockFile.parentFile?.mkdirs()
+            val randomAccessFile = RandomAccessFile(lockFile, "rw")
+            val lock = randomAccessFile.channel.tryLock()
+            if (lock == null) {
+                randomAccessFile.close()
+                Log.e(TAG, "[SINGLETON] 已有服务实例运行，当前进程退出")
+                exitProcess(0)
+            }
+
+            randomAccessFile.setLength(0)
+            randomAccessFile.writeBytes("${Os.getpid()}\n")
+            instanceLockFile = randomAccessFile
+            instanceLock = lock
+            Log.i(TAG, "[SINGLETON] 获取实例锁成功 pid=${Os.getpid()}")
+        } catch (e: Throwable) {
+            Log.e(TAG, "[SINGLETON] 获取实例锁失败，当前进程退出", e)
+            exitProcess(1)
+        }
+    }
+
+    private fun releaseInstanceLock() {
+        runCatching { instanceLock?.release() }
+            .onFailure { Log.w(TAG, "[SINGLETON] 释放实例锁失败", it) }
+        runCatching { instanceLockFile?.close() }
+            .onFailure { Log.w(TAG, "[SINGLETON] 关闭锁文件失败", it) }
+        instanceLock = null
+        instanceLockFile = null
     }
 
     init {
@@ -265,8 +328,9 @@ class Server internal constructor() : IService.Stub() {
             Looper.prepareMainLooper()
         }
 
-        Runtime.getRuntime().addShutdownHook(Thread { this.stopServiceImmediately() })
         mMainHandler = Handler(Looper.getMainLooper())
+        acquireInstanceLockOrExit()
+        Runtime.getRuntime().addShutdownHook(Thread { this.stopServiceImmediately() })
         ServiceManagerCompat.waitService("activity_task")
         ServiceManagerCompat.waitService("display")
         ServiceManagerCompat.waitService("power")
@@ -277,6 +341,8 @@ class Server internal constructor() : IService.Stub() {
 
     companion object {
         const val TAG: String = "Server"
+        private const val BINDER_RETRY_DELAY_MS = 300L
+        private const val SINGLETON_LOCK_FILE_PATH = "/data/local/tmp/batteryrecorder_server.lock"
 
         var appUid: Int = 0
 
