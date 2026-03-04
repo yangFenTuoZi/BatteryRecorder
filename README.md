@@ -8,21 +8,20 @@
 
 ### app
 
-- [x] ~~adb 启动 用户引导~~
+- [x] adb 启动 用户引导
 - [ ] 分 app/场景统计功耗
-- [ ] 分场景预测续航
-- [x] ~~曲线放大缩小~~
+- [x] 分场景预测续航
+- [x] 曲线放大缩小
 - [ ] 临时隐藏某条曲线
-- [ ] BOOT_COMPLETED 自启动
+- [x] BOOT_COMPLETED 自启动
 
 ### server
 
-- [x] ~~解决 Monitor 唤醒锁异常(实际为 callback 阻塞)~~
-- [ ] ~~Magisk 模块开机自启~~
+- [x] 解决 Monitor 唤醒锁异常(实际为 callback 阻塞)
 - [ ] 监听 app 安装，并在适当时机重启 Server
 - [ ] 重启 server 时，续接之前 server 的状态
 - [x] 额外电压记录
-- [x] ~~电池温度信息 `/sys/class/power_supply/battery/temp` 记录~~
+- [x] 电池温度信息 `/sys/class/power_supply/battery/temp` 记录
 
 ### ext
 
