@@ -74,6 +74,7 @@ fun HomeScreen(
     val settingsState by settingsViewModel.settingsUiState.collectAsState()
     val statisticsRequest by settingsViewModel.statisticsRequest.collectAsState()
     val latestStatisticsRequest by rememberUpdatedState(statisticsRequest)
+    var prevServiceConnected by remember { mutableStateOf(serviceConnected) }
     val dualCellEnabled = settingsState.dualCellEnabled
     val calibrationValue = settingsState.calibrationValue
     val intervalMs = settingsState.recordIntervalMs
@@ -100,15 +101,17 @@ fun HomeScreen(
     }
 
     LaunchedEffect(serviceConnected) {
-        if (serviceConnected) {
-            Service.service?.registerRecordListener(listener)
-            run {
-                delay(1500)
-                viewModel.refreshStatistics(
-                    context = context,
-                    request = statisticsRequest
-                )
-            }
+        val shouldDoDelayedRefresh = serviceConnected && !prevServiceConnected
+        prevServiceConnected = serviceConnected
+        if (!shouldDoDelayedRefresh) return@LaunchedEffect
+
+        Service.service?.registerRecordListener(listener)
+        run {
+            delay(1500)
+            viewModel.refreshStatistics(
+                context = context,
+                request = statisticsRequest
+            )
         }
     }
 
