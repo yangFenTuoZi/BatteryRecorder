@@ -27,7 +27,8 @@ fun PredictionCard(
             .fillMaxWidth()
             .padding(16.dp)
     ) {
-        val title = if (prediction != null && !prediction.insufficientData)
+        // 特判置信度 100 为服务未启动情况
+        val title = if (prediction != null && !prediction.insufficientData && prediction.confidenceScore != 100)
             "续航预测 - 置信评分 ${prediction.confidenceScore}"
         else "续航预测"
         Text(
