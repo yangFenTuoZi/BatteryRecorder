@@ -65,7 +65,7 @@ Server 以 shell 权限运行时数据写入 `com.android.shell` 数据目录。
 
 ### 功率显示链路
 
-- 原始功率值单位为纳瓦 (nW)，统一通过 `FormatUtil.computePowerW()` 转换为瓦特
+- 原始功率值为记录文件中的原始数值（raw，平台单位可能不一致），统一通过 `FormatUtil.computePowerW()` 做缩放与校准后转换为瓦特用于展示
 - 放电记录显示正值的逻辑通过 `PowerDisplayMapper` 在 ViewModel 层统一处理，UI 层不做正负转换
 - `HistoryViewModel` 提供预转换的 `displayPoints`（通过 `RecordDetailChartUiState`），Screen 层直接使用
 
@@ -92,6 +92,10 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 │   │   ├── LiveRecordViewModel.kt     # 实时功率数据（IRecordListener 回调）
 │   │   ├── HistoryViewModel.kt        # 历史记录列表 + 详情图表数据转换
 │   │   └── PowerDisplayMapper.kt      # 放电显示正值映射工具函数（internal）
+│   ├── model/
+│   │   ├── SettingsUiState.kt         # 设置页 UI 状态
+│   │   ├── SettingsUiProps.kt         # 设置页 UI 属性
+│   │   └── SettingsActions.kt         # 设置页操作接口
 │   ├── components/
 │   │   ├── global/
 │   │   │   ├── SplicedColumnGroup.kt  # 拼接列分组（自动圆角 DSL）
@@ -110,17 +114,22 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 │   │   └── settings/
 │   │       ├── SettingsItem.kt
 │   │       └── sections/
-│   │           ├── CalibrationSection.kt  # 校准设置组（参数传入 serviceConnected）
-│   │           ├── GameListSection.kt     # 游戏/高负载 App 选择器（自动检测 + blacklist）
-│   │           └── ServerSection.kt       # 服务端设置组
+│   │           ├── CalibrationSection.kt    # 校准设置组
+│   │           ├── PredictionSection.kt     # 预测设置组
+│   │           ├── PredictionGameFilter.kt  # 游戏过滤器（自动检测 + blacklist）
+│   │           └── ServerSection.kt         # 服务端设置组
 │   ├── dialog/
-│   │   ├── home/AboutDialog.kt
+│   │   ├── home/
+│   │   │   ├── AboutDialog.kt
+│   │   │   └── AdbGuideDialog.kt      # ADB 启动引导对话框
 │   │   └── settings/
 │   │       ├── CalibrationDialog.kt
 │   │       ├── RecordIntervalDialog.kt
 │   │       ├── WriteLatencyDialog.kt
 │   │       ├── BatchSizeDialog.kt
-│   │       └── SegmentDurationDialog.kt
+│   │       ├── SegmentDurationDialog.kt
+│   │       ├── CurrentSessionWeightDialog.kt        # 当次加权设置对话框
+│   │       └── SceneStatsRecentFileCountDialog.kt   # 场景统计文件数对话框
 │   └── theme/
 │       ├── Theme.kt
 │       ├── Type.kt
@@ -131,8 +140,11 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 │       ├── HistoryRepository.kt        # 历史记录仓库（文件 I/O，纯数据，无 UI 逻辑）
 │       ├── SceneStatsComputer.kt       # 场景统计计算（息屏/亮屏日常/游戏分类积分 + 缓存）
 │       ├── BatteryPredictor.kt         # 续航预测（能量比例法：k = ΔSOC / E_total）
-│       ├── StatisticsUtil.kt           # 功率统计计算 + 缓存
+│       ├── StatisticsRequest.kt        # 统计请求数据类
 │       └── SyncUtil.kt                 # 数据同步（PfdFileReceiver 封装）
+├── startup/
+│   ├── BootCompletedReceiver.kt        # 开机广播接收器
+│   └── RootServerStarter.kt            # Root 服务启动器
 ├── ipc/
 │   ├── Service.kt                      # IPC Binder 持有 + ServiceConnection 回调
 │   ├── BinderProvider.kt               # ContentProvider 接收 Server 推送的 Binder
@@ -150,13 +162,15 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 | Server 入口 | `server/.../Server.kt` |
 | IPC 绑定 | `app/.../ipc/BinderProvider.kt`, `app/.../ipc/Service.kt` |
 | 配置系统 | `shared/.../config/Config.kt`, `ConfigConstants.kt`, `ConfigUtil.kt` |
+| 开机自启动 | `app/.../startup/BootCompletedReceiver.kt`, `RootServerStarter.kt` |
 | App 入口 Composable | `app/.../ui/BatteryRecorderApp.kt` |
 | 导航路由 | `app/.../ui/navigation/NavRoute.kt` (Home, Settings, HistoryList, RecordDetail) |
 | ViewModel | `app/.../ui/viewmodel/` (MainViewModel, SettingsViewModel, LiveRecordViewModel, HistoryViewModel) |
+| 设置页 UI 模型 | `app/.../ui/model/` (SettingsUiState, SettingsUiProps, SettingsActions) |
 | 功率显示映射 | `app/.../ui/viewmodel/PowerDisplayMapper.kt` |
 | 功率转换/格式化 | `app/.../utils/FormatUtil.kt` (`computePowerW`, `formatPower`, `formatRelativeTime`, `formatRemainingTime`, `formatDurationHours`) |
 | 数据同步 | `shared/.../sync/PfdFileSender.kt`, `PfdFileReceiver.kt` |
-| 统计计算 | `app/.../data/history/StatisticsUtil.kt` |
+| 统计请求 | `app/.../data/history/StatisticsRequest.kt` |
 | 场景统计 | `app/.../data/history/SceneStatsComputer.kt`（SceneStats 数据类 + compute()） |
 | 续航预测 | `app/.../data/history/BatteryPredictor.kt`（PredictionResult 数据类 + predict()） |
 | 历史记录仓库 | `app/.../data/history/HistoryRepository.kt` |
@@ -176,10 +190,19 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 
 - **预测算法**：能量比例法，`k = ΔSOC_total / E_total`，`drain_scene = k × P_scene`，不依赖电池容量 Wh
 - **场景分类**：息屏（displayOn=0）、亮屏日常（displayOn=1 且非游戏）、游戏（displayOn=1 且在游戏列表）；三场景均参与 E_total 和 ΔSOC_total 统计，保证 k 口径一致
-- **游戏检测规则**（`GameListSection.isGameApp()`）：FLAG_IS_GAME / CATEGORY_GAME、游戏引擎 so（Unity/UE/Cocos）、启动 Activity 横屏方向
+- **当次记录加权（时间衰减）**：在不改变"典型息屏/典型日常"两条预测语义的前提下，仅对**当前放电文件**引入指数衰减权重，强化"最近行为"对预测的影响；其余历史文件固定 `w=1`
+  - **当前放电文件定义**：以 `Service.currRecordsFile` 对应的 `HistoryRecord` 为准，且必须 `type == Discharging`；未命中则不启用当次加权
+  - **加权对象**：只对当前放电文件内每个采样区间（`dt`）同时加权 `energyRawMs`、`dt` 与 `capDelta`（`ΔSOC`），保证 `k` 与 `P_scene` 口径一致
+  - **门槛**：当前放电文件需满足"记录时长 ≥ 10 分钟 且 掉电 ≥ 1%"才启用，避免短样本噪声导致预测抖动
+  - **权重函数**：`w = 1 + (max - 1) * exp(-ln(2) * age / halfLife)`，其中 `age` 为区间时间点到当次文件末尾 `endTs` 的时间差（越新权重越高）
+  - **endTs 来源**：`endTs` 来自"当次文件末尾的最后一条有效记录 timestamp"（通过读取文件尾部并解析最后一行），不使用 `System.currentTimeMillis()`，保证统计可复现
+  - **相关设置**：`ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_ENABLED`、`ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_MAX_X100`（倍率 x100）、`ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN`（分钟）
+- **口径字段**：`SceneStats` 同时保留"原始时长（记录时长，用于展示/门槛判断）"与"加权时长（用于计算加权平均功耗）"；并保留 `rawTotalSocDrop` 用于整体异常校验，避免加权放大导致误判
+- **缓存兼容**：`SceneStatsComputer` 的 `cacheKey` 包含 `CACHE_VERSION` 与加权参数；`SceneStats.fromString()` 需兼容旧格式缓存（字段增量时不致解析失败）
+- **游戏检测规则**（`PredictionGameFilter.isGameApp()`）：FLAG_IS_GAME / CATEGORY_GAME、游戏引擎 so（Unity/UE/Cocos）、启动 Activity 横屏方向
 - **游戏 Blacklist**：预设 `PRESET_BLACKLIST`（硬编码误判包名）+ 用户 `gameBlacklist`（取消勾选的自动检测游戏），自动检测时排除两者
-- **数据范围**：最近 20 个放电文件，最少 3 个文件才出预测
-- **k 异常值校验**：反推整体掉电速率超过 50%/h 时判定数据异常
+- **数据范围**：最近 N 个放电文件（可配置，默认 20），最少 3 个有效文件才出预测（异常文件会被跳过）
+- **异常值校验**：按文件与全局两层过滤，反推掉电速率超过 50%/h 时判定 SOC 跳变等异常并跳过/拒绝输出
 
 ## 编码约定
 
