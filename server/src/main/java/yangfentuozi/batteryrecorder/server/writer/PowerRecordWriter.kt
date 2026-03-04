@@ -96,7 +96,7 @@ class PowerRecordWriter(
     inner class DischargeDataWriter(dir: File) : BaseDelayedRecordWriter(dir) {
         override fun needStartNewSegment(justChangedStatus: Boolean, nowTime: Long): Boolean {
             // case1 记录超过最大分段时间（0 表示不按时间分段）
-            return (maxSegmentDurationMs > 0 && nowTime - startTime > maxSegmentDurationMs)
+            return (maxSegmentDurationMs > 0 && nowTime - startTime > maxSegmentDurationMs) || justChangedStatus
                     // case2 允许短时间内续接之前记录 (暂时禁用)
                     // (justChangedStatus && nowTime - lastTime > 10 * 60 * 1000)
         }
