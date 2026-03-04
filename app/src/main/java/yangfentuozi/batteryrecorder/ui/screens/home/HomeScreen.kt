@@ -110,7 +110,7 @@ fun HomeScreen(
         if (serviceConnected) {
             Service.service?.registerRecordListener(listener)
             run {
-                delay(1000)
+                delay(1500)
                 viewModel.refreshStatistics(
                     context = context,
                     gamePackages = gamePackages,
