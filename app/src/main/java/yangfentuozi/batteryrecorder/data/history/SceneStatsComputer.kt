@@ -107,13 +107,8 @@ object SceneStatsComputer {
 
     fun compute(
         context: Context,
-        gamePackages: Set<String>,
-        recentFileCount: Int = ConfigConstants.DEF_SCENE_STATS_RECENT_FILE_COUNT,
-        recordIntervalMs: Long,
+        request: StatisticsRequest,
         currentDischargeFileName: String? = null,
-        predCurrentSessionWeightEnabled: Boolean = true,
-        predCurrentSessionWeightMaxX100: Int = 300,
-        predCurrentSessionWeightHalfLifeMin: Long = 30L
     ): SceneComputeResult? {
         val dataDir = File(
             File(context.dataDir, Constants.APP_POWER_DATA_PATH),
@@ -121,10 +116,15 @@ object SceneStatsComputer {
         )
         if (!dataDir.isDirectory) return null
 
-        val effectiveRecentFileCount = recentFileCount.coerceIn(
+        val effectiveRecentFileCount = request.sceneStatsRecentFileCount.coerceIn(
             ConfigConstants.MIN_SCENE_STATS_RECENT_FILE_COUNT,
             ConfigConstants.MAX_SCENE_STATS_RECENT_FILE_COUNT
         )
+        val gamePackages = request.gamePackages
+        val recordIntervalMs = request.recordIntervalMs
+        val predCurrentSessionWeightEnabled = request.predCurrentSessionWeightEnabled
+        val predCurrentSessionWeightMaxX100 = request.predCurrentSessionWeightMaxX100
+        val predCurrentSessionWeightHalfLifeMin = request.predCurrentSessionWeightHalfLifeMin
         val files = dataDir.listFiles()?.filter { it.isFile }
             ?.sortedByDescending { it.lastModified() }
             ?.take(effectiveRecentFileCount) ?: return null
@@ -134,13 +134,8 @@ object SceneStatsComputer {
         val cacheDir = File(context.cacheDir, "scene_stats")
         val cacheKey = buildCacheKey(
             files = files,
-            gamePackages = gamePackages,
-            recentFileCount = effectiveRecentFileCount,
-            recordIntervalMs = recordIntervalMs,
+            request = request,
             currentDischargeFileName = currentDischargeFileName,
-            predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
-            predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
-            predCurrentSessionWeightHalfLifeMin = predCurrentSessionWeightHalfLifeMin
         )
         val cacheFile = File(cacheDir, "$cacheKey.csv")
         if (cacheFile.exists()) {
@@ -389,14 +384,15 @@ object SceneStatsComputer {
 
     private fun buildCacheKey(
         files: List<File>,
-        gamePackages: Set<String>,
-        recentFileCount: Int,
-        recordIntervalMs: Long,
+        request: StatisticsRequest,
         currentDischargeFileName: String?,
-        predCurrentSessionWeightEnabled: Boolean,
-        predCurrentSessionWeightMaxX100: Int,
-        predCurrentSessionWeightHalfLifeMin: Long
     ): String {
+        val gamePackages = request.gamePackages
+        val recentFileCount = request.sceneStatsRecentFileCount
+        val recordIntervalMs = request.recordIntervalMs
+        val predCurrentSessionWeightEnabled = request.predCurrentSessionWeightEnabled
+        val predCurrentSessionWeightMaxX100 = request.predCurrentSessionWeightMaxX100
+        val predCurrentSessionWeightHalfLifeMin = request.predCurrentSessionWeightHalfLifeMin
         val filesHash = files.joinToString(",") { "${it.name}:${it.lastModified()}" }.hashCode()
         val gamesHash = gamePackages.sorted().joinToString(",").hashCode()
         val currentNameHash = (currentDischargeFileName ?: "").hashCode()

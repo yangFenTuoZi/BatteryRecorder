@@ -12,17 +12,14 @@ import yangfentuozi.batteryrecorder.ui.components.global.M3ESwitchWidget
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
 import yangfentuozi.batteryrecorder.ui.components.settings.SettingsItem
 import yangfentuozi.batteryrecorder.ui.dialog.settings.CalibrationDialog
+import yangfentuozi.batteryrecorder.ui.model.SettingsUiProps
 
 @Composable
 fun CalibrationSection(
-    dualCellEnabled: Boolean,
-    onDualCellChange: (Boolean) -> Unit,
-    dischargeDisplayPositive: Boolean,
-    onDischargeDisplayPositiveChange: (Boolean) -> Unit,
-    calibrationValue: Int,
-    serviceConnected: Boolean,
-    onCalibrationChange: (Int) -> Unit
+    props: SettingsUiProps
 ) {
+    val state = props.state
+    val actions = props.actions.calibration
     var showDialog by remember { mutableStateOf(false) }
 
     SplicedColumnGroup(
@@ -32,16 +29,16 @@ fun CalibrationSection(
         item {
             M3ESwitchWidget(
                 text = "串联双电芯",
-                checked = dualCellEnabled,
-                onCheckedChange = onDualCellChange
+                checked = state.dualCellEnabled,
+                onCheckedChange = actions.setDualCellEnabled
             )
         }
 
         item {
             M3ESwitchWidget(
                 text = "放电也显示正值",
-                checked = dischargeDisplayPositive,
-                onCheckedChange = onDischargeDisplayPositiveChange
+                checked = state.dischargeDisplayPositive,
+                onCheckedChange = actions.setDischargeDisplayPositiveEnabled
             )
         }
 
@@ -55,16 +52,16 @@ fun CalibrationSection(
 
     if (showDialog) {
         CalibrationDialog(
-            currentValue = calibrationValue,
-            dualCellEnabled = dualCellEnabled,
-            serviceConnected = serviceConnected,
+            currentValue = state.calibrationValue,
+            dualCellEnabled = state.dualCellEnabled,
+            serviceConnected = props.serviceConnected,
             onDismiss = { showDialog = false },
             onSave = { value ->
-                onCalibrationChange(value)
+                actions.setCalibrationValue(value)
                 showDialog = false
             },
             onReset = {
-                onCalibrationChange(-1)
+                actions.setCalibrationValue(-1)
                 showDialog = false
             }
         )

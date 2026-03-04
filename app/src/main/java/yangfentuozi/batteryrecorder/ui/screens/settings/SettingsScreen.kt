@@ -17,6 +17,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
@@ -24,6 +25,11 @@ import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.CalibrationSection
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.PredictionSection
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.ServerSection
+import yangfentuozi.batteryrecorder.ui.model.CalibrationActions
+import yangfentuozi.batteryrecorder.ui.model.PredictionActions
+import yangfentuozi.batteryrecorder.ui.model.ServerActions
+import yangfentuozi.batteryrecorder.ui.model.SettingsActions
+import yangfentuozi.batteryrecorder.ui.model.SettingsUiProps
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -32,22 +38,36 @@ fun SettingsScreen(
     settingsViewModel: SettingsViewModel,
     onNavigateBack: () -> Unit = {}
 ) {
-    // 读取设置值
-    val dualCellEnabled by settingsViewModel.dualCellEnabled.collectAsState()
-    val dischargeDisplayPositive by settingsViewModel.dischargeDisplayPositive.collectAsState()
-    val calibrationValue by settingsViewModel.calibrationValue.collectAsState()
-    val intervalMs by settingsViewModel.recordIntervalMs.collectAsState()
-    val writeLatencyMs by settingsViewModel.writeLatencyMs.collectAsState()
-    val batchSize by settingsViewModel.batchSize.collectAsState()
-    val recordScreenOffEnabled by settingsViewModel.screenOffRecord.collectAsState()
-    val segmentDurationMin by settingsViewModel.segmentDurationMin.collectAsState()
-    val gamePackages by settingsViewModel.gamePackages.collectAsState()
-    val gameBlacklist by settingsViewModel.gameBlacklist.collectAsState()
-    val sceneStatsRecentFileCount by settingsViewModel.sceneStatsRecentFileCount.collectAsState()
-    val predCurrentSessionWeightEnabled by settingsViewModel.predCurrentSessionWeightEnabled.collectAsState()
-    val predCurrentSessionWeightMaxX100 by settingsViewModel.predCurrentSessionWeightMaxX100.collectAsState()
-    val predCurrentSessionWeightHalfLifeMin by settingsViewModel.predCurrentSessionWeightHalfLifeMin.collectAsState()
+    val settingsState by settingsViewModel.settingsUiState.collectAsState()
     val serviceConnected = Service.service != null
+    val actions = remember(settingsViewModel) {
+        SettingsActions(
+            calibration = CalibrationActions(
+                setDualCellEnabled = settingsViewModel::setDualCellEnabled,
+                setDischargeDisplayPositiveEnabled = settingsViewModel::setDischargeDisplayPositiveEnabled,
+                setCalibrationValue = settingsViewModel::setCalibrationValue
+            ),
+            server = ServerActions(
+                setRecordIntervalMs = settingsViewModel::setRecordIntervalMs,
+                setWriteLatencyMs = settingsViewModel::setWriteLatencyMs,
+                setBatchSize = settingsViewModel::setBatchSize,
+                setScreenOffRecordEnabled = settingsViewModel::setScreenOffRecordEnabled,
+                setSegmentDurationMin = settingsViewModel::setSegmentDurationMin
+            ),
+            prediction = PredictionActions(
+                setGamePackages = settingsViewModel::setGamePackages,
+                setSceneStatsRecentFileCount = settingsViewModel::setSceneStatsRecentFileCount,
+                setPredCurrentSessionWeightEnabled = settingsViewModel::setPredCurrentSessionWeightEnabled,
+                setPredCurrentSessionWeightMaxX100 = settingsViewModel::setPredCurrentSessionWeightMaxX100,
+                setPredCurrentSessionWeightHalfLifeMin = settingsViewModel::setPredCurrentSessionWeightHalfLifeMin
+            )
+        )
+    }
+    val props = SettingsUiProps(
+        state = settingsState,
+        actions = actions,
+        serviceConnected = serviceConnected
+    )
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
@@ -73,47 +93,16 @@ fun SettingsScreen(
         ) {
             item {
                 // 校准设置
-                CalibrationSection(
-                    dualCellEnabled = dualCellEnabled,
-                    onDualCellChange = settingsViewModel::setDualCellEnabled,
-                    dischargeDisplayPositive = dischargeDisplayPositive,
-                    onDischargeDisplayPositiveChange = settingsViewModel::setDischargeDisplayPositiveEnabled,
-                    calibrationValue = calibrationValue,
-                    serviceConnected = serviceConnected,
-                    onCalibrationChange = settingsViewModel::setCalibrationValue
-                )
+                CalibrationSection(props = props)
             }
             item { Spacer(modifier = Modifier.size(16.dp)) }
             item {
                 // 服务器设置
-                ServerSection(
-                    recordIntervalMs = intervalMs,
-                    onRecordIntervalChange = settingsViewModel::setRecordIntervalMs,
-                    writeLatencyMs = writeLatencyMs,
-                    onWriteLatencyChange = settingsViewModel::setWriteLatencyMs,
-                    batchSize = batchSize,
-                    onBatchSizeChange = settingsViewModel::setBatchSize,
-                    recordScreenOffEnabled = recordScreenOffEnabled,
-                    onRecordScreenOffChange = settingsViewModel::setScreenOffRecordEnabled,
-                    segmentDurationMin = segmentDurationMin,
-                    onSegmentDurationChange = settingsViewModel::setSegmentDurationMin,
-                )
+                ServerSection(props = props)
             }
             item { Spacer(modifier = Modifier.size(16.dp)) }
             item {
-                PredictionSection(
-                    gamePackages = gamePackages,
-                    gameBlacklist = gameBlacklist,
-                    onGamePackagesChange = settingsViewModel::setGamePackages,
-                    sceneStatsRecentFileCount = sceneStatsRecentFileCount,
-                    onSceneStatsRecentFileCountChange = settingsViewModel::setSceneStatsRecentFileCount,
-                    currentSessionWeightEnabled = predCurrentSessionWeightEnabled,
-                    onCurrentSessionWeightEnabledChange = settingsViewModel::setPredCurrentSessionWeightEnabled,
-                    currentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
-                    onCurrentSessionWeightMaxX100Change = settingsViewModel::setPredCurrentSessionWeightMaxX100,
-                    currentSessionWeightHalfLifeMin = predCurrentSessionWeightHalfLifeMin,
-                    onCurrentSessionWeightHalfLifeMinChange = settingsViewModel::setPredCurrentSessionWeightHalfLifeMin
-                )
+                PredictionSection(props = props)
             }
         }
     }

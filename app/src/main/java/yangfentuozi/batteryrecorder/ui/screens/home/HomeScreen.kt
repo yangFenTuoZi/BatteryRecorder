@@ -22,6 +22,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,16 +71,13 @@ fun HomeScreen(
     val currentRecord by viewModel.currentRecord.collectAsState()
     val liveStatus by liveRecordViewModel.lastStatus.collectAsState()
 
-    // 读取设置值
-    val dualCellEnabled by settingsViewModel.dualCellEnabled.collectAsState()
-    val calibrationValue by settingsViewModel.calibrationValue.collectAsState()
-    val intervalMs by settingsViewModel.recordIntervalMs.collectAsState()
-    val dischargeDisplayPositive by settingsViewModel.dischargeDisplayPositive.collectAsState()
-    val gamePackages by settingsViewModel.gamePackages.collectAsState()
-    val sceneStatsRecentFileCount by settingsViewModel.sceneStatsRecentFileCount.collectAsState()
-    val predCurrentSessionWeightEnabled by settingsViewModel.predCurrentSessionWeightEnabled.collectAsState()
-    val predCurrentSessionWeightMaxX100 by settingsViewModel.predCurrentSessionWeightMaxX100.collectAsState()
-    val predCurrentSessionWeightHalfLifeMin by settingsViewModel.predCurrentSessionWeightHalfLifeMin.collectAsState()
+    val settingsState by settingsViewModel.settingsUiState.collectAsState()
+    val statisticsRequest by settingsViewModel.statisticsRequest.collectAsState()
+    val latestStatisticsRequest by rememberUpdatedState(statisticsRequest)
+    val dualCellEnabled = settingsState.dualCellEnabled
+    val calibrationValue = settingsState.calibrationValue
+    val intervalMs = settingsState.recordIntervalMs
+    val dischargeDisplayPositive = settingsState.dischargeDisplayPositive
 
     // 场景统计和预测
     val sceneStats by viewModel.sceneStats.collectAsState()
@@ -95,12 +93,7 @@ fun HomeScreen(
             override fun onChangedCurrRecordsFile() {
                 viewModel.forceRefreshStatistics(
                     context = context,
-                    gamePackages = gamePackages,
-                    sceneStatsRecentFileCount = sceneStatsRecentFileCount,
-                    recordIntervalMs = intervalMs,
-                    predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
-                    predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
-                    predCurrentSessionWeightHalfLifeMin = predCurrentSessionWeightHalfLifeMin
+                    request = latestStatisticsRequest
                 )
             }
         }
@@ -113,12 +106,7 @@ fun HomeScreen(
                 delay(1500)
                 viewModel.refreshStatistics(
                     context = context,
-                    gamePackages = gamePackages,
-                    sceneStatsRecentFileCount = sceneStatsRecentFileCount,
-                    recordIntervalMs = intervalMs,
-                    predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
-                    predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
-                    predCurrentSessionWeightHalfLifeMin = predCurrentSessionWeightHalfLifeMin
+                    request = statisticsRequest
                 )
             }
         }
@@ -135,12 +123,7 @@ fun HomeScreen(
                 Lifecycle.Event.ON_START -> {
                     viewModel.refreshStatistics(
                         context = context,
-                        gamePackages = gamePackages,
-                        sceneStatsRecentFileCount = sceneStatsRecentFileCount,
-                        recordIntervalMs = intervalMs,
-                        predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
-                        predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
-                        predCurrentSessionWeightHalfLifeMin = predCurrentSessionWeightHalfLifeMin
+                        request = latestStatisticsRequest
                     )
                     Service.service?.registerRecordListener(listener)
                 }
@@ -169,12 +152,7 @@ fun HomeScreen(
                     onRefreshClick = {
                         viewModel.forceRefreshStatistics(
                             context = context,
-                            gamePackages = gamePackages,
-                            sceneStatsRecentFileCount = sceneStatsRecentFileCount,
-                            recordIntervalMs = intervalMs,
-                            predCurrentSessionWeightEnabled = predCurrentSessionWeightEnabled,
-                            predCurrentSessionWeightMaxX100 = predCurrentSessionWeightMaxX100,
-                            predCurrentSessionWeightHalfLifeMin = predCurrentSessionWeightHalfLifeMin
+                            request = statisticsRequest
                         )
                     },
                     showStopServer = serviceConnected

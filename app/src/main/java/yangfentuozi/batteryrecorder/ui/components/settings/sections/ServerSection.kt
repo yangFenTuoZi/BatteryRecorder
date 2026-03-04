@@ -15,21 +15,15 @@ import yangfentuozi.batteryrecorder.ui.dialog.settings.BatchSizeDialog
 import yangfentuozi.batteryrecorder.ui.dialog.settings.RecordIntervalDialog
 import yangfentuozi.batteryrecorder.ui.dialog.settings.SegmentDurationDialog
 import yangfentuozi.batteryrecorder.ui.dialog.settings.WriteLatencyDialog
+import yangfentuozi.batteryrecorder.ui.model.SettingsUiProps
 import kotlin.math.round
 
 @Composable
 fun ServerSection(
-    recordIntervalMs: Long,
-    onRecordIntervalChange: (Long) -> Unit,
-    writeLatencyMs: Long,
-    onWriteLatencyChange: (Long) -> Unit,
-    batchSize: Int,
-    onBatchSizeChange: (Int) -> Unit,
-    recordScreenOffEnabled: Boolean,
-    onRecordScreenOffChange: (Boolean) -> Unit,
-    segmentDurationMin: Long,
-    onSegmentDurationChange: (Long) -> Unit
+    props: SettingsUiProps
 ) {
+    val state = props.state
+    val actions = props.actions.server
     var showRecordIntervalDialog by remember { mutableStateOf(false) }
     var showWriteLatencyDialog by remember { mutableStateOf(false) }
     var showBatchSizeDialog by remember { mutableStateOf(false) }
@@ -42,37 +36,37 @@ fun ServerSection(
         item {
             M3ESwitchWidget(
                 text = "息屏记录",
-                checked = recordScreenOffEnabled,
-                onCheckedChange = onRecordScreenOffChange
+                checked = state.recordScreenOffEnabled,
+                onCheckedChange = actions.setScreenOffRecordEnabled
             )
         }
 
         item {
             SettingsItem(
                 title = "采样间隔",
-                summary = "${"%.1f".format(recordIntervalMs / 1000.0)} 秒"
+                summary = "${"%.1f".format(state.recordIntervalMs / 1000.0)} 秒"
             ) { showRecordIntervalDialog = true }
         }
 
         item {
             SettingsItem(
                 title = "写入延迟",
-                summary = "${"%.1f".format(writeLatencyMs / 1000.0)} 秒"
+                summary = "${"%.1f".format(state.writeLatencyMs / 1000.0)} 秒"
             ) { showWriteLatencyDialog = true }
         }
 
         item {
             SettingsItem(
                 title = "批量大小",
-                summary = "$batchSize 条"
+                summary = "${state.batchSize} 条"
             ) { showBatchSizeDialog = true }
         }
 
         item {
-            val summary = if (segmentDurationMin == 0L) {
+            val summary = if (state.segmentDurationMin == 0L) {
                 "不按时间分段"
             } else {
-                "$segmentDurationMin 分钟"
+                "${state.segmentDurationMin} 分钟"
             }
             SettingsItem(
                 title = "分段时间",
@@ -84,15 +78,15 @@ fun ServerSection(
     // 采样间隔对话框
     if (showRecordIntervalDialog) {
         RecordIntervalDialog(
-            currentValueMs = recordIntervalMs,
+            currentValueMs = state.recordIntervalMs,
             onDismiss = { showRecordIntervalDialog = false },
             onSave = { value ->
                 val roundedValue = (round(value / 100.0) * 100).toLong()
-                onRecordIntervalChange(roundedValue)
+                actions.setRecordIntervalMs(roundedValue)
                 showRecordIntervalDialog = false
             },
             onReset = {
-                onRecordIntervalChange(1000)
+                actions.setRecordIntervalMs(1000)
                 showRecordIntervalDialog = false
             }
         )
@@ -101,15 +95,15 @@ fun ServerSection(
     // 写入延迟对话框
     if (showWriteLatencyDialog) {
         WriteLatencyDialog(
-            currentValueMs = writeLatencyMs,
+            currentValueMs = state.writeLatencyMs,
             onDismiss = { showWriteLatencyDialog = false },
             onSave = { value ->
                 val roundedValue = (round(value / 100.0) * 100).toLong()
-                onWriteLatencyChange(roundedValue)
+                actions.setWriteLatencyMs(roundedValue)
                 showWriteLatencyDialog = false
             },
             onReset = {
-                onWriteLatencyChange(30000)
+                actions.setWriteLatencyMs(30000)
                 showWriteLatencyDialog = false
             }
         )
@@ -118,14 +112,14 @@ fun ServerSection(
     // 批量大小对话框
     if (showBatchSizeDialog) {
         BatchSizeDialog(
-            currentValue = batchSize,
+            currentValue = state.batchSize,
             onDismiss = { showBatchSizeDialog = false },
             onSave = { value ->
-                onBatchSizeChange(value)
+                actions.setBatchSize(value)
                 showBatchSizeDialog = false
             },
             onReset = {
-                onBatchSizeChange(200)
+                actions.setBatchSize(200)
                 showBatchSizeDialog = false
             }
         )
@@ -134,14 +128,14 @@ fun ServerSection(
     // 分段时间对话框
     if (showSegmentDurationDialog) {
         SegmentDurationDialog(
-            currentValueMin = segmentDurationMin,
+            currentValueMin = state.segmentDurationMin,
             onDismiss = { showSegmentDurationDialog = false },
             onSave = { value ->
-                onSegmentDurationChange(value)
+                actions.setSegmentDurationMin(value)
                 showSegmentDurationDialog = false
             },
             onReset = {
-                onSegmentDurationChange(1440)
+                actions.setSegmentDurationMin(1440)
                 showSegmentDurationDialog = false
             }
         )

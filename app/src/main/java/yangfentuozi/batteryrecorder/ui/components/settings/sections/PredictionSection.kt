@@ -14,21 +14,14 @@ import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
 import yangfentuozi.batteryrecorder.ui.components.settings.SettingsItem
 import yangfentuozi.batteryrecorder.ui.dialog.settings.CurrentSessionWeightDialog
 import yangfentuozi.batteryrecorder.ui.dialog.settings.SceneStatsRecentFileCountDialog
+import yangfentuozi.batteryrecorder.ui.model.SettingsUiProps
 
 @Composable
 fun PredictionSection(
-    gamePackages: Set<String>,
-    gameBlacklist: Set<String>,
-    onGamePackagesChange: (selected: Set<String>, detectedGamePkgs: Set<String>) -> Unit,
-    sceneStatsRecentFileCount: Int,
-    onSceneStatsRecentFileCountChange: (Int) -> Unit,
-    currentSessionWeightEnabled: Boolean,
-    onCurrentSessionWeightEnabledChange: (Boolean) -> Unit,
-    currentSessionWeightMaxX100: Int,
-    onCurrentSessionWeightMaxX100Change: (Int) -> Unit,
-    currentSessionWeightHalfLifeMin: Long,
-    onCurrentSessionWeightHalfLifeMinChange: (Long) -> Unit
+    props: SettingsUiProps
 ) {
+    val state = props.state
+    val actions = props.actions.prediction
     var showWeightDialog by remember { mutableStateOf(false) }
     var showRecentCountDialog by remember { mutableStateOf(false) }
 
@@ -38,30 +31,30 @@ fun PredictionSection(
     ) {
         item {
             PredictionGameFilterItem(
-                gamePackages = gamePackages,
-                gameBlacklist = gameBlacklist,
-                onGamePackagesChange = onGamePackagesChange
+                gamePackages = state.gamePackages,
+                gameBlacklist = state.gameBlacklist,
+                onGamePackagesChange = actions.setGamePackages
             )
         }
 
         item {
             SettingsItem(
                 title = "样本次数",
-                summary = "最近 ${sceneStatsRecentFileCount} 次"
+                summary = "最近 ${state.sceneStatsRecentFileCount} 次"
             ) { showRecentCountDialog = true }
         }
 
         item {
             M3ESwitchWidget(
                 text = "当次记录加权",
-                checked = currentSessionWeightEnabled,
-                onCheckedChange = onCurrentSessionWeightEnabledChange
+                checked = state.predCurrentSessionWeightEnabled,
+                onCheckedChange = actions.setPredCurrentSessionWeightEnabled
             )
         }
 
         item {
-            val maxX = currentSessionWeightMaxX100 / 100.0
-            val summary = "最大 %.2fx / 半衰期 %d 分钟".format(maxX, currentSessionWeightHalfLifeMin)
+            val maxX = state.predCurrentSessionWeightMaxX100 / 100.0
+            val summary = "最大 %.2fx / 半衰期 %d 分钟".format(maxX, state.predCurrentSessionWeightHalfLifeMin)
             SettingsItem(
                 title = "加权强度",
                 summary = summary
@@ -71,14 +64,14 @@ fun PredictionSection(
 
     if (showRecentCountDialog) {
         SceneStatsRecentFileCountDialog(
-            currentValue = sceneStatsRecentFileCount,
+            currentValue = state.sceneStatsRecentFileCount,
             onDismiss = { showRecentCountDialog = false },
             onSave = { count ->
-                onSceneStatsRecentFileCountChange(count)
+                actions.setSceneStatsRecentFileCount(count)
                 showRecentCountDialog = false
             },
             onReset = {
-                onSceneStatsRecentFileCountChange(ConfigConstants.DEF_SCENE_STATS_RECENT_FILE_COUNT)
+                actions.setSceneStatsRecentFileCount(ConfigConstants.DEF_SCENE_STATS_RECENT_FILE_COUNT)
                 showRecentCountDialog = false
             }
         )
@@ -86,17 +79,17 @@ fun PredictionSection(
 
     if (showWeightDialog) {
         CurrentSessionWeightDialog(
-            currentMaxX100 = currentSessionWeightMaxX100,
-            currentHalfLifeMin = currentSessionWeightHalfLifeMin,
+            currentMaxX100 = state.predCurrentSessionWeightMaxX100,
+            currentHalfLifeMin = state.predCurrentSessionWeightHalfLifeMin,
             onDismiss = { showWeightDialog = false },
             onSave = { maxX100, halfLifeMin ->
-                onCurrentSessionWeightMaxX100Change(maxX100)
-                onCurrentSessionWeightHalfLifeMinChange(halfLifeMin)
+                actions.setPredCurrentSessionWeightMaxX100(maxX100)
+                actions.setPredCurrentSessionWeightHalfLifeMin(halfLifeMin)
                 showWeightDialog = false
             },
             onReset = {
-                onCurrentSessionWeightMaxX100Change(ConfigConstants.DEF_PRED_CURRENT_SESSION_WEIGHT_MAX_X100)
-                onCurrentSessionWeightHalfLifeMinChange(ConfigConstants.DEF_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN)
+                actions.setPredCurrentSessionWeightMaxX100(ConfigConstants.DEF_PRED_CURRENT_SESSION_WEIGHT_MAX_X100)
+                actions.setPredCurrentSessionWeightHalfLifeMin(ConfigConstants.DEF_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN)
                 showWeightDialog = false
             }
         )
