@@ -52,7 +52,8 @@ fun SettingsScreen(
                 setWriteLatencyMs = settingsViewModel::setWriteLatencyMs,
                 setBatchSize = settingsViewModel::setBatchSize,
                 setScreenOffRecordEnabled = settingsViewModel::setScreenOffRecordEnabled,
-                setSegmentDurationMin = settingsViewModel::setSegmentDurationMin
+                setSegmentDurationMin = settingsViewModel::setSegmentDurationMin,
+                setRootBootAutoStartEnabled = settingsViewModel::setRootBootAutoStartEnabled
             ),
             prediction = PredictionActions(
                 setGamePackages = settingsViewModel::setGamePackages,

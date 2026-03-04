@@ -1,5 +1,6 @@
 package yangfentuozi.batteryrecorder.ui.components.settings.sections
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -7,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.ui.components.global.M3ESwitchWidget
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
@@ -22,6 +24,7 @@ import kotlin.math.round
 fun ServerSection(
     props: SettingsUiProps
 ) {
+    val context = LocalContext.current
     val state = props.state
     val actions = props.actions.server
     var showRecordIntervalDialog by remember { mutableStateOf(false) }
@@ -33,6 +36,23 @@ fun ServerSection(
         title = "服务端",
         modifier = Modifier.padding(horizontal = 16.dp)
     ) {
+        item {
+            M3ESwitchWidget(
+                text = "开机自启（ROOT）",
+                checked = state.rootBootAutoStartEnabled,
+                onCheckedChange = { enabled ->
+                    actions.setRootBootAutoStartEnabled(enabled)
+                    if (enabled) {
+                        Toast.makeText(
+                            context,
+                            "请手动在系统设置中允许自启动",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            )
+        }
+
         item {
             M3ESwitchWidget(
                 text = "息屏记录",

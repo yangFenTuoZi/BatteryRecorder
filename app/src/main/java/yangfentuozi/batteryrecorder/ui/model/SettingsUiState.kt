@@ -11,6 +11,7 @@ data class SettingsUiState(
     val batchSize: Int = ConfigConstants.DEF_BATCH_SIZE,
     val recordScreenOffEnabled: Boolean = ConfigConstants.DEF_SCREEN_OFF_RECORD_ENABLED,
     val segmentDurationMin: Long = ConfigConstants.DEF_SEGMENT_DURATION_MIN,
+    val rootBootAutoStartEnabled: Boolean = ConfigConstants.DEF_ROOT_BOOT_AUTO_START_ENABLED,
     val gamePackages: Set<String> = emptySet(),
     val gameBlacklist: Set<String> = emptySet(),
     val sceneStatsRecentFileCount: Int = ConfigConstants.DEF_SCENE_STATS_RECENT_FILE_COUNT,

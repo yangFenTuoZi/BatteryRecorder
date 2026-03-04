@@ -51,6 +51,11 @@ class SettingsViewModel : ViewModel() {
     private val _segmentDurationMin = MutableStateFlow(ConfigConstants.DEF_SEGMENT_DURATION_MIN)
     val segmentDurationMin: StateFlow<Long> = _segmentDurationMin.asStateFlow()
 
+    // 开机 ROOT 自启动
+    private val _rootBootAutoStartEnabled =
+        MutableStateFlow(ConfigConstants.DEF_ROOT_BOOT_AUTO_START_ENABLED)
+    val rootBootAutoStartEnabled: StateFlow<Boolean> = _rootBootAutoStartEnabled.asStateFlow()
+
     // 游戏 App 包名列表
     private val _gamePackages = MutableStateFlow<Set<String>>(emptySet())
     val gamePackages: StateFlow<Set<String>> = _gamePackages.asStateFlow()
@@ -164,6 +169,13 @@ class SettingsViewModel : ViewModel() {
                 ConfigConstants.MIN_SEGMENT_DURATION_MIN,
                 ConfigConstants.MAX_SEGMENT_DURATION_MIN
             )
+
+        _rootBootAutoStartEnabled.value =
+            prefs.getBoolean(
+                ConfigConstants.KEY_ROOT_BOOT_AUTO_START_ENABLED,
+                ConfigConstants.DEF_ROOT_BOOT_AUTO_START_ENABLED
+            )
+
         serverConfig = Config(
             recordIntervalMs = _recordIntervalMs.value,
             writeLatencyMs = _writeLatencyMs.value,
@@ -312,6 +324,16 @@ class SettingsViewModel : ViewModel() {
         }
     }
 
+    fun setRootBootAutoStartEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            prefs.edit {
+                putBoolean(ConfigConstants.KEY_ROOT_BOOT_AUTO_START_ENABLED, enabled)
+            }
+            _rootBootAutoStartEnabled.value = enabled
+            refreshCombinedState()
+        }
+    }
+
     fun setGamePackages(packages: Set<String>, detectedGamePkgs: Set<String>) {
         viewModelScope.launch {
             // 用户取消勾选的自动检测游戏 → 加入 blacklist
@@ -380,6 +402,7 @@ class SettingsViewModel : ViewModel() {
             batchSize = _batchSize.value,
             recordScreenOffEnabled = _screenOffRecord.value,
             segmentDurationMin = _segmentDurationMin.value,
+            rootBootAutoStartEnabled = _rootBootAutoStartEnabled.value,
             gamePackages = _gamePackages.value,
             gameBlacklist = _gameBlacklist.value,
             sceneStatsRecentFileCount = _sceneStatsRecentFileCount.value,
