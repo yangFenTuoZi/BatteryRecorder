@@ -4,7 +4,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private const val POWER_SCALE_DIVISOR = 1_000_000_000.0
+private const val POWER_SCALE_DIVISOR = 1_000_000_000_000.0
 
 /**
  * 将毫秒时长格式化为小时分钟字符串
