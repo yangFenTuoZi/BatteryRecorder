@@ -70,6 +70,12 @@ object HistoryRepository {
         )
     }
 
+    /** 仅列出文件，按修改时间降序，不加载 stats */
+    fun listRecordFiles(context: Context, type: BatteryStatus): List<File> {
+        return dataDir(context, type).listFiles()?.filter { it.isFile }
+            ?.sortedByDescending { it.lastModified() } ?: emptyList()
+    }
+
     /** 加载指定类型的所有记录，按修改时间降序 */
     fun loadRecords(context: Context, type: BatteryStatus): List<HistoryRecord> {
         val files = dataDir(context, type).listFiles()?.filter { it.isFile }

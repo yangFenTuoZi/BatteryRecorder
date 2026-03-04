@@ -5,13 +5,14 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -24,7 +25,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -83,90 +83,84 @@ fun HistoryListScreen(
                 )
             }
         } else {
-            Column(
+            LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
-                    .verticalScroll(rememberScrollState())
-                    .padding(vertical = 8.dp)
+                    .padding(paddingValues),
+                contentPadding = PaddingValues(vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    records.forEachIndexed { index, record ->
-                        key(record.name) {
-                            SwipeRevealRow(
-                                isOpen = openRecordName == record.name,
-                                onOpenChange = { open ->
-                                    openRecordName = if (open) {
-                                        record.name
-                                    } else {
-                                        if (openRecordName == record.name) null else openRecordName
-                                    }
-                                },
-                                isGroupFirst = index == 0,
-                                isGroupLast = index == records.size - 1,
-                                actionContent = {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .padding(12.dp)
-                                            .clickable(
-                                                interactionSource = remember { MutableInteractionSource() },
-                                                indication = null,
-                                                onClick = {
-                                                    openRecordName = null
-                                                    viewModel.deleteRecord(context, record.asRecordsFile())
-                                                }
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Filled.Delete,
-                                            contentDescription = "删除",
-                                            tint = MaterialTheme.colorScheme.onError
-                                        )
-                                    }
-                                },
-                                content = {
-                                    val stats = record.stats
-                                    val durationMs = stats.endTime - stats.startTime
-                                    val capacityChange = if (record.type == BatteryStatus.Charging) {
-                                        stats.endCapacity - stats.startCapacity
-                                    } else {
-                                        stats.startCapacity - stats.endCapacity
-                                    }
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(16.dp)
-                                    ) {
-                                        Text(
-                                            text = formatDateTime(stats.startTime),
-                                            style = MaterialTheme.typography.titleSmall
-                                        )
-                                        Spacer(Modifier.height(6.dp))
-                                        Text(
-                                            text = "时长 ${formatDurationHours(durationMs)} · 电量 ${capacityChange}%",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        Text(
-                                            text = "平均功率 ${formatPower(stats.averagePower, dualCellEnabled, calibrationValue)}",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                },
-                                onContentClick = {
-                                    onNavigateToRecordDetail(record.type, record.name)
-                                }
-                            )
+                itemsIndexed(records, key = { _, record -> record.name }) { index, record ->
+                    SwipeRevealRow(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        isOpen = openRecordName == record.name,
+                        onOpenChange = { open ->
+                            openRecordName = if (open) {
+                                record.name
+                            } else {
+                                if (openRecordName == record.name) null else openRecordName
+                            }
+                        },
+                        isGroupFirst = index == 0,
+                        isGroupLast = index == records.size - 1,
+                        actionContent = {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(12.dp)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = {
+                                            openRecordName = null
+                                            viewModel.deleteRecord(context, record.asRecordsFile())
+                                        }
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Delete,
+                                    contentDescription = "删除",
+                                    tint = MaterialTheme.colorScheme.onError
+                                )
+                            }
+                        },
+                        content = {
+                            val stats = record.stats
+                            val durationMs = stats.endTime - stats.startTime
+                            val capacityChange = if (record.type == BatteryStatus.Charging) {
+                                stats.endCapacity - stats.startCapacity
+                            } else {
+                                stats.startCapacity - stats.endCapacity
+                            }
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
+                            ) {
+                                Text(
+                                    text = formatDateTime(stats.startTime),
+                                    style = MaterialTheme.typography.titleSmall
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    text = "时长 ${formatDurationHours(durationMs)} · 电量 ${capacityChange}%",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "平均功率 ${formatPower(stats.averagePower, dualCellEnabled, calibrationValue)}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        },
+                        onContentClick = {
+                            onNavigateToRecordDetail(record.type, record.name)
                         }
-                    }
+                    )
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+                item { Spacer(modifier = Modifier.height(8.dp)) }
             }
         }
     }

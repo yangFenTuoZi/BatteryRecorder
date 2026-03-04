@@ -3,10 +3,12 @@ package yangfentuozi.batteryrecorder.ui.viewmodel
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import yangfentuozi.batteryrecorder.data.history.HistoryRecord
 import yangfentuozi.batteryrecorder.data.history.HistoryRepository
 import yangfentuozi.batteryrecorder.data.history.HistoryRepository.toFile
@@ -44,14 +46,41 @@ class HistoryViewModel : ViewModel() {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private companion object {
+        const val FIRST_BATCH_SIZE = 30
+    }
+
     fun loadRecords(context: Context, type: BatteryStatus) {
         if (_isLoading.value) return
         viewModelScope.launch {
             _isLoading.value = true
             try {
                 val dischargeDisplayPositive = getDischargeDisplayPositive(context)
-                _records.value = HistoryRepository.loadRecords(context, type)
-                    .map { mapHistoryRecordForDisplay(it, dischargeDisplayPositive) }
+                val files = withContext(Dispatchers.IO) {
+                    HistoryRepository.listRecordFiles(context, type)
+                }
+                val latestFile = files.firstOrNull()
+
+                // 首批秒出
+                val firstBatch = withContext(Dispatchers.IO) {
+                    files.take(FIRST_BATCH_SIZE).mapNotNull {
+                        HistoryRepository.loadStats(context, it, it != latestFile)
+                            ?.let { r -> mapHistoryRecordForDisplay(r, dischargeDisplayPositive) }
+                    }
+                }
+                _records.value = firstBatch
+
+                // 剩余批次追加
+                val remaining = files.drop(FIRST_BATCH_SIZE)
+                if (remaining.isNotEmpty()) {
+                    val rest = withContext(Dispatchers.IO) {
+                        remaining.mapNotNull {
+                            HistoryRepository.loadStats(context, it, it != latestFile)
+                                ?.let { r -> mapHistoryRecordForDisplay(r, dischargeDisplayPositive) }
+                        }
+                    }
+                    _records.value = firstBatch + rest
+                }
             } finally {
                 _isLoading.value = false
             }
@@ -64,19 +93,24 @@ class HistoryViewModel : ViewModel() {
             _isLoading.value = true
             try {
                 val dischargeDisplayPositive = getDischargeDisplayPositive(context)
-                val recordFile = recordsFile.toFile(context)
-                _recordDetail.value = recordFile
-                    ?.let { HistoryRepository.loadRecord(context, it) }
-                    ?.let { mapHistoryRecordForDisplay(it, dischargeDisplayPositive) }
-                _recordPoints.value = if (recordFile != null) {
-                    mapChartPointsForDisplay(
-                        points = HistoryRepository.loadRecordPoints(context, recordsFile),
-                        batteryStatus = recordsFile.type,
-                        dischargeDisplayPositive = dischargeDisplayPositive
-                    )
-                } else {
-                    emptyList()
+                val (detail, points) = withContext(Dispatchers.IO) {
+                    val recordFile = recordsFile.toFile(context)
+                    val detail = recordFile
+                        ?.let { HistoryRepository.loadRecord(context, it) }
+                        ?.let { mapHistoryRecordForDisplay(it, dischargeDisplayPositive) }
+                    val points = if (recordFile != null) {
+                        mapChartPointsForDisplay(
+                            points = HistoryRepository.loadRecordPoints(context, recordsFile),
+                            batteryStatus = recordsFile.type,
+                            dischargeDisplayPositive = dischargeDisplayPositive
+                        )
+                    } else {
+                        emptyList()
+                    }
+                    detail to points
                 }
+                _recordDetail.value = detail
+                _recordPoints.value = points
                 recomputeRecordChartUiState()
             } finally {
                 _isLoading.value = false
@@ -89,11 +123,11 @@ class HistoryViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val deleted = HistoryRepository.deleteRecord(context, recordsFile)
+                val deleted = withContext(Dispatchers.IO) {
+                    HistoryRepository.deleteRecord(context, recordsFile)
+                }
                 if (deleted) {
-                    val dischargeDisplayPositive = getDischargeDisplayPositive(context)
-                    _records.value = HistoryRepository.loadRecords(context, recordsFile.type)
-                        .map { mapHistoryRecordForDisplay(it, dischargeDisplayPositive) }
+                    _records.value = _records.value.filter { it.asRecordsFile() != recordsFile }
                     val detail = _recordDetail.value
                     if (detail != null && detail.asRecordsFile() == recordsFile) {
                         _recordDetail.value = null
