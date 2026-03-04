@@ -9,9 +9,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import yangfentuozi.batteryrecorder.data.history.StatisticsRequest
 import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.shared.config.Config
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
+import yangfentuozi.batteryrecorder.ui.model.SettingsUiState
 
 class SettingsViewModel : ViewModel() {
     private lateinit var prefs: SharedPreferences
@@ -74,6 +76,12 @@ class SettingsViewModel : ViewModel() {
     private val _predCurrentSessionWeightHalfLifeMin =
         MutableStateFlow(ConfigConstants.DEF_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN)
     val predCurrentSessionWeightHalfLifeMin: StateFlow<Long> = _predCurrentSessionWeightHalfLifeMin.asStateFlow()
+
+    private val _settingsUiState = MutableStateFlow(SettingsUiState())
+    val settingsUiState: StateFlow<SettingsUiState> = _settingsUiState.asStateFlow()
+
+    private val _statisticsRequest = MutableStateFlow(StatisticsRequest())
+    val statisticsRequest: StateFlow<StatisticsRequest> = _statisticsRequest.asStateFlow()
 
     private lateinit var serverConfig: Config
 
@@ -202,6 +210,8 @@ class SettingsViewModel : ViewModel() {
                 ConfigConstants.MIN_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN,
                 ConfigConstants.MAX_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN
             )
+
+        refreshCombinedState()
     }
 
     /**
@@ -211,6 +221,7 @@ class SettingsViewModel : ViewModel() {
         viewModelScope.launch {
             prefs.edit { putBoolean(ConfigConstants.KEY_DUAL_CELL_ENABLED, enabled) }
             _dualCellEnabled.value = enabled
+            refreshCombinedState()
         }
     }
 
@@ -221,6 +232,7 @@ class SettingsViewModel : ViewModel() {
         viewModelScope.launch {
             prefs.edit { putBoolean(ConfigConstants.KEY_DISCHARGE_DISPLAY_POSITIVE, enabled) }
             _dischargeDisplayPositive.value = enabled
+            refreshCombinedState()
         }
     }
 
@@ -230,6 +242,7 @@ class SettingsViewModel : ViewModel() {
         viewModelScope.launch {
             prefs.edit { putInt(ConfigConstants.KEY_CALIBRATION_VALUE, finalValue) }
             _calibrationValue.value = finalValue
+            refreshCombinedState()
         }
     }
 
@@ -244,6 +257,7 @@ class SettingsViewModel : ViewModel() {
             _recordIntervalMs.value = finalValue
             serverConfig = serverConfig.copy(recordIntervalMs = finalValue)
             Service.service?.updateConfig(serverConfig)
+            refreshCombinedState()
         }
     }
 
@@ -258,6 +272,7 @@ class SettingsViewModel : ViewModel() {
             _writeLatencyMs.value = finalValue
             serverConfig = serverConfig.copy(writeLatencyMs = finalValue)
             Service.service?.updateConfig(serverConfig)
+            refreshCombinedState()
         }
     }
 
@@ -271,6 +286,7 @@ class SettingsViewModel : ViewModel() {
             _batchSize.value = finalValue
             serverConfig = serverConfig.copy(batchSize = finalValue)
             Service.service?.updateConfig(serverConfig)
+            refreshCombinedState()
         }
     }
 
@@ -280,6 +296,7 @@ class SettingsViewModel : ViewModel() {
             _screenOffRecord.value = enabled
             serverConfig = serverConfig.copy(screenOffRecordEnabled = enabled)
             Service.service?.updateConfig(serverConfig)
+            refreshCombinedState()
         }
     }
 
@@ -291,6 +308,7 @@ class SettingsViewModel : ViewModel() {
             _segmentDurationMin.value = finalValue
             serverConfig = serverConfig.copy(segmentDurationMin = finalValue)
             Service.service?.updateConfig(serverConfig)
+            refreshCombinedState()
         }
     }
 
@@ -304,6 +322,7 @@ class SettingsViewModel : ViewModel() {
             }
             _gamePackages.value = packages
             _gameBlacklist.value = newBlacklist
+            refreshCombinedState()
         }
     }
 
@@ -315,6 +334,7 @@ class SettingsViewModel : ViewModel() {
         viewModelScope.launch {
             prefs.edit { putInt(ConfigConstants.KEY_SCENE_STATS_RECENT_FILE_COUNT, finalValue) }
             _sceneStatsRecentFileCount.value = finalValue
+            refreshCombinedState()
         }
     }
 
@@ -322,6 +342,7 @@ class SettingsViewModel : ViewModel() {
         viewModelScope.launch {
             prefs.edit { putBoolean(ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_ENABLED, enabled) }
             _predCurrentSessionWeightEnabled.value = enabled
+            refreshCombinedState()
         }
     }
 
@@ -333,6 +354,7 @@ class SettingsViewModel : ViewModel() {
         viewModelScope.launch {
             prefs.edit { putInt(ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_MAX_X100, finalValue) }
             _predCurrentSessionWeightMaxX100.value = finalValue
+            refreshCombinedState()
         }
     }
 
@@ -344,7 +366,43 @@ class SettingsViewModel : ViewModel() {
         viewModelScope.launch {
             prefs.edit { putLong(ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN, finalValue) }
             _predCurrentSessionWeightHalfLifeMin.value = finalValue
+            refreshCombinedState()
         }
+    }
+
+    private fun buildSettingsUiState(): SettingsUiState {
+        return SettingsUiState(
+            dualCellEnabled = _dualCellEnabled.value,
+            dischargeDisplayPositive = _dischargeDisplayPositive.value,
+            calibrationValue = _calibrationValue.value,
+            recordIntervalMs = _recordIntervalMs.value,
+            writeLatencyMs = _writeLatencyMs.value,
+            batchSize = _batchSize.value,
+            recordScreenOffEnabled = _screenOffRecord.value,
+            segmentDurationMin = _segmentDurationMin.value,
+            gamePackages = _gamePackages.value,
+            gameBlacklist = _gameBlacklist.value,
+            sceneStatsRecentFileCount = _sceneStatsRecentFileCount.value,
+            predCurrentSessionWeightEnabled = _predCurrentSessionWeightEnabled.value,
+            predCurrentSessionWeightMaxX100 = _predCurrentSessionWeightMaxX100.value,
+            predCurrentSessionWeightHalfLifeMin = _predCurrentSessionWeightHalfLifeMin.value
+        )
+    }
+
+    private fun buildStatisticsRequest(): StatisticsRequest {
+        return StatisticsRequest(
+            gamePackages = _gamePackages.value,
+            sceneStatsRecentFileCount = _sceneStatsRecentFileCount.value,
+            recordIntervalMs = _recordIntervalMs.value,
+            predCurrentSessionWeightEnabled = _predCurrentSessionWeightEnabled.value,
+            predCurrentSessionWeightMaxX100 = _predCurrentSessionWeightMaxX100.value,
+            predCurrentSessionWeightHalfLifeMin = _predCurrentSessionWeightHalfLifeMin.value
+        )
+    }
+
+    private fun refreshCombinedState() {
+        _settingsUiState.value = buildSettingsUiState()
+        _statisticsRequest.value = buildStatisticsRequest()
     }
 
     /**
