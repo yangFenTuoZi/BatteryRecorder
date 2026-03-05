@@ -35,7 +35,7 @@ android {
         minSdk = 31
         targetSdk = 36
         versionCode = rootProject.ext["gitCommitCountInt"] as Int
-        versionName = "1.0"
+        versionName = "0.3.1"
     }
 
     buildTypes {
