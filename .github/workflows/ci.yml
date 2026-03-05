@@ -141,6 +141,10 @@ jobs:
             echo "无法从 APK 文件名解析 versionName: $apkFileName" >&2
             exit 1
           fi
+          if [[ "$versionName" != *-release ]]; then
+            echo "发布版本号不符合预期（缺少 -release 后缀）: $versionName" >&2
+            exit 1
+          fi
           releaseVersionName="${versionName%-release}"
           if [[ -z "$releaseVersionName" ]]; then
             echo "解析发布版本号失败: $versionName" >&2
