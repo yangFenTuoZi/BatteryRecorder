@@ -40,7 +40,7 @@ object HistoryRepository {
 
     private fun getCacheDir(context: Context) = File(context.cacheDir, "power_stats")
 
-    // 验证目录有效性，返回 null 表示无效
+    // 确保目录存在且为目录，返回目录对象
     private fun dataDir(context: Context, type: BatteryStatus): File =
         File(File(context.dataDir, Constants.APP_POWER_DATA_PATH), type.dataDirName).apply {
             if (!isDirectory) delete()
@@ -117,7 +117,7 @@ object HistoryRepository {
             .toList()
     }
 
-    /** 获取最新记录，比较充电/放电两类的最后修改时间 */
+    /** 从 service.currRecordsFile 加载当前记录 */
     fun loadLatestRecord(
         context: Context
     ): HistoryRecord? {
