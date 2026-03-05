@@ -1,6 +1,7 @@
 package yangfentuozi.batteryrecorder.data.history
 
 import android.content.Context
+import android.net.Uri
 import yangfentuozi.batteryrecorder.data.model.ChartPoint
 import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.shared.Constants
@@ -8,6 +9,8 @@ import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.shared.data.RecordsFile
 import yangfentuozi.batteryrecorder.shared.data.RecordsStats
 import java.io.File
+import java.io.FileNotFoundException
+import java.io.IOException
 
 data class HistoryRecord(
     val name: String,
@@ -186,5 +189,25 @@ object HistoryRepository {
             return true
         }
         return false
+    }
+
+    /** 导出单条记录到用户选择位置 */
+    @Throws(IOException::class)
+    fun exportRecord(
+        context: Context,
+        recordsFile: RecordsFile,
+        destinationUri: Uri
+    ) {
+        val sourceFile = recordsFile.toFile(context)
+            ?: throw FileNotFoundException("Record file not found: ${recordsFile.name}")
+        // 目标由 SAF 提供，必须通过 ContentResolver 流写入而不是直接按文件路径访问
+        val outputStream = context.contentResolver.openOutputStream(destinationUri, "w")
+            ?: throw IOException("Failed to open destination: $destinationUri")
+
+        sourceFile.inputStream().use { input ->
+            outputStream.use { output ->
+                input.copyTo(output)
+            }
+        }
     }
 }

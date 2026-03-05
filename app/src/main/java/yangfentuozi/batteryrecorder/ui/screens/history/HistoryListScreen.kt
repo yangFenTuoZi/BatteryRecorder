@@ -1,5 +1,8 @@
 package yangfentuozi.batteryrecorder.ui.screens.history
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Outbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
+import yangfentuozi.batteryrecorder.shared.data.RecordsFile
 import yangfentuozi.batteryrecorder.ui.components.global.SwipeRevealRow
 import yangfentuozi.batteryrecorder.ui.viewmodel.HistoryViewModel
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
@@ -53,11 +58,28 @@ fun HistoryListScreen(
     val records by viewModel.records.collectAsState()
     val dualCellEnabled by settingsViewModel.dualCellEnabled.collectAsState()
     val calibrationValue by settingsViewModel.calibrationValue.collectAsState()
+    val userMessage by viewModel.userMessage.collectAsState()
     var openRecordName by remember { mutableStateOf<String?>(null) }
+    // CreateDocument 回调异步返回，这里暂存要导出的记录，避免回调时丢失上下文
+    var pendingExportFile by remember { mutableStateOf<RecordsFile?>(null) }
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri ->
+        val exportFile = pendingExportFile
+        pendingExportFile = null
+        if (uri != null && exportFile != null) {
+            viewModel.exportRecord(context, exportFile, uri)
+        }
+    }
 
     LaunchedEffect(batteryStatus) {
         openRecordName = null
         viewModel.loadRecords(context, batteryStatus)
+    }
+    LaunchedEffect(userMessage) {
+        val message = userMessage ?: return@LaunchedEffect
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        viewModel.consumeUserMessage()
     }
 
     val title = if (batteryStatus == BatteryStatus.Charging) "充电历史" else "放电历史"
@@ -103,7 +125,30 @@ fun HistoryListScreen(
                         },
                         isGroupFirst = index == 0,
                         isGroupLast = index == records.size - 1,
-                        actionContent = {
+                        startActionContent = {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(12.dp)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = {
+                                            openRecordName = null
+                                            pendingExportFile = record.asRecordsFile()
+                                            exportLauncher.launch(record.name)
+                                        }
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Outbox,
+                                    contentDescription = "导出",
+                                    tint = MaterialTheme.colorScheme.onPrimary
+                                )
+                            }
+                        },
+                        endActionContent = {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()

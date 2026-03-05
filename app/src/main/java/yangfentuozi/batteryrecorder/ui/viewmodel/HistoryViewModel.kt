@@ -1,6 +1,8 @@
 package yangfentuozi.batteryrecorder.ui.viewmodel
 
 import android.content.Context
+import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
@@ -46,8 +48,12 @@ class HistoryViewModel : ViewModel() {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _userMessage = MutableStateFlow<String?>(null)
+    val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
+
     private companion object {
         const val FIRST_BATCH_SIZE = 30
+        const val TAG = "HistoryViewModel"
     }
 
     fun loadRecords(context: Context, type: BatteryStatus) {
@@ -139,6 +145,33 @@ class HistoryViewModel : ViewModel() {
                 _isLoading.value = false
             }
         }
+    }
+
+    fun exportRecord(
+        context: Context,
+        recordsFile: RecordsFile,
+        destinationUri: Uri
+    ) {
+        if (_isLoading.value) return
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                withContext(Dispatchers.IO) {
+                    HistoryRepository.exportRecord(context, recordsFile, destinationUri)
+                }
+                _userMessage.value = "导出成功"
+            } catch (t: Throwable) {
+                // 导出失败只做可见提示并记录日志，不向上抛出导致界面崩溃
+                Log.e(TAG, "导出失败: ${recordsFile.name}", t)
+                _userMessage.value = "导出失败"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun consumeUserMessage() {
+        _userMessage.value = null
     }
 
     fun updatePowerDisplayConfig(dualCellEnabled: Boolean, calibrationValue: Int) {

@@ -43,8 +43,10 @@ fun SwipeRevealRow(
     modifier: Modifier = Modifier,
     actionSpacing: Dp = 2.dp,
     contentBackgroundColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.surfaceBright,
-    actionBackgroundColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.error,
-    actionContent: @Composable BoxScope.() -> Unit,
+    startActionBackgroundColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary,
+    endActionBackgroundColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.error,
+    startActionContent: (@Composable BoxScope.() -> Unit)? = null,
+    endActionContent: (@Composable BoxScope.() -> Unit)? = null,
     content: @Composable () -> Unit,
     onContentClick: () -> Unit
 ) {
@@ -57,44 +59,75 @@ fun SwipeRevealRow(
 
     var contentHeightPx by remember { mutableFloatStateOf(minHeightPx) }
     val targetRevealPx = max(minHeightPx, contentHeightPx)
+    val hasStartAction = startActionContent != null
+    val hasEndAction = endActionContent != null
+    val startTargetRevealPx = if (hasStartAction) targetRevealPx else 0f
+    val endTargetRevealPx = if (hasEndAction) targetRevealPx else 0f
 
-    val revealPx = remember { Animatable(0f) }
+    // 使用有符号位移统一表达双向滑动：右滑为正（Start），左滑为负（End）
+    val offsetPx = remember { Animatable(0f) }
     var isDragging by remember { mutableStateOf(false) }
-    var requestedOpenInDrag by remember { mutableStateOf(false) }
     val latestIsOpen by rememberUpdatedState(isOpen)
     val latestOnOpenChange by rememberUpdatedState(onOpenChange)
     val latestOnContentClick by rememberUpdatedState(onContentClick)
 
-    LaunchedEffect(isOpen, targetRevealPx) {
+    LaunchedEffect(isOpen, startTargetRevealPx, endTargetRevealPx) {
         if (isDragging) return@LaunchedEffect
-        val target = if (isOpen) targetRevealPx else 0f
-        if (revealPx.targetValue != target) {
-            revealPx.animateTo(
+        val target = when {
+            !isOpen -> 0f
+            offsetPx.value > 0f && hasStartAction -> startTargetRevealPx
+            offsetPx.value < 0f && hasEndAction -> -endTargetRevealPx
+            hasEndAction && !hasStartAction -> -endTargetRevealPx
+            hasStartAction && !hasEndAction -> startTargetRevealPx
+            else -> 0f
+        }
+        if (offsetPx.targetValue != target) {
+            offsetPx.animateTo(
                 targetValue = target,
                 animationSpec = settleSpec
             )
         }
     }
 
-    val progress = if (targetRevealPx > 0f) {
-        (revealPx.value / targetRevealPx).coerceIn(0f, 1f)
-    } else {
-        0f
-    }
-    val rowHeightDp = with(density) { targetRevealPx.toDp() }
-    val revealDp = with(density) { revealPx.value.toDp() }
-    val spacingPx = with(density) { actionSpacing.toPx() } * progress
-    val translationX = -(revealPx.value + spacingPx)
-    val spacingDp = with(density) { spacingPx.toDp() }
+    val startRevealPx = offsetPx.value.coerceAtLeast(0f)
+    val endRevealPx = (-offsetPx.value).coerceAtLeast(0f)
 
-    val isSplit = progress > 0f
-    val leftShape = splicedCornerRadius(
+    val startProgress = if (startTargetRevealPx > 0f) {
+        (startRevealPx / startTargetRevealPx).coerceIn(0f, 1f)
+    } else 0f
+    val endProgress = if (endTargetRevealPx > 0f) {
+        (endRevealPx / endTargetRevealPx).coerceIn(0f, 1f)
+    } else 0f
+
+    val rowHeightDp = with(density) { targetRevealPx.toDp() }
+    val startRevealDp = with(density) { startRevealPx.toDp() }
+    val endRevealDp = with(density) { endRevealPx.toDp() }
+    val actionSpacingPx = with(density) { actionSpacing.toPx() }
+    val startSpacingPx = actionSpacingPx * startProgress
+    val endSpacingPx = actionSpacingPx * endProgress
+    val translationX = when {
+        offsetPx.value > 0f -> offsetPx.value + startSpacingPx
+        offsetPx.value < 0f -> offsetPx.value - endSpacingPx
+        else -> 0f
+    }
+    val startSpacingDp = with(density) { startSpacingPx.toDp() }
+    val endSpacingDp = with(density) { endSpacingPx.toDp() }
+
+    val isStartSplit = startProgress > 0f
+    val isEndSplit = endProgress > 0f
+    val contentShape = splicedCornerRadius(
+        isVerticalFirst = isGroupFirst,
+        isVerticalLast = isGroupLast,
+        isHorizontalFirst = !isStartSplit,
+        isHorizontalLast = !isEndSplit
+    )
+    val startShape = splicedCornerRadius(
         isVerticalFirst = isGroupFirst,
         isVerticalLast = isGroupLast,
         isHorizontalFirst = true,
-        isHorizontalLast = !isSplit
+        isHorizontalLast = false
     )
-    val rightShape = splicedCornerRadius(
+    val endShape = splicedCornerRadius(
         isVerticalFirst = isGroupFirst,
         isVerticalLast = isGroupLast,
         isHorizontalFirst = false,
@@ -105,47 +138,53 @@ fun SwipeRevealRow(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = minHeightDp)
-            .pointerInput(targetRevealPx) {
+            .pointerInput(startTargetRevealPx, endTargetRevealPx, hasStartAction, hasEndAction) {
                 detectHorizontalDragGestures(
                     onDragStart = {
                         isDragging = true
-                        requestedOpenInDrag = false
                         latestOnOpenChange(true)
-                        scope.launch { revealPx.stop() }
+                        scope.launch { offsetPx.stop() }
                     },
                     onHorizontalDrag = { change, dragAmount ->
                         change.consume()
 
-                        if (!latestIsOpen && !requestedOpenInDrag && dragAmount < 0f) {
-                            requestedOpenInDrag = true
-                            latestOnOpenChange(true)
+                        if (dragAmount > 0f && !hasStartAction && offsetPx.value >= 0f) {
+                            return@detectHorizontalDragGestures
                         }
-
-                        if (!latestIsOpen && revealPx.value <= 0f && dragAmount > 0f) {
+                        if (dragAmount < 0f && !hasEndAction && offsetPx.value <= 0f) {
                             return@detectHorizontalDragGestures
                         }
 
-                        val next = (revealPx.value - dragAmount).coerceIn(0f, targetRevealPx)
-                        scope.launch { revealPx.snapTo(next) }
+                        if (!latestIsOpen) latestOnOpenChange(true)
+                        val next = (offsetPx.value + dragAmount).coerceIn(-endTargetRevealPx, startTargetRevealPx)
+                        scope.launch { offsetPx.snapTo(next) }
                     },
                     onDragEnd = {
                         isDragging = false
-                        val targetOpen = revealPx.value >= targetRevealPx * 0.5f
-                        latestOnOpenChange(targetOpen)
+                        val target = when {
+                            offsetPx.value > 0f && hasStartAction && offsetPx.value >= startTargetRevealPx * 0.5f -> startTargetRevealPx
+                            offsetPx.value < 0f && hasEndAction && -offsetPx.value >= endTargetRevealPx * 0.5f -> -endTargetRevealPx
+                            else -> 0f
+                        }
+                        latestOnOpenChange(target != 0f)
                         scope.launch {
-                            revealPx.animateTo(
-                                targetValue = if (targetOpen) targetRevealPx else 0f,
+                            offsetPx.animateTo(
+                                targetValue = target,
                                 animationSpec = settleSpec
                             )
                         }
                     },
                     onDragCancel = {
                         isDragging = false
-                        val targetOpen = latestIsOpen
-                        latestOnOpenChange(targetOpen)
+                        val target = when {
+                            latestIsOpen && offsetPx.value > 0f && hasStartAction -> startTargetRevealPx
+                            latestIsOpen && offsetPx.value < 0f && hasEndAction -> -endTargetRevealPx
+                            else -> 0f
+                        }
+                        latestOnOpenChange(target != 0f)
                         scope.launch {
-                            revealPx.animateTo(
-                                targetValue = if (targetOpen) targetRevealPx else 0f,
+                            offsetPx.animateTo(
+                                targetValue = target,
                                 animationSpec = settleSpec
                             )
                         }
@@ -153,29 +192,48 @@ fun SwipeRevealRow(
                 )
             }
     ) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .width(revealDp + spacingDp)
-                .height(rowHeightDp)
-                .background(MaterialTheme.colorScheme.background)
-        )
-
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .width(revealDp)
-                .height(rowHeightDp)
-                .clip(rightShape)
-                .background(actionBackgroundColor),
-            content = actionContent
-        )
+        if (hasStartAction) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .width(startRevealDp + startSpacingDp)
+                    .height(rowHeightDp)
+                    .background(MaterialTheme.colorScheme.background)
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .width(startRevealDp)
+                    .height(rowHeightDp)
+                    .clip(startShape)
+                    .background(startActionBackgroundColor),
+                content = startActionContent!!
+            )
+        }
+        if (hasEndAction) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .width(endRevealDp + endSpacingDp)
+                    .height(rowHeightDp)
+                    .background(MaterialTheme.colorScheme.background)
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .width(endRevealDp)
+                    .height(rowHeightDp)
+                    .clip(endShape)
+                    .background(endActionBackgroundColor),
+                content = endActionContent!!
+            )
+        }
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .graphicsLayer { this.translationX = translationX }
-                .clip(leftShape)
+                .clip(contentShape)
                 .background(contentBackgroundColor)
                 .pointerInput(Unit) {
                     detectTapGestures(
