@@ -13,7 +13,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -23,6 +23,7 @@ import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 import kotlin.math.roundToInt
 
+// 加权权重设置Dialog
 @Composable
 fun CurrentSessionWeightDialog(
     currentMaxX100: Int,
@@ -46,7 +47,7 @@ fun CurrentSessionWeightDialog(
     val maxHalfLife = ConfigConstants.MAX_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN
     var halfLifeMin by remember {
         val initial = currentHalfLifeMin.coerceIn(minHalfLife, maxHalfLife)
-        mutableStateOf(initial)
+        mutableLongStateOf(initial)
     }
 
     AlertDialog(

@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 
+// 预测文件数设置Dialog
 @Composable
 fun SceneStatsRecentFileCountDialog(
     currentValue: Int,

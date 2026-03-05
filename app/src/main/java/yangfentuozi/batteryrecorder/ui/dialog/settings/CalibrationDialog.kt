@@ -42,6 +42,7 @@ import yangfentuozi.batteryrecorder.ui.theme.AppShape
 import yangfentuozi.batteryrecorder.utils.computePowerW
 import kotlin.math.abs
 
+// 校准Dialog
 @Composable
 fun CalibrationDialog(
     currentValue: Int,

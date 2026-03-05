@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 
+
+// 记录分段时间设置Dialog
 @Composable
 fun SegmentDurationDialog(
     currentValueMin: Long,

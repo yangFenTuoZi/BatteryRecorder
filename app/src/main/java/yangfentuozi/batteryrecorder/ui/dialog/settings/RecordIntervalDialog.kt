@@ -21,6 +21,7 @@ import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 import kotlin.math.roundToInt
 
+// 采样间隔设置Dialog
 @Composable
 fun RecordIntervalDialog(
     currentValueMs: Long,
@@ -53,6 +54,7 @@ fun RecordIntervalDialog(
                     value = value,
                     onValueChange = { value = it },
                     valueRange = minS..maxS,
+                    steps = 600,
                     modifier = Modifier.weight(1F)
                 )
                 Text(

@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 
+// 批量大小设置Dialog
 @Composable
 fun BatchSizeDialog(
     currentValue: Int,
