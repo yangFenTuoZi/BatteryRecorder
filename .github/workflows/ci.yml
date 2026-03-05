@@ -7,7 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    if: ${{ !startsWith(github.event.head_commit.message, '[skip ci]') && github.repository_owner == 'yangFenTuoZi' }}
+    if: ${{ !startsWith(github.event.head_commit.message, '[skip ci]') && github.repository_owner == 'Itosang' }}
 
     steps:
       - name: Checkout
