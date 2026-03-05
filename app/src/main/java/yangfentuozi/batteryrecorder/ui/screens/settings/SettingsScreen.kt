@@ -1,5 +1,6 @@
 package yangfentuozi.batteryrecorder.ui.screens.settings
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.add
@@ -89,8 +90,8 @@ fun SettingsScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(vertical = 8.dp)
+                .padding(padding),
+            contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)
         ) {
             item {
                 // 校准设置
