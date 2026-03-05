@@ -52,7 +52,7 @@ class HistoryViewModel : ViewModel() {
     val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
 
     private companion object {
-        const val FIRST_BATCH_SIZE = 30
+        const val FIRST_BATCH_SIZE = 20
         const val TAG = "HistoryViewModel"
     }
 
