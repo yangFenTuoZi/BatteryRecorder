@@ -14,7 +14,7 @@ class BinderProvider : ContentProvider() {
 
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle? {
         if (method != "setBinder" || extras == null) {
-            return Bundle().apply { putBoolean("accepted", false) }
+            return Bundle.EMPTY
         }
 
         val binder: IBinder? = extras.getBinder("binder")
@@ -22,8 +22,8 @@ class BinderProvider : ContentProvider() {
         if (binderAlive) {
             Service.binder = binder
         }
-        Log.i("BatteryRecorderApp", "[BINDER] received=${binderAlive}")
-        return Bundle().apply { putBoolean("accepted", binderAlive) }
+        Log.i("BatteryRecorderApp", "[BINDER] received=$binderAlive")
+        return Bundle.EMPTY
     }
 
     override fun query(uri: Uri, projection: Array<out String>?, selection: String?, selectionArgs: Array<out String>?, sortOrder: String?): Cursor? = null
