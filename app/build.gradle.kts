@@ -32,7 +32,7 @@ val resolvedVersionName = when (versionChannel) {
     "ci" -> "$baseVersionName-ci"
     "release" -> "$baseVersionName-release"
     "local" -> baseVersionName
-    else -> throw org.gradle.api.GradleException("未知 versionChannel: $versionChannel，可选值: ci/release/local")
+    else -> throw GradleException("未知 versionChannel: $versionChannel，可选值: ci/release/local")
 }
 
 android {
