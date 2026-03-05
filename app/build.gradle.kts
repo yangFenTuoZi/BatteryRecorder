@@ -26,6 +26,15 @@ if (ksFile.canRead()) {
     }
 }
 
+val baseVersionName = "0.3.1"
+val versionChannel = providers.gradleProperty("versionChannel").orElse("local").get()
+val resolvedVersionName = when (versionChannel) {
+    "ci" -> "$baseVersionName-ci"
+    "release" -> "$baseVersionName-release"
+    "local" -> baseVersionName
+    else -> throw org.gradle.api.GradleException("未知 versionChannel: $versionChannel，可选值: ci/release/local")
+}
+
 android {
     namespace = "yangfentuozi.batteryrecorder"
     compileSdk = 36
@@ -35,7 +44,7 @@ android {
         minSdk = 31
         targetSdk = 36
         versionCode = rootProject.ext["gitCommitCountInt"] as Int
-        versionName = "0.3.1"
+        versionName = resolvedVersionName
     }
 
     buildTypes {
