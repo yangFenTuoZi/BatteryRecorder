@@ -78,7 +78,7 @@ android {
 
     applicationVariants.all {
         outputs.all {
-            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName = "batteryrecorder-v${versionName}-${name}.apk"
+            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName = "batteryrecorder_v${versionName}-$versionCode}.apk"
             assembleProvider.get().doLast {
                 val outDir = File(rootDir, "out")
                 val mappingDir = File(outDir, "mapping").absolutePath
