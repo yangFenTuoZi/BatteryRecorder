@@ -139,8 +139,8 @@ fun PowerCapacityChart(
     val screenOffColor = SCREEN_OFF_COLOR
     val peakLineColor = MaterialTheme.colorScheme.error
 
-    val filteredPoints = normalizePoints(points, recordScreenOffEnabled)
-    val rawPoints = points.sortedBy { it.timestamp }
+    val rawPoints = points
+    val filteredPoints = normalizePoints(rawPoints, recordScreenOffEnabled)
     if (filteredPoints.size < 2) {
         Text(
             text = "暂无数据",
@@ -542,14 +542,13 @@ private fun normalizePoints(
     if (recordScreenOffEnabled) return points
     if (points.size < 3) return points
 
-    val sorted = points.sortedBy { it.timestamp }
-    val result = ArrayList<ChartPoint>(sorted.size)
-    for (index in sorted.indices) {
-        val current = sorted[index]
+    val result = ArrayList<ChartPoint>(points.size)
+    for (index in points.indices) {
+        val current = points[index]
         // 跳过前后均为亮屏的孤立息屏点
         if (!current.isDisplayOn) {
-            val prev = sorted.getOrNull(index - 1)
-            val next = sorted.getOrNull(index + 1)
+            val prev = points.getOrNull(index - 1)
+            val next = points.getOrNull(index + 1)
             if (prev?.isDisplayOn == true && next?.isDisplayOn == true) {
                 continue
             }
@@ -561,18 +560,17 @@ private fun normalizePoints(
 
 private fun slicePointsForViewport(points: List<ChartPoint>, startTime: Long, endTime: Long): List<ChartPoint> {
     if (points.isEmpty()) return emptyList()
-    val sorted = points.sortedBy { it.timestamp }
-    if (startTime <= sorted.first().timestamp && endTime >= sorted.last().timestamp) return sorted
+    if (startTime <= points.first().timestamp && endTime >= points.last().timestamp) return points
 
-    val inRange = sorted.filter { it.timestamp in startTime..endTime }
+    val inRange = points.filter { it.timestamp in startTime..endTime }
     if (inRange.isEmpty()) {
-        val previous = sorted.lastOrNull { it.timestamp < startTime }
-        val next = sorted.firstOrNull { it.timestamp > endTime }
+        val previous = points.lastOrNull { it.timestamp < startTime }
+        val next = points.firstOrNull { it.timestamp > endTime }
         return listOfNotNull(previous, next)
     }
 
-    val previous = sorted.lastOrNull { it.timestamp < startTime }
-    val next = sorted.firstOrNull { it.timestamp > endTime }
+    val previous = points.lastOrNull { it.timestamp < startTime }
+    val next = points.firstOrNull { it.timestamp > endTime }
     return buildList {
         if (previous != null) add(previous)
         addAll(inRange)
@@ -895,9 +893,8 @@ private data class CapacityMarker(
  */
 private fun computeCapacityMarkers(points: List<ChartPoint>): List<CapacityMarker> {
     if (points.isEmpty()) return emptyList()
-    val sorted = points.sortedBy { it.timestamp }
-    val startCapacity = sorted.first().capacity
-    val endCapacity = sorted.last().capacity
+    val startCapacity = points.first().capacity
+    val endCapacity = points.last().capacity
     val delta = kotlin.math.abs(endCapacity - startCapacity)
     val step = if (delta <= 30) 5 else 10
 
@@ -921,7 +918,7 @@ private fun computeCapacityMarkers(points: List<ChartPoint>): List<CapacityMarke
     val usedTimestamps = HashSet<Long>()
     val markers = ArrayList<CapacityMarker>(targets.size)
     for (target in targets.toList().sorted()) {
-        val nearest = sorted.minByOrNull { kotlin.math.abs(it.capacity - target) } ?: continue
+        val nearest = points.minByOrNull { kotlin.math.abs(it.capacity - target) } ?: continue
         if (!usedTimestamps.add(nearest.timestamp)) continue
         markers.add(
             CapacityMarker(

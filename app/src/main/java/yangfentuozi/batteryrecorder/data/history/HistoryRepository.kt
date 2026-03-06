@@ -6,6 +6,7 @@ import yangfentuozi.batteryrecorder.data.model.ChartPoint
 import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.shared.Constants
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
+import yangfentuozi.batteryrecorder.shared.data.LineRecord
 import yangfentuozi.batteryrecorder.shared.data.RecordsFile
 import yangfentuozi.batteryrecorder.shared.data.RecordsStats
 import java.io.File
@@ -29,6 +30,11 @@ data class HistorySummary(
     val totalDurationMs: Long,
     val totalScreenOnMs: Long,
     val totalScreenOffMs: Long
+)
+
+data class HistoryRecordDetail(
+    val record: HistoryRecord,
+    val points: List<ChartPoint>
 )
 
 object HistoryRepository {
@@ -90,31 +96,38 @@ object HistoryRepository {
 
     /** 加载指定名称的单条记录 */
     fun loadRecord(context: Context, file: File): HistoryRecord? {
-        val dataDir = file.parentFile!!
-        val latestFile = dataDir.listFiles()?.filter { it.isFile }
-            ?.maxByOrNull { it.lastModified() }
+        return loadRecordDetail(context, file)?.record
+    }
 
-        return loadStats(context, file, latestFile != file)
+    /** 加载指定名称的详情（统计 + 图表点） */
+    fun loadRecordDetail(context: Context, file: File): HistoryRecordDetail? {
+        return runCatching {
+            if (isCurrentActiveRecord(context, file)) {
+                return@runCatching parseRecordDetail(file)
+            }
+
+            val cachedDetail = RecordDetailCacheStore.read(context, file)
+            if (cachedDetail != null) {
+                return@runCatching cachedDetail
+            }
+
+            val detail = parseRecordDetail(file)
+            RecordDetailCacheStore.write(context, file, detail.record.stats, detail.points)
+            detail
+        }.getOrNull()
+    }
+
+    fun prebuildRecordDetailCache(context: Context, file: File) {
+        if (!file.isFile || isCurrentActiveRecord(context, file)) return
+        if (RecordDetailCacheStore.read(context, file) != null) return
+        val detail = parseRecordDetail(file)
+        RecordDetailCacheStore.write(context, file, detail.record.stats, detail.points)
     }
 
     /** 加载记录的图表数据点，用于绘制功率曲线 */
     fun loadRecordPoints(context: Context, recordsFile: RecordsFile): List<ChartPoint> {
-        return (recordsFile.toFile(context) ?: return emptyList()).readLines()
-            .asSequence()
-            .filter { it.isNotBlank() }
-            .mapNotNull { line ->
-                val parts = line.split(",")
-                if (parts.size < 5) return@mapNotNull null
-                ChartPoint(
-                    timestamp = parts[0].toLongOrNull() ?: return@mapNotNull null,
-                    power = parts[1].toDoubleOrNull() ?: return@mapNotNull null,
-                    capacity = parts[3].toIntOrNull() ?: return@mapNotNull null,
-                    isDisplayOn = parts[4] == "1",
-                    temp = if (parts.size > 5) parts[5].toIntOrNull() ?: 0 else 0
-                )
-            }
-            .sortedBy { it.timestamp }
-            .toList()
+        val file = recordsFile.toFile(context) ?: return emptyList()
+        return loadRecordDetail(context, file)?.points ?: emptyList()
     }
 
     /** 从 service.currRecordsFile 加载当前记录 */
@@ -182,10 +195,11 @@ object HistoryRepository {
 
     /** 删除记录及其缓存文件 */
     fun deleteRecord(context: Context, recordsFile: RecordsFile): Boolean {
+        val file = recordsFile.toFile(context) ?: return false
 
-        if (runCatching { recordsFile.toFile(context)!!.delete() }.getOrDefault(false)) {
-            // 同步删除缓存文件
+        if (runCatching { file.delete() }.getOrDefault(false)) {
             runCatching { File(getCacheDir(context), recordsFile.name).delete() }
+            runCatching { RecordDetailCacheStore.delete(context, file) }
             return true
         }
         return false
@@ -200,7 +214,6 @@ object HistoryRepository {
     ) {
         val sourceFile = recordsFile.toFile(context)
             ?: throw FileNotFoundException("Record file not found: ${recordsFile.name}")
-        // 目标由 SAF 提供，必须通过 ContentResolver 流写入而不是直接按文件路径访问
         val outputStream = context.contentResolver.openOutputStream(destinationUri, "w")
             ?: throw IOException("Failed to open destination: $destinationUri")
 
@@ -209,5 +222,102 @@ object HistoryRepository {
                 input.copyTo(output)
             }
         }
+    }
+
+    private fun isCurrentActiveRecord(context: Context, file: File): Boolean {
+        val currentFile = runCatching { Service.service?.currRecordsFile }
+            .getOrNull()
+            ?.toFile(context)
+            ?: return false
+        return currentFile.absolutePath == file.absolutePath
+    }
+
+    private fun parseRecordDetail(file: File): HistoryRecordDetail {
+        if (!file.exists()) {
+            throw IllegalArgumentException("File not found: ${file.absolutePath}")
+        }
+
+        var startTime = Long.MAX_VALUE
+        var endTime = Long.MIN_VALUE
+        var startCapacity = -1
+        var endCapacity = -1
+        var screenOnTime = 0L
+        var screenOffTime = 0L
+        var totalEnergy = 0.0
+        var totalDuration = 0L
+
+        var lastTimestamp: Long? = null
+        var lastPower: Long? = null
+        var lastDisplayOn: Int? = null
+
+        val points = ArrayList<ChartPoint>()
+        file.bufferedReader().useLines { lines ->
+            lines.forEach { raw ->
+                val line = raw.trim()
+                if (line.isEmpty()) return@forEach
+
+                val record = LineRecord.fromString(line) ?: return@forEach
+                points.add(
+                    ChartPoint(
+                        timestamp = record.timestamp,
+                        power = record.power.toDouble(),
+                        capacity = record.capacity,
+                        isDisplayOn = record.isDisplayOn == 1,
+                        temp = record.temp
+                    )
+                )
+
+                if (record.timestamp < startTime) {
+                    startTime = record.timestamp
+                    startCapacity = record.capacity
+                }
+                if (record.timestamp > endTime) {
+                    endTime = record.timestamp
+                    endCapacity = record.capacity
+                }
+
+                val prevTs = lastTimestamp
+                val prevPower = lastPower
+                val prevDisplay = lastDisplayOn
+                if (prevTs != null && prevPower != null && prevDisplay != null) {
+                    val dt = record.timestamp - prevTs
+                    if (dt > 0) {
+                        if (prevDisplay == 1) {
+                            screenOnTime += dt
+                        } else {
+                            screenOffTime += dt
+                        }
+                        totalEnergy += prevPower * dt
+                        totalDuration += dt
+                    }
+                }
+
+                lastTimestamp = record.timestamp
+                lastPower = record.power
+                lastDisplayOn = record.isDisplayOn
+            }
+        }
+
+        if (totalDuration <= 0 || points.isEmpty()) {
+            throw IllegalStateException("Not enough valid samples")
+        }
+
+        return HistoryRecordDetail(
+            record = HistoryRecord(
+                name = file.name,
+                type = BatteryStatus.fromDataDirName(file.parentFile?.name),
+                stats = RecordsStats(
+                    startTime = startTime,
+                    endTime = endTime,
+                    startCapacity = startCapacity,
+                    endCapacity = endCapacity,
+                    screenOnTimeMs = screenOnTime,
+                    screenOffTimeMs = screenOffTime,
+                    averagePower = totalEnergy / totalDuration
+                ),
+                lastModified = file.lastModified()
+            ),
+            points = points
+        )
     }
 }

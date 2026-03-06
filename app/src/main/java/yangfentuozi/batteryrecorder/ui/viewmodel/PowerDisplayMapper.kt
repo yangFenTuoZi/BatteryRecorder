@@ -4,7 +4,6 @@ import android.content.Context
 import yangfentuozi.batteryrecorder.data.history.HistoryRecord
 import yangfentuozi.batteryrecorder.data.history.HistorySummary
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
-import yangfentuozi.batteryrecorder.data.model.ChartPoint
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 
 internal fun getDischargeDisplayPositive(context: Context): Boolean {
@@ -33,14 +32,4 @@ internal fun mapHistorySummaryForDisplay(
     if (summary.type != BatteryStatus.Discharging) return summary
     val multiplier = if (dischargeDisplayPositive) -1.0 else 1.0
     return summary.copy(averagePower = summary.averagePower * multiplier)
-}
-
-internal fun mapChartPointsForDisplay(
-    points: List<ChartPoint>,
-    batteryStatus: BatteryStatus,
-    dischargeDisplayPositive: Boolean
-): List<ChartPoint> {
-    if (batteryStatus != BatteryStatus.Discharging) return points
-    val multiplier = if (dischargeDisplayPositive) -1.0 else 1.0
-    return points.map { point -> point.copy(power = point.power * multiplier) }
 }

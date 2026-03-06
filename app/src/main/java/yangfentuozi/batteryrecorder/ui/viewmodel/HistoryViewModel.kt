@@ -46,6 +46,8 @@ class HistoryViewModel : ViewModel() {
 
     private val _dualCellEnabled = MutableStateFlow(ConfigConstants.DEF_DUAL_CELL_ENABLED)
     private val _calibrationValue = MutableStateFlow(ConfigConstants.DEF_CALIBRATION_VALUE)
+    private val _dischargeDisplayPositive =
+        MutableStateFlow(ConfigConstants.DEF_DISCHARGE_DISPLAY_POSITIVE)
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -157,24 +159,15 @@ class HistoryViewModel : ViewModel() {
             _isLoading.value = true
             try {
                 val dischargeDisplayPositive = getDischargeDisplayPositive(context)
-                val (detail, points) = withContext(Dispatchers.IO) {
-                    val recordFile = recordsFile.toFile(context)
-                    val detail = recordFile
-                        ?.let { HistoryRepository.loadRecord(context, it) }
-                        ?.let { mapHistoryRecordForDisplay(it, dischargeDisplayPositive) }
-                    val points = if (recordFile != null) {
-                        mapChartPointsForDisplay(
-                            points = HistoryRepository.loadRecordPoints(context, recordsFile),
-                            batteryStatus = recordsFile.type,
-                            dischargeDisplayPositive = dischargeDisplayPositive
-                        )
-                    } else {
-                        emptyList()
-                    }
-                    detail to points
+                val detail = withContext(Dispatchers.IO) {
+                    val recordFile = recordsFile.toFile(context) ?: return@withContext null
+                    HistoryRepository.loadRecordDetail(context, recordFile)
                 }
-                _recordDetail.value = detail
-                _recordPoints.value = points
+                _dischargeDisplayPositive.value = dischargeDisplayPositive
+                _recordDetail.value = detail?.record?.let {
+                    mapHistoryRecordForDisplay(it, dischargeDisplayPositive)
+                }
+                _recordPoints.value = detail?.points ?: emptyList()
                 recomputeRecordChartUiState()
             } finally {
                 _isLoading.value = false
@@ -240,12 +233,21 @@ class HistoryViewModel : ViewModel() {
         _userMessage.value = null
     }
 
-    fun updatePowerDisplayConfig(dualCellEnabled: Boolean, calibrationValue: Int) {
-        if (_dualCellEnabled.value == dualCellEnabled && _calibrationValue.value == calibrationValue) {
+    fun updatePowerDisplayConfig(
+        dualCellEnabled: Boolean,
+        calibrationValue: Int,
+        dischargeDisplayPositive: Boolean
+    ) {
+        if (
+            _dualCellEnabled.value == dualCellEnabled &&
+            _calibrationValue.value == calibrationValue &&
+            _dischargeDisplayPositive.value == dischargeDisplayPositive
+        ) {
             return
         }
         _dualCellEnabled.value = dualCellEnabled
         _calibrationValue.value = calibrationValue
+        _dischargeDisplayPositive.value = dischargeDisplayPositive
         recomputeRecordChartUiState()
     }
 
@@ -254,7 +256,8 @@ class HistoryViewModel : ViewModel() {
             detailType = _recordDetail.value?.type,
             rawPoints = _recordPoints.value,
             dualCellEnabled = _dualCellEnabled.value,
-            calibrationValue = _calibrationValue.value
+            calibrationValue = _calibrationValue.value,
+            dischargeDisplayPositive = _dischargeDisplayPositive.value
         )
         _recordChartUiState.value = computeViewportState(displayPoints)
     }
@@ -263,7 +266,8 @@ class HistoryViewModel : ViewModel() {
         detailType: BatteryStatus?,
         rawPoints: List<ChartPoint>,
         dualCellEnabled: Boolean,
-        calibrationValue: Int
+        calibrationValue: Int,
+        dischargeDisplayPositive: Boolean
     ): List<ChartPoint> {
         return rawPoints.map { point ->
             val displayPowerW = computePowerW(
@@ -271,10 +275,10 @@ class HistoryViewModel : ViewModel() {
                 dualCellEnabled = dualCellEnabled,
                 calibrationValue = calibrationValue
             )
-            val powerForChart = if (detailType == BatteryStatus.Charging && displayPowerW < 0) {
-                0.0
-            } else {
-                displayPowerW
+            val powerForChart = when {
+                detailType == BatteryStatus.Charging && displayPowerW < 0 -> 0.0
+                detailType == BatteryStatus.Discharging && dischargeDisplayPositive -> -displayPowerW
+                else -> displayPowerW
             }
             point.copy(power = powerForChart)
         }
