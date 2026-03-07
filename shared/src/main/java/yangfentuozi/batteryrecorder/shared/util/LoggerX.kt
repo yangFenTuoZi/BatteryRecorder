@@ -13,24 +13,17 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-class LoggerX(
-    private val tag: String
-) {
+object LoggerX {
 
-    companion object {
-        @Volatile
-        private var writer: DailyLineRotateFileWriter? = null
+    @Volatile
+    private var writer: DailyLineRotateFileWriter? = null
 
-        fun setLogDir(logDirPath: String) {
-            try {
-                writer = DailyLineRotateFileWriter(logDirPath, 5000, 7)
-            } catch (e: IOException) {
-                Log.e(this::class.java.simpleName, "init writer err", e)
-            }
+    fun setLogDir(logDirPath: String) {
+        try {
+            writer = DailyLineRotateFileWriter(logDirPath, 5000, 7)
+        } catch (e: IOException) {
+            Log.e(this::class.java.simpleName, "init writer err", e)
         }
-
-        inline fun <reified T> logger(): LoggerX =
-            LoggerX(T::class.java.simpleName)
     }
 
     @Volatile
@@ -43,42 +36,42 @@ class LoggerX(
         return level.priority >= allowedPriority.priority
     }
 
-    fun v(msg: String?, vararg args: Any?, tr: Throwable? = null) {
-        log(LogLevel.Verbose, msg, tr, args)
+    inline fun <reified T> v(msg: String?, vararg args: Any?, tr: Throwable? = null) {
+        log(T::class.java.simpleName, LogLevel.Verbose, msg, args, tr = tr)
     }
 
-    fun d(msg: String?, vararg args: Any?, tr: Throwable? = null) {
-        log(LogLevel.Debug, msg, tr, args)
+    inline fun <reified T> d(msg: String?, vararg args: Any?, tr: Throwable? = null) {
+        log(T::class.java.simpleName, LogLevel.Debug, msg, args, tr = tr)
     }
 
-    fun i(msg: String?, vararg args: Any?, tr: Throwable? = null) {
-        log(LogLevel.Info, msg, tr, args)
+    inline fun <reified T> i(msg: String?, vararg args: Any?, tr: Throwable? = null) {
+        log(T::class.java.simpleName, LogLevel.Info, msg, args, tr = tr)
     }
 
-    fun w(msg: String?, vararg args: Any?, tr: Throwable? = null) {
-        log(LogLevel.Warning, msg, tr, args)
+    inline fun <reified T> w(msg: String?, vararg args: Any?, tr: Throwable? = null) {
+        log(T::class.java.simpleName, LogLevel.Warning, msg, args, tr = tr)
     }
 
-    fun e(msg: String?, vararg args: Any?, tr: Throwable? = null) {
-        log(LogLevel.Error, msg, tr, args)
+    inline fun <reified T> e(msg: String?, vararg args: Any?, tr: Throwable? = null) {
+        log(T::class.java.simpleName, LogLevel.Error, msg, args, tr = tr)
     }
 
-    fun a(msg: String?, vararg args: Any?, tr: Throwable? = null) {
-        log(LogLevel.Assert, msg, tr, args)
+    inline fun <reified T> a(msg: String?, vararg args: Any?, tr: Throwable? = null) {
+        log(T::class.java.simpleName, LogLevel.Assert, msg, args, tr = tr)
     }
 
-    private fun log(level: LogLevel, msg: String?, tr: Throwable?, args: Array<out Any?>) {
+    fun log(tag: String, level: LogLevel, msg: String?, vararg args: Any?, tr: Throwable?) {
         if (!isLoggable(level)) return
         val base = if (args.isEmpty()) msg.toString() else String.format(
             Locale.ENGLISH,
             msg ?: "null",
-            *args
+            args
         )
         val content = if (tr == null) base else "$base\n${Log.getStackTraceString(tr)}"
-        println(level, content)
+        println(tag, level, content)
     }
 
-    fun println(priority: LogLevel, msg: String): Int {
+    fun println(tag: String, priority: LogLevel, msg: String): Int {
         writer?.write(tag, priority, msg)
         return Log.println(priority.priority, tag, msg)
     }
@@ -98,7 +91,7 @@ class LoggerX(
         }
 
         fun coerceAtMost(maximumPriority: LogLevel): LogLevel {
-            return LogLevel.fromPriority(priority.coerceAtMost(maximumPriority.priority))
+            return fromPriority(priority.coerceAtMost(maximumPriority.priority))
         }
     }
 }
