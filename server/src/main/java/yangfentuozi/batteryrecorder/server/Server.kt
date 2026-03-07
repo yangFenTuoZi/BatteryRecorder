@@ -25,7 +25,6 @@ import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Charging
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Discharging
 import yangfentuozi.batteryrecorder.shared.data.RecordsFile
 import yangfentuozi.batteryrecorder.shared.sync.PfdFileSender
-import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import yangfentuozi.hiddenapi.compat.ActivityManagerCompat
 import yangfentuozi.hiddenapi.compat.PackageManagerCompat
 import yangfentuozi.hiddenapi.compat.ServiceManagerCompat
@@ -271,8 +270,6 @@ class Server internal constructor() : IService.Stub() {
         if (Looper.getMainLooper() == null) {
             Looper.prepareMainLooper()
         }
-
-        LoggerX.i<Server>("starting")
 
         mMainHandler = Handler(Looper.getMainLooper())
         Runtime.getRuntime().addShutdownHook(Thread { this.stopServiceImmediately() })
