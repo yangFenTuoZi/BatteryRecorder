@@ -18,13 +18,17 @@ object LoggerX {
     @Volatile
     private var writer: DailyLineRotateFileWriter? = null
 
-    fun setLogDir(logDirPath: String) {
-        try {
-            writer = DailyLineRotateFileWriter(logDirPath, 5000, 7)
-        } catch (e: IOException) {
-            Log.e(this::class.java.simpleName, "init writer err", e)
+    // 只允许传入
+    var logDirPath: String?
+        get() = null
+        set(value) {
+            writer = if (value == null) null else try {
+                DailyLineRotateFileWriter(value, 5000, 7)
+            } catch (e: IOException) {
+                Log.e(this::class.java.simpleName, "init writer err", e)
+                null
+            }
         }
-    }
 
     @Volatile
     var logLevel: LogLevel = LogLevel.Info
