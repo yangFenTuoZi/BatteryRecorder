@@ -5,8 +5,8 @@ import android.os.BatteryProperty
 import android.os.IBatteryPropertiesRegistrar
 import android.os.ParcelFileDescriptor
 import android.os.ServiceManager
-import android.util.Log
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
+import yangfentuozi.batteryrecorder.shared.util.LoggerX
 
 
 class DumpsysSampler : Sampler {
@@ -27,7 +27,7 @@ class DumpsysSampler : Sampler {
             try {
                 batteryService.dump(writeSide.fileDescriptor, arrayOf())
             } catch (e: Exception) {
-                Log.e("DumpsysSampler", "dump err", e)
+                LoggerX.e<DumpsysSampler>("sample@Thread: dump 失败", tr = e)
             } finally {
                 writeSide.close()
             }
@@ -65,7 +65,7 @@ class DumpsysSampler : Sampler {
                 }
             }
         } catch (e: Exception) {
-            Log.e("DumpsysSampler", "read dump out err", e)
+            LoggerX.e<DumpsysSampler>("sample: 读取 dump 输出流失败", tr = e)
         } finally {
             readSide.close()
         }

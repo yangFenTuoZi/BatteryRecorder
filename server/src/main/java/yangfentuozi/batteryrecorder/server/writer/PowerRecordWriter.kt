@@ -2,11 +2,11 @@ package yangfentuozi.batteryrecorder.server.writer
 
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Charging
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Discharging
 import yangfentuozi.batteryrecorder.shared.data.LineRecord
+import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -43,10 +43,10 @@ class PowerRecordWriter(
         fun makeSureExists(file: File) {
             if (!file.exists()) {
                 if (!file.mkdirs()) {
-                    throw IOException("Failed to create power data directory: " + file.absolutePath)
+                    throw IOException("makeSureExists: 创建功率数据文件夹: ${file.absolutePath} 失败")
                 }
             } else if (!file.isDirectory()) {
-                throw IOException("Power data path is not a directory: " + file.absolutePath)
+                throw IOException("makeSureExists: 功率数据文件夹: ${file.absolutePath} 不是一个文件夹")
             }
             fixFileOwner(file)
         }
@@ -192,7 +192,7 @@ class PowerRecordWriter(
 
                 val openOutputStream: (() -> OutputStream) = {
                     if (!file.exists() && !file.createNewFile()) {
-                        throw IOException("Failed to create segment file: " + file.absolutePath)
+                        throw IOException("@openOutputStream: 创建分段文件: ${file.absolutePath} 失败")
                     }
                     fixFileOwner(file)
                     FileOutputStream(file, true)
@@ -230,7 +230,7 @@ class PowerRecordWriter(
                 try {
                     autoRetryWriter!!.close()
                 } catch (e: IOException) {
-                    Log.e(TAG, "Failed to close segment file", e)
+                    LoggerX.e<BaseDelayedRecordWriter>("closeCurrentSegment: 关闭分段文件失败", tr = e)
                 }
                 autoRetryWriter = null
                 if (needDeleteSegment(System.currentTimeMillis())) {
@@ -246,9 +246,5 @@ class PowerRecordWriter(
             if (needStartNewSegment(justChangedStatus)) closeCurrentSegment()
             return segmentFile
         }
-    }
-
-    companion object {
-        const val TAG = "DataWriter"
     }
 }

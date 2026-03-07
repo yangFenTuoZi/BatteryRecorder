@@ -13,14 +13,13 @@ import android.os.IPowerManager
 import android.os.RemoteCallbackList
 import android.os.RemoteException
 import android.os.ServiceManager
-import android.util.Log
 import androidx.annotation.Keep
-import yangfentuozi.batteryrecorder.server.Server.Companion.TAG
 import yangfentuozi.batteryrecorder.server.recorder.sampler.Sampler
 import yangfentuozi.batteryrecorder.server.writer.PowerRecordWriter
 import yangfentuozi.batteryrecorder.shared.Constants
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.shared.data.LineRecord
+import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import java.io.IOException
 
 class Monitor(
@@ -104,13 +103,13 @@ class Monitor(
                                 callbacks.getBroadcastItem(i)
                                     .onRecord(timestamp, power, status, temp)
                             } catch (e: RemoteException) {
-                                Log.e(TAG, "Failed to call back", e)
+                                LoggerX.e<Monitor>("MonitorThread -> callbackHandler@post: 回调失败", tr = e)
                             }
                         }
                         callbacks.finishBroadcast()
                     }
                 } catch (e: IOException) {
-                    Log.e(TAG, "Error reading power data", e)
+                    LoggerX.e<Monitor>("MonitorThread: 读取功耗数据失败", tr = e)
                 }
 
                 if (isInteractive || screenOffRecord) {
@@ -129,14 +128,13 @@ class Monitor(
             iActivityTaskManager.registerTaskStackListener(taskStackListener)
             iDisplayManager.registerCallback(displayCallback)
         } catch (e: RemoteException) {
-            throw RuntimeException("Failed to register task stack listener", e)
+            throw RuntimeException("start: 注册任务栈监听失败", e)
         }
 
         try {
             onFocusedAppChanged(iActivityTaskManager.getFocusedRootTaskInfo())
         } catch (e: RemoteException) {
-            Log.e(TAG, "Failed to get focused root task info", e)
-            throw RuntimeException(e)
+            throw RuntimeException("start: 获取当前焦点任务信息失败", e)
         }
         isInteractive = iPowerManager.isInteractive
 
@@ -151,7 +149,7 @@ class Monitor(
                     try {
                         callbacks.getBroadcastItem(i).onChangedCurrRecordsFile()
                     } catch (e: RemoteException) {
-                        Log.e(TAG, "Failed to call back", e)
+                        LoggerX.e<Monitor>("writer.onChangedCurrRecordsFile -> callbackHandler@post: 回调失败", tr = e)
                     }
                 }
                 callbacks.finishBroadcast()
@@ -168,7 +166,7 @@ class Monitor(
         try {
             iActivityTaskManager.unregisterTaskStackListener(taskStackListener)
         } catch (e: RemoteException) {
-            Log.e(TAG, "Failed to unregister task stack listener", e)
+            LoggerX.e<Monitor>( "stop: 注销任务栈监听失败", tr = e)
         }
     }
 

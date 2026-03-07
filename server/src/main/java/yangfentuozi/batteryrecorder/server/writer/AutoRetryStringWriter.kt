@@ -2,7 +2,7 @@ package yangfentuozi.batteryrecorder.server.writer
 
 import android.os.Handler
 import android.os.HandlerThread
-import android.util.Log
+import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import java.io.IOException
 import java.io.OutputStream
 
@@ -10,7 +10,7 @@ class AutoRetryStringWriter(
     private var outputStream: OutputStream,
     private val retryTimes: Int,
     private var retryIntervalMs: Long,
-    private val reopenOutputStream: (() -> OutputStream?)
+    private val reopenOutputStream: (() -> OutputStream)
 ) {
     private val thread = HandlerThread("RetryThread")
     private val handler: Handler
@@ -23,15 +23,14 @@ class AutoRetryStringWriter(
                 try {
                     outputStream.close()
                 } catch (e: IOException) {
-                    Log.e(TAG, "Failed to close output stream", e)
+                    LoggerX.e<AutoRetryStringWriter>("retryRunnable: 关闭 OutputStream 失败", tr = e)
                 }
 
                 try {
                     outputStream = reopenOutputStream()
-                        ?: throw IOException("The output stream which was reopened is null.")
                 } catch (e: IOException) {
-                    Log.e(TAG, "Failed to reopen output stream", e)
-                    throw RuntimeException("Failed too times to write")
+                    LoggerX.e<AutoRetryStringWriter>("retryRunnable: 重新打开 OutputStream 失败，多次重试失败，强行终止", tr = e)
+                    throw RuntimeException()
                 }
             }
             synchronized(bufferLock) {
@@ -41,7 +40,11 @@ class AutoRetryStringWriter(
                     buffer.setLength(0)
                     retryCount = -1
                 } catch (e: IOException) {
-                    Log.e(TAG, "Failed to write to output stream", e)
+                    if (++retryCount > retryTimes) {
+                        LoggerX.e<AutoRetryStringWriter>("retryRunnable: 写入 OutputStream 失败，多次重试失败，强行终止", tr = e)
+                        throw RuntimeException()
+                    }
+                    LoggerX.e<AutoRetryStringWriter>("retryRunnable: 写入 OutputStream 失败，准备重试", tr = e)
                     handler.postDelayed(this, retryIntervalMs)
                 }
             }
@@ -77,9 +80,5 @@ class AutoRetryStringWriter(
 
     fun hasRetry(): Boolean {
         return retryCount == -1 || handler.hasCallbacks(retryRunnable)
-    }
-
-    companion object {
-        const val TAG = "AutoRetryStringWriter"
     }
 }

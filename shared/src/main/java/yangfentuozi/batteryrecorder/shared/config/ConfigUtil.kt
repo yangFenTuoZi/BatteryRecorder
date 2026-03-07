@@ -3,7 +3,6 @@ package yangfentuozi.batteryrecorder.shared.config
 import android.content.SharedPreferences
 import android.os.Build
 import android.os.RemoteException
-import android.util.Log
 import android.util.Xml
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserException
@@ -15,8 +14,6 @@ import java.io.FileNotFoundException
 import java.io.IOException
 
 object ConfigUtil {
-    const val TAG = "ConfigUtil"
-
     fun getConfigByContentProvider(): Config? {
         return try {
             val reply = ActivityManagerCompat.contentProviderCall(
@@ -34,20 +31,20 @@ object ConfigUtil {
                 reply.getParcelable("config")
             }
             if (config == null) throw NullPointerException("config is null")
-            Log.i(TAG, "Requested config")
+            LoggerX.i<ConfigUtil>("getConfigByContentProvider: 请求配置")
             coerceConfigValue(config)
         } catch (e: RemoteException) {
-            Log.e(TAG, "Failed to request config", e)
+            LoggerX.e<ConfigUtil>("getConfigByContentProvider: 请求配置失败", tr = e)
             null
         } catch (e: NullPointerException) {
-            Log.e(TAG, "Failed to request config", e)
+            LoggerX.e<ConfigUtil>("getConfigByContentProvider: 请求配置失败", tr = e)
             null
         }
     }
 
     fun getConfigByReading(configFile: File): Config? {
         if (!configFile.exists()) {
-            Log.e(TAG, "Config file not found")
+            LoggerX.w<ConfigUtil>("getConfigByReading: 配置文件不存在")
             return null
         }
 
@@ -103,13 +100,13 @@ object ConfigUtil {
                 ))
             }
         } catch (e: FileNotFoundException) {
-            Log.e(TAG, "Config file not found", e)
+            LoggerX.w<ConfigUtil>("getConfigByReading: 配置文件不存在", tr = e)
             null
         } catch (e: IOException) {
-            Log.e(TAG, "Error reading config file", e)
+            LoggerX.w<ConfigUtil>("getConfigByReading: 读取配置文件失败", tr = e)
             null
         } catch (e: XmlPullParserException) {
-            Log.e(TAG, "Error parsing config file", e)
+            LoggerX.w<ConfigUtil>("getConfigByReading: 解析配置文件失败", tr = e)
             null
         }
     }

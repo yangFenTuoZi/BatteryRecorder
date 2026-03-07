@@ -4,9 +4,9 @@ import android.annotation.SuppressLint
 import android.content.pm.ApplicationInfo
 import android.os.Build
 import android.system.Os
-import android.util.Log
 import androidx.annotation.Keep
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
+import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import java.io.File
 import java.io.FileOutputStream
 import java.util.zip.ZipFile
@@ -46,7 +46,7 @@ object SysfsSampler: Sampler {
             System.load(libraryTmpPath)
             return nativeInit() == 1
         } catch (e: Throwable) {
-            Log.w("SysfsSampler", "load jni err", e)
+            LoggerX.w<SysfsSampler>("加载 JNI 失败", tr = e)
             return false
         }
     }

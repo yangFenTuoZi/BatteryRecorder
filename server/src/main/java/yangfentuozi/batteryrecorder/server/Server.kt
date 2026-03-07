@@ -147,11 +147,13 @@ class Server internal constructor() : IService.Stub() {
     }
 
     override fun getCurrRecordsFile(): RecordsFile? {
-        return RecordsFile.fromFile(when (writer.lastStatus) {
-            Charging -> writer.chargeDataWriter.getCurrFile(writer.lastStatus != Charging)
-            Discharging -> writer.dischargeDataWriter.getCurrFile(writer.lastStatus != Discharging)
-            else -> null
-        } ?: return null)
+        return RecordsFile.fromFile(
+            when (writer.lastStatus) {
+                Charging -> writer.chargeDataWriter.getCurrFile(writer.lastStatus != Charging)
+                Discharging -> writer.dischargeDataWriter.getCurrFile(writer.lastStatus != Discharging)
+                else -> null
+            } ?: return null
+        )
     }
 
     override fun registerRecordListener(listener: IRecordListener) {
@@ -174,7 +176,7 @@ class Server internal constructor() : IService.Stub() {
     }
 
     private fun unlockOPlusSampleTimeLimit(intervalMs: Long) {
-        runCatching {
+        try {
             val forceActive = "/proc/oplus-votable/GAUGE_UPDATE/force_active"
             val forceVal = "/proc/oplus-votable/GAUGE_UPDATE/force_val"
             if (Os.access(forceActive, OsConstants.R_OK)) {
@@ -187,6 +189,8 @@ class Server internal constructor() : IService.Stub() {
                     forceValFile.writeText("$intervalMs\n")
                 }
             }
+        } catch (e: Exception) {
+            LoggerX.w<Server>("解锁欧加功率采样频率限制时失败", tr = e)
         }
     }
 
@@ -225,7 +229,7 @@ class Server internal constructor() : IService.Stub() {
                     ) file.delete()
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Sync error", e)
+                LoggerX.e<Server>("sync@Thread: 同步失败", tr = e)
                 try {
                     writeEnd.close()
                 } catch (_: Exception) {
@@ -246,7 +250,7 @@ class Server internal constructor() : IService.Stub() {
             try {
                 writer.flushBuffer()
             } catch (e: IOException) {
-                Log.e(TAG, Log.getStackTraceString(e))
+                Log.e(this::class.java.simpleName, Log.getStackTraceString(e))
             }
             writer.close()
         }
@@ -264,10 +268,10 @@ class Server internal constructor() : IService.Stub() {
                 }
             )
             if (reply == null) {
-                Log.w(TAG, "[BINDER] provider==null，跳过推送")
+                LoggerX.w<Server>("sendBinder: Binder 发送失败, reply == null")
             }
         } catch (e: RemoteException) {
-            Log.e(TAG, "[BINDER] 推送失败", e)
+            LoggerX.w<Server>("sendBinder: Binder 发送失败", tr = e)
         }
     }
 
@@ -287,15 +291,16 @@ class Server internal constructor() : IService.Stub() {
     }
 
     companion object {
-        const val TAG: String = "Server"
-
         var appUid: Int = 0
 
         fun changeOwner(file: File) {
             try {
                 Os.chown(file.absolutePath, appUid, appUid)
             } catch (e: ErrnoException) {
-                throw RuntimeException("Failed to set file owner or group", e)
+                LoggerX.w<Server>(
+                    "changeOwner: 设置文件(夹): ${file.absolutePath} 所有者和组失败",
+                    tr = e
+                )
             }
         }
 
