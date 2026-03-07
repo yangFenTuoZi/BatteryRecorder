@@ -19,7 +19,7 @@ object LoggerX {
     private var writer: DailyLineRotateFileWriter? = null
 
     // 只允许传入
-    var logDirPath: String?
+    var logDir: File?
         get() = null
         set(value) {
             writer = if (value == null) null else try {
@@ -28,6 +28,13 @@ object LoggerX {
                 Log.e(this::class.java.simpleName, "init writer err", e)
                 null
             }
+        }
+
+    // 只允许传入
+    var logDirPath: String?
+        get() = null
+        set(value) {
+            logDir = if (value == null) null else File(value)
         }
 
     @Volatile
@@ -101,12 +108,11 @@ object LoggerX {
 }
 
 class DailyLineRotateFileWriter(
-    logDirPath: String,
+    private val logDir: File,
     private val maxLinesPerFile: Int,
     private val maxHistoryDays: Long
 ) {
 
-    private val logDir = File(logDirPath)
     private val fileNameRegex = Regex("""^(\d{4}-\d{2}-\d{2})(?:_(\d+))?\.log$""")
     private val dateFileFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
     private val lineTimeFormatter = DateTimeFormatter.ofPattern("dd HH:mm:ss.SSS")
@@ -118,7 +124,7 @@ class DailyLineRotateFileWriter(
 
     init {
         if (!logDir.exists()) logDir.mkdirs()
-        if (!logDir.isDirectory) throw IOException("logDir is not a directory: $logDirPath")
+        if (!logDir.isDirectory) throw IOException("logDir is not a directory: ${logDir.absolutePath}")
     }
 
     fun write(tag: String, level: LoggerX.LogLevel, message: String) {
