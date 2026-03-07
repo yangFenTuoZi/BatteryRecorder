@@ -26,6 +26,15 @@ if (ksFile.canRead()) {
     }
 }
 
+val baseVersionName = "0.3.2"
+val versionChannel = providers.gradleProperty("versionChannel").orElse("local").get()
+val resolvedVersionName = when (versionChannel) {
+    "ci" -> "$baseVersionName-ci"
+    "release" -> "$baseVersionName-release"
+    "local" -> baseVersionName
+    else -> throw GradleException("未知 versionChannel: $versionChannel，可选值: ci/release/local")
+}
+
 android {
     namespace = "yangfentuozi.batteryrecorder"
     compileSdk = 36
@@ -35,7 +44,7 @@ android {
         minSdk = 31
         targetSdk = 36
         versionCode = rootProject.ext["gitCommitCountInt"] as Int
-        versionName = "1.0"
+        versionName = resolvedVersionName
     }
 
     buildTypes {
@@ -69,7 +78,7 @@ android {
 
     applicationVariants.all {
         outputs.all {
-            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName = "batteryrecorder-v${versionName}-${name}.apk"
+            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName = "batteryrecorder_v${versionName}-$versionCode.apk"
             assembleProvider.get().doLast {
                 val outDir = File(rootDir, "out")
                 val mappingDir = File(outDir, "mapping").absolutePath

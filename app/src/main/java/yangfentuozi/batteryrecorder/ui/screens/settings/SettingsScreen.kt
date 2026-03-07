@@ -1,5 +1,6 @@
 package yangfentuozi.batteryrecorder.ui.screens.settings
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.add
@@ -22,9 +23,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.ipc.Service
+import yangfentuozi.batteryrecorder.ui.components.settings.sections.AppSection
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.CalibrationSection
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.PredictionSection
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.ServerSection
+import yangfentuozi.batteryrecorder.ui.model.AppActions
 import yangfentuozi.batteryrecorder.ui.model.CalibrationActions
 import yangfentuozi.batteryrecorder.ui.model.PredictionActions
 import yangfentuozi.batteryrecorder.ui.model.ServerActions
@@ -42,6 +45,9 @@ fun SettingsScreen(
     val serviceConnected = Service.service != null
     val actions = remember(settingsViewModel) {
         SettingsActions(
+            app = AppActions(
+                setCheckUpdateOnStartup = settingsViewModel::setCheckUpdateOnStartup
+            ),
             calibration = CalibrationActions(
                 setDualCellEnabled = settingsViewModel::setDualCellEnabled,
                 setDischargeDisplayPositiveEnabled = settingsViewModel::setDischargeDisplayPositiveEnabled,
@@ -89,9 +95,13 @@ fun SettingsScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(vertical = 8.dp)
+                .padding(padding),
+            contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)
         ) {
+            item {
+                AppSection(props = props)
+            }
+            item { Spacer(modifier = Modifier.size(16.dp)) }
             item {
                 // 校准设置
                 CalibrationSection(props = props)

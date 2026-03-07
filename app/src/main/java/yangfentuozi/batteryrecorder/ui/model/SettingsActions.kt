@@ -1,5 +1,9 @@
 package yangfentuozi.batteryrecorder.ui.model
 
+data class AppActions(
+    val setCheckUpdateOnStartup: (Boolean) -> Unit
+)
+
 data class CalibrationActions(
     val setDualCellEnabled: (Boolean) -> Unit,
     val setDischargeDisplayPositiveEnabled: (Boolean) -> Unit,
@@ -24,6 +28,7 @@ data class PredictionActions(
 )
 
 data class SettingsActions(
+    val app: AppActions,
     val calibration: CalibrationActions,
     val server: ServerActions,
     val prediction: PredictionActions

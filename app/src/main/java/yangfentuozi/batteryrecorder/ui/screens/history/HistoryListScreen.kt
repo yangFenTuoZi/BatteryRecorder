@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Outbox
@@ -32,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -46,6 +48,8 @@ import yangfentuozi.batteryrecorder.utils.formatDateTime
 import yangfentuozi.batteryrecorder.utils.formatDurationHours
 import yangfentuozi.batteryrecorder.utils.formatPower
 
+private const val NEAR_END_PRELOAD_THRESHOLD = 5
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryListScreen(
@@ -55,10 +59,20 @@ fun HistoryListScreen(
     onNavigateToRecordDetail: (BatteryStatus, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
+    // 历史记录列表状态流（用于列表渲染）
     val records by viewModel.records.collectAsState()
+    // 是否启用双电芯模式（影响功率显示换算）
     val dualCellEnabled by settingsViewModel.dualCellEnabled.collectAsState()
+    // 功率显示校准值（用于修正显示结果）
     val calibrationValue by settingsViewModel.calibrationValue.collectAsState()
+    // 一次性用户提示消息（如导出/删除结果提示）
     val userMessage by viewModel.userMessage.collectAsState()
+    // 当前是否正在分页加载（避免重复并发请求）
+    val isPaging by viewModel.isPaging.collectAsState()
+    // 是否还有更多历史记录可加载（用于触底预加载判断）
+    val hasMoreRecords by viewModel.hasMoreRecords.collectAsState()
+    // 列表滚动状态（用于计算是否接近列表底部）
+    val listState = rememberLazyListState()
     var openRecordName by remember { mutableStateOf<String?>(null) }
     // CreateDocument 回调异步返回，这里暂存要导出的记录，避免回调时丢失上下文
     var pendingExportFile by remember { mutableStateOf<RecordsFile?>(null) }
@@ -80,6 +94,20 @@ fun HistoryListScreen(
         val message = userMessage ?: return@LaunchedEffect
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         viewModel.consumeUserMessage()
+    }
+    // 触底预加载：
+    // 1) 当最后可见项接近列表尾部（预留 5 条）时触发下一页；
+    // 2) 由 hasMoreRecords/isPaging 双重约束避免无效请求与重复并发请求。
+    LaunchedEffect(listState, batteryStatus, hasMoreRecords, isPaging) {
+        snapshotFlow {
+            val totalItems = listState.layoutInfo.totalItemsCount
+            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+            // 预留少量阈值用于“未完全到底”时提前请求，减少等待空窗。
+            totalItems > 0 && lastVisible >= totalItems - NEAR_END_PRELOAD_THRESHOLD
+        }.collect { nearEnd ->
+            if (!nearEnd || !hasMoreRecords || isPaging) return@collect
+            viewModel.loadNextPage(context, batteryStatus)
+        }
     }
 
     val title = if (batteryStatus == BatteryStatus.Charging) "充电历史" else "放电历史"
@@ -109,6 +137,7 @@ fun HistoryListScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
+                state = listState,
                 contentPadding = PaddingValues(vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
@@ -117,10 +146,10 @@ fun HistoryListScreen(
                         modifier = Modifier.padding(horizontal = 16.dp),
                         isOpen = openRecordName == record.name,
                         onOpenChange = { open ->
-                            openRecordName = if (open) {
-                                record.name
-                            } else {
-                                if (openRecordName == record.name) null else openRecordName
+                            if (open) {
+                                openRecordName = record.name
+                            } else if (openRecordName == record.name) {
+                                openRecordName = null
                             }
                         },
                         isGroupFirst = index == 0,
