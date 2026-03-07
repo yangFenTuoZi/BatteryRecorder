@@ -7,6 +7,7 @@ import android.util.Log
 import android.util.Xml
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserException
+import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import yangfentuozi.hiddenapi.compat.ActivityManagerCompat
 import java.io.File
 import java.io.FileInputStream
@@ -61,6 +62,7 @@ object ConfigUtil {
                 var writeLatencyMs = ConfigConstants.DEF_WRITE_LATENCY_MS
                 var screenOffRecordEnabled = ConfigConstants.DEF_SCREEN_OFF_RECORD_ENABLED
                 var segmentDurationMin = ConfigConstants.DEF_SEGMENT_DURATION_MIN
+                var logLevel = ConfigConstants.DEF_LOG_LEVEL
 
                 while (eventType != XmlPullParser.END_DOCUMENT) {
                     if (eventType == XmlPullParser.START_TAG) {
@@ -83,6 +85,9 @@ object ConfigUtil {
 
                             ConfigConstants.KEY_SEGMENT_DURATION_MIN ->
                                 segmentDurationMin = valueAttr.toLongOrNull() ?: ConfigConstants.DEF_SEGMENT_DURATION_MIN
+
+                            ConfigConstants.KEY_LOG_LEVEL ->
+                                logLevel = LoggerX.LogLevel.fromPriority(valueAttr.trim().toIntOrNull() ?: Int.MIN_VALUE)
                         }
                     }
                     eventType = parser.next()
@@ -93,7 +98,8 @@ object ConfigUtil {
                     writeLatencyMs = writeLatencyMs,
                     batchSize = batchSize,
                     screenOffRecordEnabled = screenOffRecordEnabled,
-                    segmentDurationMin = segmentDurationMin
+                    segmentDurationMin = segmentDurationMin,
+                    logLevel = logLevel
                 ))
             }
         } catch (e: FileNotFoundException) {
@@ -117,7 +123,8 @@ object ConfigUtil {
                 ConfigConstants.KEY_SCREEN_OFF_RECORD_ENABLED,
                 ConfigConstants.DEF_SCREEN_OFF_RECORD_ENABLED
             ),
-            segmentDurationMin = prefs.getLong(ConfigConstants.KEY_SEGMENT_DURATION_MIN, ConfigConstants.DEF_SEGMENT_DURATION_MIN)
+            segmentDurationMin = prefs.getLong(ConfigConstants.KEY_SEGMENT_DURATION_MIN, ConfigConstants.DEF_SEGMENT_DURATION_MIN),
+            logLevel = LoggerX.LogLevel.fromPriority(prefs.getInt(ConfigConstants.KEY_LOG_LEVEL, ConfigConstants.DEF_LOG_LEVEL.priority))
         ))
     }
 

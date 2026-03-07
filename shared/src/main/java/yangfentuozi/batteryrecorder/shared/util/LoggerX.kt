@@ -2,6 +2,7 @@ package yangfentuozi.batteryrecorder.shared.util
 
 import android.util.Log
 import yangfentuozi.batteryrecorder.shared.BuildConfig
+import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import java.io.BufferedWriter
 import java.io.File
 import java.io.IOException
@@ -38,7 +39,7 @@ object LoggerX {
         }
 
     @Volatile
-    var logLevel: LogLevel = LogLevel.Info
+    var logLevel: LogLevel = ConfigConstants.DEF_LOG_LEVEL
 
     fun isLoggable(level: LogLevel): Boolean {
         val allowedPriority =
@@ -98,7 +99,7 @@ object LoggerX {
 
         companion object {
             private val priorityMap = entries.associateBy { it.priority }
-            fun fromPriority(priority: Int): LogLevel = priorityMap[priority] ?: Info
+            fun fromPriority(priority: Int): LogLevel = priorityMap[priority] ?: ConfigConstants.DEF_LOG_LEVEL
         }
 
         fun coerceAtMost(maximumPriority: LogLevel): LogLevel {

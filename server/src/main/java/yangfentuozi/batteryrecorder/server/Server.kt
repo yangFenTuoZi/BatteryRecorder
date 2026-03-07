@@ -25,6 +25,7 @@ import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Charging
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Discharging
 import yangfentuozi.batteryrecorder.shared.data.RecordsFile
 import yangfentuozi.batteryrecorder.shared.sync.PfdFileSender
+import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import yangfentuozi.hiddenapi.compat.ActivityManagerCompat
 import yangfentuozi.hiddenapi.compat.PackageManagerCompat
 import yangfentuozi.hiddenapi.compat.ServiceManagerCompat
@@ -71,6 +72,9 @@ class Server internal constructor() : IService.Stub() {
         appInfo = getAppInfo(Constants.SHELL_PACKAGE_NAME)
         shellDataDir = File(appInfo.dataDir)
         shellPowerDataDir = File("${appInfo.dataDir}/${Constants.SHELL_POWER_DATA_PATH}")
+
+        // 指定日志文件夹
+        LoggerX.logDirPath = appInfo.dataDir + Constants.SHELL_LOG_DIR_PATH
 
         if (Os.getuid() == 0) {
             shellPowerDataDir.let { shellPowerDataDir ->
@@ -159,6 +163,7 @@ class Server internal constructor() : IService.Stub() {
     }
 
     override fun updateConfig(config: Config) {
+        LoggerX.logLevel = config.logLevel
         monitor.recordIntervalMs = config.recordIntervalMs
         unlockOPlusSampleTimeLimit(config.recordIntervalMs.coerceAtLeast(200))
         monitor.screenOffRecord = config.screenOffRecordEnabled

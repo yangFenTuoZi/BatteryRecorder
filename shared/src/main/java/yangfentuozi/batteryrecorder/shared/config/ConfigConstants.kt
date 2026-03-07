@@ -1,5 +1,7 @@
 package yangfentuozi.batteryrecorder.shared.config
 
+import yangfentuozi.batteryrecorder.shared.util.LoggerX
+
 object ConfigConstants {
     const val PREFS_NAME = "app_settings"
     // server
@@ -85,4 +87,8 @@ object ConfigConstants {
     const val MAX_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN = 60L
     const val DEF_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN = 30L
 
+    // common
+    /** 日志*/
+    const val KEY_LOG_LEVEL = "log_level"
+    val DEF_LOG_LEVEL = LoggerX.LogLevel.Info
 }
