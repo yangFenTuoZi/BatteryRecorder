@@ -14,28 +14,23 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 class LoggerX(
-    private val tag: String,
-    private val fileWriter: DailyLineRotateFileWriter? = null
+    private val tag: String
 ) {
 
     companion object {
         @Volatile
-        var logDirPath: String? = null
+        private var writer: DailyLineRotateFileWriter? = null
 
-        inline fun <reified T> logger(
-            maxLinesPerFile: Int = 5000,
-            maxHistoryDays: Long = 7
-        ): LoggerX {
-            val logDirPath = this.logDirPath
-            val tag = T::class.java.simpleName
-            val fileWriter = if (logDirPath == null) null else try {
-                DailyLineRotateFileWriter(logDirPath, maxLinesPerFile, maxHistoryDays)
+        fun setLogDir(logDirPath: String) {
+            try {
+                writer = DailyLineRotateFileWriter(logDirPath, 5000, 7)
             } catch (e: IOException) {
-                e.printStackTrace()
-                null
+                Log.e(this::class.java.simpleName, "init writer err", e)
             }
-            return LoggerX(tag, fileWriter)
         }
+
+        inline fun <reified T> logger(): LoggerX =
+            LoggerX(T::class.java.simpleName)
     }
 
     @Volatile
@@ -84,7 +79,7 @@ class LoggerX(
     }
 
     fun println(priority: LogLevel, msg: String): Int {
-        fileWriter?.write(tag, priority, msg)
+        writer?.write(tag, priority, msg)
         return Log.println(priority.priority, tag, msg)
     }
 
