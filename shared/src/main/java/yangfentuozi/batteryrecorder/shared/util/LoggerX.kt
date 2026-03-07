@@ -43,7 +43,7 @@ object LoggerX {
 
     fun isLoggable(level: LogLevel): Boolean {
         val allowedPriority =
-            if (BuildConfig.DEBUG) logLevel.coerceAtMost(LogLevel.Info)
+            if (BuildConfig.DEBUG) logLevel.coerceAtMost(LogLevel.Debug)
             else logLevel
         return level.priority >= allowedPriority.priority
     }
