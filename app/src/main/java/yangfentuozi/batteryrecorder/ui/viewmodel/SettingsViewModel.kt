@@ -18,6 +18,9 @@ import yangfentuozi.batteryrecorder.ui.model.SettingsUiState
 class SettingsViewModel : ViewModel() {
     private lateinit var prefs: SharedPreferences
 
+    private val _checkUpdateOnStartup =
+        MutableStateFlow(ConfigConstants.DEF_CHECK_UPDATE_ON_STARTUP)
+
     // 双电芯设置
     private val _dualCellEnabled = MutableStateFlow(ConfigConstants.DEF_DUAL_CELL_ENABLED)
     val dualCellEnabled: StateFlow<Boolean> = _dualCellEnabled.asStateFlow()
@@ -107,6 +110,12 @@ class SettingsViewModel : ViewModel() {
      * 从 SharedPreferences 加载设置
      */
     private fun loadSettings() {
+        _checkUpdateOnStartup.value =
+            prefs.getBoolean(
+                ConfigConstants.KEY_CHECK_UPDATE_ON_STARTUP,
+                ConfigConstants.DEF_CHECK_UPDATE_ON_STARTUP
+            )
+
         _dualCellEnabled.value =
             prefs.getBoolean(
                 ConfigConstants.KEY_DUAL_CELL_ENABLED,
@@ -229,6 +238,14 @@ class SettingsViewModel : ViewModel() {
     /**
      * 更新双电芯设置
      */
+    fun setCheckUpdateOnStartup(enabled: Boolean) {
+        viewModelScope.launch {
+            prefs.edit { putBoolean(ConfigConstants.KEY_CHECK_UPDATE_ON_STARTUP, enabled) }
+            _checkUpdateOnStartup.value = enabled
+            refreshCombinedState()
+        }
+    }
+
     fun setDualCellEnabled(enabled: Boolean) {
         viewModelScope.launch {
             prefs.edit { putBoolean(ConfigConstants.KEY_DUAL_CELL_ENABLED, enabled) }
@@ -394,6 +411,7 @@ class SettingsViewModel : ViewModel() {
 
     private fun buildSettingsUiState(): SettingsUiState {
         return SettingsUiState(
+            checkUpdateOnStartup = _checkUpdateOnStartup.value,
             dualCellEnabled = _dualCellEnabled.value,
             dischargeDisplayPositive = _dischargeDisplayPositive.value,
             calibrationValue = _calibrationValue.value,

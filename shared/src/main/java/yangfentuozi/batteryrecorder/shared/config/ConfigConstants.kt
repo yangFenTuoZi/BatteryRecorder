@@ -67,6 +67,10 @@ object ConfigConstants {
     const val MAX_CALIBRATION_VALUE = 100_000_000
     const val DEF_CALIBRATION_VALUE = -1
 
+    /** 启动时检测更新 */
+    const val KEY_CHECK_UPDATE_ON_STARTUP = "check_update_on_startup"
+    const val DEF_CHECK_UPDATE_ON_STARTUP = true
+
     /** 是否启用“当次记录加权”续航预测 */
     const val KEY_PRED_CURRENT_SESSION_WEIGHT_ENABLED = "pred_current_session_weight_enabled"
     const val DEF_PRED_CURRENT_SESSION_WEIGHT_ENABLED = true

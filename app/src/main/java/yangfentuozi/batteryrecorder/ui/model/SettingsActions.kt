@@ -24,6 +24,7 @@ data class PredictionActions(
 )
 
 data class SettingsActions(
+    val setCheckUpdateOnStartup: (Boolean) -> Unit,
     val calibration: CalibrationActions,
     val server: ServerActions,
     val prediction: PredictionActions

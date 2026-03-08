@@ -43,7 +43,7 @@ android {
         applicationId = "yangfentuozi.batteryrecorder"
         minSdk = 31
         targetSdk = 36
-        versionCode = gitCommitCountInt
+        versionCode = 1
         versionName = finalVersionNameProvider.get()
     }
 
@@ -129,6 +129,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
     implementation(libs.capsule)
+    implementation(libs.commonmark)
     debugImplementation(composeBom)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

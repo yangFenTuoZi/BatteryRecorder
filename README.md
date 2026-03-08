@@ -30,10 +30,10 @@
 
 ## 下载
 
-- [GitHub Releases](https://github.com/yangFenTuoZi/BatteryRecorder/releases) (暂无)
-- [GitHub Actions](https://github.com/yangFenTuoZi/BatteryRecorder/actions)
+- [GitHub Releases](https://github.com/Itosang/BatteryRecorder/releases) (暂无)
+- [GitHub Actions](https://github.com/Itosang/BatteryRecorder/actions)
 
 ## 反馈
 
 - [QQ 群](https://qm.qq.com/q/6q5etoYAuc) (推荐)
-- [GitHub Issues](https://github.com/yangFenTuoZi/BatteryRecorder/issues)
+- [GitHub Issues](https://github.com/Itosang/BatteryRecorder/issues)
