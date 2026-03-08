@@ -113,14 +113,14 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: release-${{ steps.buildWithGradle.outputs.releaseName }}
+          name: ${{ steps.buildWithGradle.outputs.releaseName }}
           path: ${{ steps.buildWithGradle.outputs.releaseApkPath }}
 
       - name: Upload debug
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: debug-${{ steps.buildWithGradle.outputs.debugName }}
+          name: ${{ steps.buildWithGradle.outputs.debugName }}
           path: ${{ steps.buildWithGradle.outputs.debugApkPath }}
 
       - name: Upload mappings
