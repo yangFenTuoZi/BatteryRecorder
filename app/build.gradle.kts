@@ -43,7 +43,7 @@ android {
         applicationId = "yangfentuozi.batteryrecorder"
         minSdk = 31
         targetSdk = 36
-        versionCode = 1
+        versionCode = gitCommitCountInt
         versionName = finalVersionNameProvider.get()
     }
 
