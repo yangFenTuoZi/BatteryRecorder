@@ -207,6 +207,8 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 ## 编码约定
 
 - 所有注释、提交信息、文档使用简体中文
+- 基本提交信息格式示例：feat(app): 添加 xxx 功能
+- 代码保证连贯性和可读性，不要提取非必要函数或变量，不要过于抽象化
 - 代码标识符遵循现有命名约定（英文）
 - 新增依赖必须添加到 `gradle/libs.versions.toml` Version Catalog
 - AIDL 文件变更需同时检查 `:server` 和 `:shared` 模块
