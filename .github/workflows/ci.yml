@@ -4,10 +4,13 @@ on:
   push:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-24.04
-    if: ${{ !startsWith(github.event.head_commit.message, '[skip ci]') && github.repository_owner == 'Itosang' }}
+    if: ${{ github.repository_owner == 'Itosang' && (github.event_name != 'push' || !startsWith(github.event.head_commit.message, '[skip ci]')) }}
 
     steps:
       - name: Checkout
@@ -15,6 +18,48 @@ jobs:
         with:
           submodules: 'recursive'
           fetch-depth: 0
+
+      - name: Resolve build channel
+        id: channel
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          gitCommitCount=`git rev-list --count HEAD`
+          previousReleaseTag=`git tag --sort=-creatordate | grep -E '^[0-9]+-[0-9]+(\.[0-9]+)*$|^[0-9]+-[0-9]+(\.[0-9]+)*-release$|^[0-9]+(\.[0-9]+)*-release-[0-9]+$' | head -n 1`
+
+          if [ "$EVENT_NAME" = "push" ] && [ "$HEAD_COMMIT_MESSAGE" = "[release]" ]; then
+            versionSuffix="-release"
+            echo "is_release=true" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+            echo "version_suffix=$versionSuffix" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENT_NAME" = "push" ] && [ "$HEAD_COMMIT_MESSAGE" = "[prerelease]" ]; then
+            prereleaseCount=0
+            for tag in `git tag --sort=-creatordate`; do
+              if echo "$tag" | grep -Eq '^[0-9]+-[0-9]+(\.[0-9]+)*-prerelease[0-9]+$|^[0-9]+(\.[0-9]+)*-[0-9]+$'; then
+                if [ -z "$previousReleaseTag" ] || git merge-base --is-ancestor "$previousReleaseTag" "$tag"; then
+                  prereleaseCount=$((prereleaseCount + 1))
+                fi
+              fi
+            done
+            versionSuffix="-prerelease$((prereleaseCount + 1))"
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+            echo "version_suffix=$versionSuffix" >> "$GITHUB_OUTPUT"
+            echo "prerelease_index=$((prereleaseCount + 1))" >> "$GITHUB_OUTPUT"
+          else
+            versionSuffix="-alpha$gitCommitCount"
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            echo "version_suffix=$versionSuffix" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "git_commit_count=$gitCommitCount" >> "$GITHUB_OUTPUT"
+          echo "previous_release_tag=$previousReleaseTag" >> "$GITHUB_OUTPUT"
+          echo "gradle_args=-PversionNameSuffix=$versionSuffix" >> "$GITHUB_OUTPUT"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -34,7 +79,7 @@ jobs:
           echo '${{ secrets.KEYSTORE }}' | base64 --decode > key.jks
 
       - name: Write temporary key
-        if: hashFiles('key.jks') == '' && !steps.vars.outputs.HAS_SECRET
+        if: hashFiles('key.jks') == ''
         run: |
           keytool -genkey -alias a -dname CN=_ -storepass passwd -keypass passwd -keystore key.jks -keyalg RSA
           echo KEYSTORE_PASSWORD=passwd >> signing.properties
@@ -71,9 +116,25 @@ jobs:
           echo 'org.gradle.vfs.watch=true' >> gradle.properties
           echo 'org.gradle.jvmargs=-Xmx2048m' >> gradle.properties
           chmod +x gradlew
-          ./gradlew :app:assembleRelease :app:assembleDebug
-          releaseName=`ls app/build/outputs/apk/release/batteryrecorder*-v*-release.apk | awk -F '(/|.apk)' '{print $6}'` && echo "releaseName=$releaseName" >> $GITHUB_OUTPUT
-          debugName=`ls app/build/outputs/apk/debug/batteryrecorder*-v*-debug.apk | awk -F '(/|.apk)' '{print $6}'` && echo "debugName=$debugName" >> $GITHUB_OUTPUT
+          ./gradlew :app:assembleRelease :app:assembleDebug ${{ steps.channel.outputs.gradle_args }}
+
+          releaseApk=`ls app/build/outputs/apk/release/batteryrecorder*-v*-release.apk`
+          debugApk=`ls app/build/outputs/apk/debug/batteryrecorder*-v*-debug.apk`
+          releaseName=`basename "$releaseApk" .apk`
+          debugName=`basename "$debugApk" .apk`
+          releaseVersionName=${releaseName#batteryrecorder-v}
+          releaseVersionName=${releaseVersionName%-release}
+          versionCode=${{ steps.channel.outputs.git_commit_count }}
+          mappingFile="out/mapping/mapping-${releaseVersionName}.txt"
+
+          echo "releaseApk=$releaseApk" >> "$GITHUB_OUTPUT"
+          echo "debugApk=$debugApk" >> "$GITHUB_OUTPUT"
+          echo "releaseName=$releaseName" >> "$GITHUB_OUTPUT"
+          echo "debugName=$debugName" >> "$GITHUB_OUTPUT"
+          echo "releaseVersionName=$releaseVersionName" >> "$GITHUB_OUTPUT"
+          echo "versionCode=$versionCode" >> "$GITHUB_OUTPUT"
+          echo "tagName=${versionCode}-${releaseVersionName}" >> "$GITHUB_OUTPUT"
+          echo "mappingFile=$mappingFile" >> "$GITHUB_OUTPUT"
 
       - name: Upload release
         if: success()
@@ -95,3 +156,36 @@ jobs:
           name: mappings
           path: "app/build/outputs/mapping/release"
 
+      - name: Generate release notes
+        if: success() && steps.channel.outputs.should_publish == 'true'
+        id: releaseNotes
+        run: |
+          currentTag="${{ steps.buildWithGradle.outputs.tagName }}"
+          previousTag="${{ steps.channel.outputs.previous_release_tag }}"
+          notesFile=release-notes.md
+
+          {
+            echo "## 变更"
+            echo
+            if [ -n "$previousTag" ]; then
+              git log "$previousTag"..HEAD --pretty=format:'- `%h` %s'
+            else
+              echo "- 首次发布。"
+            fi
+            echo
+          } > "$notesFile"
+
+          echo "notesFile=$notesFile" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub release
+        if: success() && steps.channel.outputs.should_publish == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.buildWithGradle.outputs.tagName }}
+          name: ${{ steps.buildWithGradle.outputs.releaseName }}
+          target_commitish: ${{ github.sha }}
+          body_path: ${{ steps.releaseNotes.outputs.notesFile }}
+          prerelease: ${{ steps.channel.outputs.is_prerelease }}
+          files: |
+            ${{ steps.buildWithGradle.outputs.releaseApk }}
+            ${{ steps.buildWithGradle.outputs.mappingFile }}

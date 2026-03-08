@@ -1,3 +1,4 @@
+import com.android.build.gradle.internal.api.BaseVariantOutputImpl
 import java.io.FileInputStream
 import java.util.Properties
 
@@ -26,6 +27,9 @@ if (ksFile.canRead()) {
     }
 }
 
+val gitCommitCountInt = rootProject.extra["gitCommitCountInt"] as Int
+val baseVersionName = "1.0.0"
+
 android {
     namespace = "yangfentuozi.batteryrecorder"
     compileSdk = 36
@@ -34,8 +38,10 @@ android {
         applicationId = "yangfentuozi.batteryrecorder"
         minSdk = 31
         targetSdk = 36
-        versionCode = rootProject.ext["gitCommitCountInt"] as Int
-        versionName = "1.0.0"
+        versionCode = gitCommitCountInt
+        versionName = baseVersionName +
+                providers.gradleProperty("versionNameSuffix").orElse("-alpha$gitCommitCountInt")
+                    .get()
     }
 
     buildTypes {
@@ -69,7 +75,8 @@ android {
 
     applicationVariants.all {
         outputs.all {
-            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName = "batteryrecorder-v${versionName}-${name}.apk"
+            (this as BaseVariantOutputImpl).outputFileName =
+                "batteryrecorder-v${versionName}-${name}.apk"
             assembleProvider.get().doLast {
                 val outDir = File(rootDir, "out")
                 val mappingDir = File(outDir, "mapping").absolutePath
