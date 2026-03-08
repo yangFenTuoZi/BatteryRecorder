@@ -168,6 +168,7 @@ jobs:
           previousTag="${{ steps.channel.outputs.previous_release_tag }}"
           notesFile=release-notes.md
           repoUrl="${{ github.server_url }}/${{ github.repository }}"
+          conventionalCommitPattern='^([[:alpha:]]+(\([^)]+\))?!?:)[[:space:]]+(.+)$'
           compareRange=HEAD
           if [ -n "$previousTag" ]; then
             compareRange="$previousTag..HEAD"
@@ -190,7 +191,7 @@ jobs:
                   ;;
               esac
 
-              if [[ "$subject" =~ ^([[:alpha:]]+(\([^)]+\))?!?:)[[:space:]]+(.+)$ ]]; then
+              if [[ "$subject" =~ $conventionalCommitPattern ]]; then
                 subject="**${BASH_REMATCH[1]}** ${BASH_REMATCH[3]}"
               fi
 
