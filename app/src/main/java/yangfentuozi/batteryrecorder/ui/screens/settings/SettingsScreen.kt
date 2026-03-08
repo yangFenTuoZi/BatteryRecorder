@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.ipc.Service
+import yangfentuozi.batteryrecorder.ui.components.settings.sections.AppSection
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.CalibrationSection
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.PredictionSection
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.ServerSection
@@ -43,6 +44,7 @@ fun SettingsScreen(
     val serviceConnected = Service.service != null
     val actions = remember(settingsViewModel) {
         SettingsActions(
+            setCheckUpdateOnStartup = settingsViewModel::setCheckUpdateOnStartup,
             calibration = CalibrationActions(
                 setDualCellEnabled = settingsViewModel::setDualCellEnabled,
                 setDischargeDisplayPositiveEnabled = settingsViewModel::setDischargeDisplayPositiveEnabled,
@@ -93,6 +95,10 @@ fun SettingsScreen(
                 .padding(padding),
             contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)
         ) {
+            item {
+                AppSection(props = props)
+            }
+            item { Spacer(modifier = Modifier.size(16.dp)) }
             item {
                 // 校准设置
                 CalibrationSection(props = props)
