@@ -29,6 +29,11 @@ if (ksFile.canRead()) {
 
 val gitCommitCountInt = rootProject.extra["gitCommitCountInt"] as Int
 val baseVersionName = "1.0.0"
+val versionNameSuffixProvider = providers.gradleProperty("versionNameSuffix")
+    .orElse("-alpha$gitCommitCountInt")
+val finalVersionNameProvider = versionNameSuffixProvider.map { suffix ->
+    baseVersionName + suffix
+}
 
 android {
     namespace = "yangfentuozi.batteryrecorder"
@@ -39,9 +44,7 @@ android {
         minSdk = 31
         targetSdk = 36
         versionCode = gitCommitCountInt
-        versionName = baseVersionName +
-                providers.gradleProperty("versionNameSuffix").orElse("-alpha$gitCommitCountInt")
-                    .get()
+        versionName = finalVersionNameProvider.get()
     }
 
     buildTypes {
@@ -95,6 +98,18 @@ android {
                 }
             }
         }
+    }
+}
+
+tasks.register("printVersionMetadata") {
+    group = "help"
+    description = "打印 app 最终版本信息，供 CI 使用"
+    doLast {
+        val finalVersionName = finalVersionNameProvider.get()
+        println("versionName=$finalVersionName")
+        println("versionCode=$gitCommitCountInt")
+        println("releaseTag=v$finalVersionName")
+        println("releaseTitle=v$finalVersionName")
     }
 }
 

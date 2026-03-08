@@ -17,18 +17,19 @@ data class AppUpdate(
 object UpdateUtils {
 
     private const val TAG = "UpdateUtils"
+    private val versionCodeRegex = Regex("""<!--\s*versionCode:(\d+)\s*-->""")
 
     private const val GITHUB_API_URL =
         "https://api.github.com/repos/Itosang/BatteryRecorder/releases/latest"
 
-    private fun parseVersionCode(tagName: String): Int {
-        // 格式: 252-1.0 -> 252
-        return tagName.substringBefore("-").toIntOrNull() ?: -1
+    private fun parseVersionCode(body: String): Int {
+        // versionCode 由 release notes 隐藏元数据提供。
+        return versionCodeRegex.find(body)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: -1
     }
 
     private fun parseVersionName(tagName: String): String {
-        // 格式: 252-1.0 -> 1.0
-        return tagName.substringAfter("-", tagName)
+        // 新格式: v1.0.0-release -> 1.0.0-release
+        return tagName.removePrefix("v")
     }
 
     suspend fun fetchUpdate(): AppUpdate? = withContext(Dispatchers.IO) {
@@ -57,9 +58,9 @@ object UpdateUtils {
 
             val json = JSONObject(responseBody)
             val tagName = json.optString("tag_name", "")
-            val versionCode = parseVersionCode(tagName)
-            val versionName = parseVersionName(tagName)
             val body = json.optString("body", "")
+            val versionCode = parseVersionCode(body)
+            val versionName = parseVersionName(tagName)
             val downloadUrl = findApkDownloadUrl(json.optJSONArray("assets"))
 
             return@withContext if (versionCode > 0) {
