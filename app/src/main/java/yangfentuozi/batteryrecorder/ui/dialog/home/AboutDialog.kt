@@ -32,7 +32,7 @@ import yangfentuozi.batteryrecorder.BuildConfig
 import yangfentuozi.batteryrecorder.R
 import kotlin.math.roundToInt
 
-private const val REPO_URL = "https://github.com/Itosang/BatteryRecorder"
+private const val REPO_URL = "https://github.com/yangFenTuoZi/BatteryRecorder"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -17,7 +17,6 @@ data class AppUpdate(
 object UpdateUtils {
 
     private const val TAG = "UpdateUtils"
-    private const val RELEASE_BODY_PREFIX = "[release]\n\n"
 
     private const val GITHUB_API_URL =
         "https://api.github.com/repos/Itosang/BatteryRecorder/releases/latest"
@@ -33,12 +32,7 @@ object UpdateUtils {
         // 格式: 1.0-release-252 -> 1.0-release
         val separatorIndex = tagName.lastIndexOf('-')
         if (separatorIndex <= 0) return tagName
-        return tagName.take(separatorIndex)
-    }
-
-    private fun normalizeBody(body: String): String {
-        if (!body.startsWith(RELEASE_BODY_PREFIX)) return body
-        return body.removePrefix(RELEASE_BODY_PREFIX)
+        return tagName.substring(0, separatorIndex)
     }
 
     suspend fun fetchUpdate(): AppUpdate? = withContext(Dispatchers.IO) {
@@ -47,8 +41,8 @@ object UpdateUtils {
             val url = URL(GITHUB_API_URL)
             connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
-            connection.connectTimeout = 5000
-            connection.readTimeout = 5000
+            connection.connectTimeout = 10000
+            connection.readTimeout = 10000
             connection.instanceFollowRedirects = true
             connection.setRequestProperty("Accept", "application/vnd.github+json")
             connection.setRequestProperty("User-Agent", "BatteryRecorder-App")
@@ -69,13 +63,8 @@ object UpdateUtils {
             val tagName = json.optString("tag_name", "")
             val versionCode = parseVersionCode(tagName)
             val versionName = parseVersionName(tagName)
-            val body = normalizeBody(json.optString("body", ""))
+            val body = json.optString("body", "")
             val downloadUrl = findApkDownloadUrl(json.optJSONArray("assets"))
-
-            if (downloadUrl.isBlank()) {
-                Log.e(TAG, "更新资源缺少下载地址，tag: $tagName")
-                return@withContext null
-            }
 
             return@withContext if (versionCode > 0) {
                 AppUpdate(versionName, versionCode, body, downloadUrl)

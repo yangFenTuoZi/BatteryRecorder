@@ -26,7 +26,7 @@ if (ksFile.canRead()) {
     }
 }
 
-val baseVersionName = "0.3.2"
+val baseVersionName = "0.3.1"
 val versionChannel = providers.gradleProperty("versionChannel").orElse("local").get()
 val resolvedVersionName = when (versionChannel) {
     "ci" -> "$baseVersionName-ci"

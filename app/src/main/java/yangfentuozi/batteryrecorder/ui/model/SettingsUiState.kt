@@ -3,7 +3,6 @@ package yangfentuozi.batteryrecorder.ui.model
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 
 data class SettingsUiState(
-    val checkUpdateOnStartup: Boolean = ConfigConstants.DEF_CHECK_UPDATE_ON_STARTUP,
     val dualCellEnabled: Boolean = ConfigConstants.DEF_DUAL_CELL_ENABLED,
     val dischargeDisplayPositive: Boolean = ConfigConstants.DEF_DISCHARGE_DISPLAY_POSITIVE,
     val calibrationValue: Int = ConfigConstants.DEF_CALIBRATION_VALUE,
