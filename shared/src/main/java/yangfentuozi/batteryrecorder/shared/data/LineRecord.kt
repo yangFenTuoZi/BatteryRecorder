@@ -14,8 +14,10 @@ data class LineRecord(
     }
 
     companion object {
-        fun fromString(line: String) : LineRecord? {
-            val parts = line.split(",")
+        fun fromString(line: String) : LineRecord? =
+            fromParts(line.split(","))
+
+        internal fun fromParts(parts: List<String>) : LineRecord? {
             if (parts.size < 6) return null
 
             val timestamp = parts[0].toLongOrNull() ?: return null
