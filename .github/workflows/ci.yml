@@ -167,16 +167,39 @@ jobs:
         run: |
           previousTag="${{ steps.channel.outputs.previous_release_tag }}"
           notesFile=release-notes.md
+          repoUrl="${{ github.server_url }}/${{ github.repository }}"
+          compareRange=HEAD
+          if [ -n "$previousTag" ]; then
+            compareRange="$previousTag..HEAD"
+          fi
 
           {
             echo "<!-- versionCode:${{ steps.buildWithGradle.outputs.versionCode }} -->"
             echo
             echo "## 变更"
             echo
-            if [ -n "$previousTag" ]; then
-              git log "$previousTag"..HEAD --pretty=format:'- `%h` %s'
-            else
-              echo "- 首次发布。"
+            commitCount=0
+            while IFS=$'\t' read -r fullHash shortHash subject; do
+              if [ -z "$fullHash" ]; then
+                continue
+              fi
+
+              case "$subject" in
+                *"[release]"*|*"[prerelease]"*)
+                  continue
+                  ;;
+              esac
+
+              if [[ "$subject" =~ ^([[:alpha:]]+(\([^)]+\))?!?:)[[:space:]]+(.+)$ ]]; then
+                subject="**${BASH_REMATCH[1]}** ${BASH_REMATCH[3]}"
+              fi
+
+              echo "- [\`$shortHash\`]($repoUrl/commit/$fullHash) $subject"
+              commitCount=$((commitCount + 1))
+            done < <(git log "$compareRange" --pretty=format:'%H%x09%h%x09%s')
+
+            if [ "$commitCount" -eq 0 ]; then
+              echo "- 无可展示变更。"
             fi
             echo
           } > "$notesFile"
