@@ -96,12 +96,8 @@ jobs:
           echo 'org.gradle.jvmargs=-Xmx2048m' >> gradle.properties
           chmod +x gradlew
           ./gradlew :app:assembleRelease :app:assembleDebug -PversionChannel=${{ steps.meta.outputs.versionChannel }}
-          releaseApkPath="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | sort | head -n 1)"
-          debugApkPath="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | sort | head -n 1)"
-          if [[ -z "$releaseApkPath" || -z "$debugApkPath" ]]; then
-            echo "未找到构建产物，release=$releaseApkPath debug=$debugApkPath" >&2
-            exit 1
-          fi
+          releaseApkPath="$(ls app/build/outputs/apk/release/batteryrecorder-v*-release.apk | head -n 1)"
+          debugApkPath="$(ls app/build/outputs/apk/debug/batteryrecorder-v*-debug.apk | head -n 1)"
           releaseName="$(basename "$releaseApkPath" .apk)"
           debugName="$(basename "$debugApkPath" .apk)"
           echo "releaseApkPath=$releaseApkPath" >> "$GITHUB_OUTPUT"
@@ -114,14 +110,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.buildWithGradle.outputs.releaseName }}
-          path: ${{ steps.buildWithGradle.outputs.releaseApkPath }}
+          path: "app/build/outputs/apk/release/*.apk"
 
       - name: Upload debug
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.buildWithGradle.outputs.debugName }}
-          path: ${{ steps.buildWithGradle.outputs.debugApkPath }}
+          path: "app/build/outputs/apk/debug/*.apk"
 
       - name: Upload mappings
         uses: actions/upload-artifact@v4
@@ -140,14 +136,8 @@ jobs:
             exit 1
           fi
           apkFileName="$(basename "$releaseApk")"
-          if [[ "$apkFileName" =~ ^batteryrecorder-v(.+)-release\.apk$ ]]; then
-            versionName="${BASH_REMATCH[1]}"
-          elif [[ "$apkFileName" =~ ^batteryrecorder_v(.+)-[0-9]+\}?\.apk$ ]]; then
-            versionName="${BASH_REMATCH[1]}"
-          else
-            versionName=""
-          fi
-          if [[ -z "$versionName" ]]; then
+          versionName="$(echo "$apkFileName" | sed -E 's/^batteryrecorder-v(.+)-release\.apk$/\1/')"
+          if [[ -z "$versionName" || "$versionName" == "$apkFileName" ]]; then
             echo "无法从 APK 文件名解析 versionName: $apkFileName" >&2
             exit 1
           fi
