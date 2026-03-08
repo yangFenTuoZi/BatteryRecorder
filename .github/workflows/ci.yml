@@ -141,19 +141,9 @@ jobs:
             echo "无法从 APK 文件名解析 versionName: $apkFileName" >&2
             exit 1
           fi
-          if [[ "$versionName" != *-release ]]; then
-            echo "发布版本号不符合预期（缺少 -release 后缀）: $versionName" >&2
-            exit 1
-          fi
-          releaseVersionName="${versionName%-release}"
-          if [[ -z "$releaseVersionName" ]]; then
-            echo "解析发布版本号失败: $versionName" >&2
-            exit 1
-          fi
-          releaseId="${releaseVersionName}-${versionCode}"
+          releaseId="${versionName}-${versionCode}"
           echo "versionCode=$versionCode" >> "$GITHUB_OUTPUT"
           echo "versionName=$versionName" >> "$GITHUB_OUTPUT"
-          echo "releaseVersionName=$releaseVersionName" >> "$GITHUB_OUTPUT"
           echo "releaseApk=$releaseApk" >> "$GITHUB_OUTPUT"
           echo "releaseId=$releaseId" >> "$GITHUB_OUTPUT"
 
@@ -166,3 +156,4 @@ jobs:
           body: ${{ steps.meta.outputs.commitMessage }}
           files: ${{ steps.releaseMeta.outputs.releaseApk }}
           fail_on_unmatched_files: true
+
