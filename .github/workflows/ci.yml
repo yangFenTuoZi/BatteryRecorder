@@ -7,9 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-    if: ${{ github.repository_owner == 'Itosang' && (github.event_name != 'push' || !startsWith(github.event.head_commit.message, '[skip ci]')) }}
+    if: ${{ !startsWith(github.event.head_commit.message, '[skip ci]') && github.repository_owner == 'Itosang' }}
 
     steps:
       - name: Checkout
@@ -17,28 +15,6 @@ jobs:
         with:
           submodules: 'recursive'
           fetch-depth: 0
-
-      - name: Resolve build metadata
-        id: meta
-        run: |
-          commitTitle="$(git log -1 --pretty=%s)"
-          commitMessage="$(git log -1 --pretty=%B)"
-          branchName="${GITHUB_REF#refs/heads/}"
-          isRelease=false
-          versionChannel=ci
-          if [[ "$branchName" == "main" && "$commitTitle" == "[release]"* ]]; then
-            isRelease=true
-            versionChannel=release
-          fi
-          echo "commitTitle=$commitTitle" >> "$GITHUB_OUTPUT"
-          echo "branchName=$branchName" >> "$GITHUB_OUTPUT"
-          echo "isRelease=$isRelease" >> "$GITHUB_OUTPUT"
-          echo "versionChannel=$versionChannel" >> "$GITHUB_OUTPUT"
-          {
-            echo "commitMessage<<__COMMIT_MESSAGE__"
-            echo "$commitMessage"
-            echo "__COMMIT_MESSAGE__"
-          } >> "$GITHUB_OUTPUT"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -95,15 +71,9 @@ jobs:
           echo 'org.gradle.vfs.watch=true' >> gradle.properties
           echo 'org.gradle.jvmargs=-Xmx2048m' >> gradle.properties
           chmod +x gradlew
-          ./gradlew :app:assembleRelease :app:assembleDebug -PversionChannel=${{ steps.meta.outputs.versionChannel }}
-          releaseApkPath="$(ls app/build/outputs/apk/release/batteryrecorder-v*-release.apk | head -n 1)"
-          debugApkPath="$(ls app/build/outputs/apk/debug/batteryrecorder-v*-debug.apk | head -n 1)"
-          releaseName="$(basename "$releaseApkPath" .apk)"
-          debugName="$(basename "$debugApkPath" .apk)"
-          echo "releaseApkPath=$releaseApkPath" >> "$GITHUB_OUTPUT"
-          echo "debugApkPath=$debugApkPath" >> "$GITHUB_OUTPUT"
-          echo "releaseName=$releaseName" >> "$GITHUB_OUTPUT"
-          echo "debugName=$debugName" >> "$GITHUB_OUTPUT"
+          ./gradlew :app:assembleRelease :app:assembleDebug
+          releaseName=`ls app/build/outputs/apk/release/batteryrecorder*-v*-release.apk | awk -F '(/|.apk)' '{print $6}'` && echo "releaseName=$releaseName" >> $GITHUB_OUTPUT
+          debugName=`ls app/build/outputs/apk/debug/batteryrecorder*-v*-debug.apk | awk -F '(/|.apk)' '{print $6}'` && echo "debugName=$debugName" >> $GITHUB_OUTPUT
 
       - name: Upload release
         if: success()
@@ -124,36 +94,4 @@ jobs:
         with:
           name: mappings
           path: "app/build/outputs/mapping/release"
-
-      - name: Resolve release metadata
-        if: steps.meta.outputs.isRelease == 'true'
-        id: releaseMeta
-        run: |
-          versionCode="$(git rev-list --count HEAD)"
-          releaseApk="${{ steps.buildWithGradle.outputs.releaseApkPath }}"
-          if [[ -z "$releaseApk" ]]; then
-            echo "releaseApk 为空，无法发布 Release" >&2
-            exit 1
-          fi
-          apkFileName="$(basename "$releaseApk")"
-          versionName="$(echo "$apkFileName" | sed -E 's/^batteryrecorder-v(.+)-release\.apk$/\1/')"
-          if [[ -z "$versionName" || "$versionName" == "$apkFileName" ]]; then
-            echo "无法从 APK 文件名解析 versionName: $apkFileName" >&2
-            exit 1
-          fi
-          releaseId="${versionName}-${versionCode}"
-          echo "versionCode=$versionCode" >> "$GITHUB_OUTPUT"
-          echo "versionName=$versionName" >> "$GITHUB_OUTPUT"
-          echo "releaseApk=$releaseApk" >> "$GITHUB_OUTPUT"
-          echo "releaseId=$releaseId" >> "$GITHUB_OUTPUT"
-
-      - name: Publish GitHub Release
-        if: steps.meta.outputs.isRelease == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.releaseMeta.outputs.releaseId }}
-          name: ${{ steps.releaseMeta.outputs.releaseId }}
-          body: ${{ steps.meta.outputs.commitMessage }}
-          files: ${{ steps.releaseMeta.outputs.releaseApk }}
-          fail_on_unmatched_files: true
 

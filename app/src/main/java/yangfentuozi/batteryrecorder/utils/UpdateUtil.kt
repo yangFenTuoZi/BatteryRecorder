@@ -22,17 +22,13 @@ object UpdateUtils {
         "https://api.github.com/repos/Itosang/BatteryRecorder/releases/latest"
 
     private fun parseVersionCode(tagName: String): Int {
-        // 格式: 1.0-release-252 -> 252
-        val separatorIndex = tagName.lastIndexOf('-')
-        if (separatorIndex <= 0 || separatorIndex == tagName.lastIndex) return -1
-        return tagName.substring(separatorIndex + 1).toIntOrNull() ?: -1
+        // 格式: 252-1.0 -> 252
+        return tagName.substringBefore("-").toIntOrNull() ?: -1
     }
 
     private fun parseVersionName(tagName: String): String {
-        // 格式: 1.0-release-252 -> 1.0-release
-        val separatorIndex = tagName.lastIndexOf('-')
-        if (separatorIndex <= 0) return tagName
-        return tagName.substring(0, separatorIndex)
+        // 格式: 252-1.0 -> 1.0
+        return tagName.substringAfter("-", tagName)
     }
 
     suspend fun fetchUpdate(): AppUpdate? = withContext(Dispatchers.IO) {
