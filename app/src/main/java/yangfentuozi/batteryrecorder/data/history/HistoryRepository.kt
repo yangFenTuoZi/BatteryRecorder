@@ -115,6 +115,10 @@ object HistoryRepository {
     fun loadRecordPoints(context: Context, recordsFile: RecordsFile): List<ChartPoint> {
         val file = recordsFile.toFile(context)
             ?: throw FileNotFoundException("Record file not found: ${recordsFile.name}")
+        return loadRecordPoints(file)
+    }
+
+    fun loadRecordPoints(file: File): List<ChartPoint> {
         return RecordFileParser.parseToList(file).map { record ->
             ChartPoint(
                 timestamp = record.timestamp,

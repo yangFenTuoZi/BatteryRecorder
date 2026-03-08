@@ -169,7 +169,7 @@ class HistoryViewModel : ViewModel() {
                 val (detail, points) = withContext(Dispatchers.IO) {
                     val detail = HistoryRepository.loadRecord(context, recordFile)
                     val points = mapChartPointsForDisplay(
-                        points = HistoryRepository.loadRecordPoints(context, recordsFile),
+                        points = HistoryRepository.loadRecordPoints(recordFile),
                         batteryStatus = recordsFile.type,
                         dischargeDisplayPositive = dischargeDisplayPositive
                     )
