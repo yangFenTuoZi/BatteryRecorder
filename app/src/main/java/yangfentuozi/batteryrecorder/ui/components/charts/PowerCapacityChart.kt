@@ -44,7 +44,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import yangfentuozi.batteryrecorder.data.model.ChartPoint
+import yangfentuozi.batteryrecorder.data.model.RecordDetailChartPoint
+import yangfentuozi.batteryrecorder.data.model.normalizeRecordDetailChartPoints
 import yangfentuozi.batteryrecorder.utils.formatRelativeTime
 import java.util.Locale
 import kotlin.math.abs
@@ -68,8 +69,24 @@ private val SCREEN_OFF_COLOR = Color(0xFFD32F2F)
 private val LINE_STROKE_WIDTH = 1.3.dp
 private const val TEMP_EXPAND_STEP_TENTHS = 100.0    // 10℃
 
+enum class PowerCurveMode {
+    Raw,
+    Fitted,
+    Hidden,
+}
+
+/**
+ * 图表可见曲线配置。
+ *
+ * 这里将功率曲线单独建模为 mode，而不是简单的 show/hide：
+ * - Raw：显示原始功率线
+ * - Fitted：显示趋势线
+ * - Hidden：隐藏功率线
+ *
+ * 这样图表层只关心当前要画哪一类功率数据，不需要知道页面上是通过什么交互切换到这个状态的。
+ */
 data class RecordChartCurveVisibility(
-    val showPower: Boolean,
+    val powerCurveMode: PowerCurveMode,
     val showCapacity: Boolean,
     val showTemp: Boolean,
 )
@@ -114,7 +131,7 @@ private class ChartCoordinates(
     /**
      * 根据 X 坐标查找最近的数据点
      */
-    fun findPointAtX(offsetX: Float, points: List<ChartPoint>): ChartPoint? {
+    fun findPointAtX(offsetX: Float, points: List<RecordDetailChartPoint>): RecordDetailChartPoint? {
         if (chartWidth <= 0f) return null
         val x = (offsetX - paddingLeft).coerceIn(0f, chartWidth)
         val targetTime = minTime + (x / chartWidth * timeRange).toLong()
@@ -125,7 +142,8 @@ private class ChartCoordinates(
 /** 功率-电量图表（当前仅服务记录详情页单一场景）。 */
 @Composable
 fun PowerCapacityChart(
-    points: List<ChartPoint>,
+    points: List<RecordDetailChartPoint>,
+    trendPoints: List<RecordDetailChartPoint>,
     recordScreenOffEnabled: Boolean,
     recordStartTime: Long,
     modifier: Modifier,
@@ -151,9 +169,13 @@ fun PowerCapacityChart(
     val screenOffColor = SCREEN_OFF_COLOR
     val peakLineColor = MaterialTheme.colorScheme.error
 
-    val filteredPoints = normalizePoints(points, recordScreenOffEnabled)
+    // points 是原始展示点；这里只有它需要应用“孤立息屏点过滤”。
+    // trendPoints 已经在 ViewModel 侧基于过滤后的 points 分桶生成，图表层不能再二次过滤。
+    val filteredPoints = normalizeRecordDetailChartPoints(points, recordScreenOffEnabled)
+    val filteredTrendPoints = trendPoints.sortedBy { it.timestamp }
+    // rawPoints 保留完整原始序列，主要用于屏幕状态线等需要逐点时间连续性的附加图层。
     val rawPoints = points.sortedBy { it.timestamp }
-    if (filteredPoints.size < 2) {
+    if (filteredPoints.isEmpty()) {
         Text(
             text = "暂无数据",
             style = MaterialTheme.typography.bodyMedium,
@@ -167,8 +189,12 @@ fun PowerCapacityChart(
     val viewportStart = (visibleStartTime ?: fullMinTime).coerceIn(fullMinTime, fullMaxTime)
     val viewportEnd = (visibleEndTime ?: fullMaxTime).coerceIn(viewportStart, fullMaxTime)
     val viewportDurationMs = (viewportEnd - viewportStart).coerceAtLeast(1L)
+    // slicePointsForViewport 会额外保留边界外最近点，避免缩放到局部后曲线在视口边缘被硬切断。
     val visibleFilteredPoints = remember(filteredPoints, viewportStart, viewportEnd) {
         slicePointsForViewport(filteredPoints, viewportStart, viewportEnd)
+    }
+    val visibleTrendPoints = remember(filteredTrendPoints, viewportStart, viewportEnd) {
+        slicePointsForViewport(filteredTrendPoints, viewportStart, viewportEnd)
     }
     val visibleRawPoints = remember(rawPoints, viewportStart, viewportEnd) {
         slicePointsForViewport(rawPoints, viewportStart, viewportEnd)
@@ -178,29 +204,46 @@ fun PowerCapacityChart(
     } else {
         filteredPoints
     }
+    val renderTrendPoints = if (visibleTrendPoints.isNotEmpty()) {
+        visibleTrendPoints
+    } else {
+        filteredTrendPoints
+    }
     val renderRawPoints = if (visibleRawPoints.size >= 2) {
         visibleRawPoints
     } else {
         rawPoints
     }
-    val selectablePoints = remember(renderFilteredPoints, viewportStart, viewportEnd) {
-        renderFilteredPoints.filter { it.timestamp in viewportStart..viewportEnd }
-            .ifEmpty { renderFilteredPoints }
+    // 功率曲线的数据源由 mode 决定：
+    // - Raw/Fitted 分别对应原始点与趋势点
+    // - Hidden 虽然不绘制，但仍沿用原始点作为选中逻辑的后备数据源
+    val activePowerPoints = if (curveVisibility.powerCurveMode == PowerCurveMode.Fitted) {
+        renderTrendPoints
+    } else {
+        renderFilteredPoints
+    }
+    // 选择器只在当前视口里工作；如果视口里没有点，则退回当前功率数据源，避免点击失效。
+    val selectablePoints = remember(activePowerPoints, viewportStart, viewportEnd) {
+        activePowerPoints.filter { it.timestamp in viewportStart..viewportEnd }
+            .ifEmpty { activePowerPoints }
     }
 
     // 计算固定功率轴配置（根据最大功率值自动选择刻度范围）
-    val powerAxisConfig = remember(filteredPoints, fixedPowerAxisMode) {
+    // 拟合曲线不改变刻度范围是预期效果
+    val powerAxisPoints = filteredPoints
+    val powerAxisConfig = remember(powerAxisPoints, fixedPowerAxisMode) {
         val maxObservedAbsW = when (fixedPowerAxisMode) {
-            FixedPowerAxisMode.PositiveOnly -> filteredPoints.maxOfOrNull { it.power } ?: 0.0
-            FixedPowerAxisMode.NegativeOnly -> kotlin.math.abs(filteredPoints.minOfOrNull { it.power } ?: 0.0)
+            FixedPowerAxisMode.PositiveOnly -> powerAxisPoints.maxOfOrNull { it.rawPowerW } ?: 0.0
+            FixedPowerAxisMode.NegativeOnly -> kotlin.math.abs(powerAxisPoints.minOfOrNull { it.rawPowerW } ?: 0.0)
         }
         computeFixedPowerAxisConfig(maxObservedAbsW, fixedPowerAxisMode)
     }
     val capacityMarkers = remember(renderFilteredPoints, curveVisibility.showCapacity) {
         if (curveVisibility.showCapacity) computeCapacityMarkers(renderFilteredPoints) else emptyList()
     }
-    val selectedPointState = remember { mutableStateOf<ChartPoint?>(null) }
+    val selectedPointState = remember { mutableStateOf<RecordDetailChartPoint?>(null) }
     val isNegativeMode = fixedPowerAxisMode == FixedPowerAxisMode.NegativeOnly
+    val hasVisiblePowerCurve = curveVisibility.powerCurveMode != PowerCurveMode.Hidden
 
     LaunchedEffect(selectablePoints, viewportStart, viewportEnd) {
         val selected = selectedPointState.value ?: return@LaunchedEffect
@@ -212,10 +255,10 @@ fun PowerCapacityChart(
     }
 
     // 预计算峰值标签文本，用于动态调整右侧 padding
-    val peakLabelText = remember(renderFilteredPoints, isNegativeMode, curveVisibility.showPower) {
-        if (!curveVisibility.showPower) return@remember null
-        val peakPlotPowerW = renderFilteredPoints.maxOfOrNull {
-            if (isNegativeMode) (-it.power).coerceAtLeast(0.0) else it.power
+    val peakLabelText = remember(activePowerPoints, isNegativeMode, curveVisibility.powerCurveMode) {
+        if (!hasVisiblePowerCurve) return@remember null
+        val peakPlotPowerW = activePowerPoints.maxOfOrNull {
+            selectPowerValueForChart(it, curveVisibility.powerCurveMode, isNegativeMode)
         } ?: return@remember null
         String.format(Locale.getDefault(), "%.2f W", if (isNegativeMode) -peakPlotPowerW else peakPlotPowerW)
     }
@@ -249,6 +292,7 @@ fun PowerCapacityChart(
         SelectedPointInfo(
             selected = selectedPointState.value,
             recordStartTime = recordStartTime,
+            powerCurveMode = curveVisibility.powerCurveMode,
             isFullscreen = isFullscreen,
             onToggleFullscreen = onToggleFullscreen,
             startPadding = powerAxisStartDp
@@ -264,6 +308,7 @@ fun PowerCapacityChart(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(chartHeight)
+                    // 双指拖动只在全屏模式有意义，用来平移视口，而不是修改数据本身。
                     .pointerInput(renderFilteredPoints, paddingRightDp, viewportStart, viewportEnd, onViewportShift) {
                         if (onViewportShift == null) return@pointerInput
                         val paddingLeft = 32.dp.toPx()
@@ -293,6 +338,7 @@ fun PowerCapacityChart(
                             }
                         }
                     }
+                    // 单击选择最近点，显示当前时刻的功率/电量/温度摘要。
                     .pointerInput(selectablePoints, paddingRightDp, viewportStart, viewportEnd) {
                         val paddingLeft = 32.dp.toPx()
                         val chartWidth = size.width - paddingLeft - paddingRightDp.toPx()
@@ -303,6 +349,7 @@ fun PowerCapacityChart(
                             selectedPointState.value = coords.findPointAtX(offset.x, selectablePoints)
                         }
                     }
+                    // 拖动选择与点击选择共用同一套“最近点”逻辑，保持交互反馈一致。
                     .pointerInput(selectablePoints, paddingRightDp, viewportStart, viewportEnd) {
                         val paddingLeft = 32.dp.toPx()
                         val chartWidth = size.width - paddingLeft - paddingRightDp.toPx()
@@ -335,13 +382,20 @@ fun PowerCapacityChart(
                     viewportStart, viewportEnd, minPower, maxPower, minTemp, maxTemp
                 )
 
-                // 根据模式选择功率值转换策略
-                val powerValueSelector: (ChartPoint) -> Double = when {
-                    isNegativeMode -> { p -> (-p.power).coerceIn(minPower, maxPower) }
-                    else -> { p -> p.power.coerceIn(minPower, maxPower) }
+                // 绘图值与展示值是分离的：
+                // - 绘图值在负轴模式下会翻正，只用于映射坐标
+                // - 展示值保持原始语义，由 SelectedPointInfo 单独决定如何格式化
+                val powerValueSelector: (RecordDetailChartPoint) -> Double = { point ->
+                    selectPowerValueForChart(point, curveVisibility.powerCurveMode, isNegativeMode)
+                        .coerceIn(minPower, maxPower)
                 }
-                val powerPath = if (curveVisibility.showPower) {
-                    buildPath(renderFilteredPoints, coords, powerValueSelector)
+                val powerPath = if (hasVisiblePowerCurve) {
+                    buildPowerPath(
+                        points = activePowerPoints,
+                        coords = coords,
+                        valueSelector = powerValueSelector,
+                        smooth = curveVisibility.powerCurveMode == PowerCurveMode.Fitted
+                    )
                 } else {
                     null
                 }
@@ -358,11 +412,13 @@ fun PowerCapacityChart(
 
                 // 固定功率轴：垂直网格 + 主次刻度水平线 + 固定刻度标签
                 drawVerticalGridLines(coords, gridColor, verticalGridSegments)
-                drawFixedPowerGridLines(coords, gridColor, powerAxisConfig.majorStepW, powerAxisConfig.minorStepW)
-                drawFixedPowerAxisLabels(
-                    coords, gridColor, powerAxisConfig.majorStepW, powerAxisConfig.minorStepW,
-                    if (isNegativeMode) -1 else 1
-                )
+                if (hasVisiblePowerCurve) {
+                    drawFixedPowerGridLines(coords, gridColor, powerAxisConfig.majorStepW, powerAxisConfig.minorStepW)
+                    drawFixedPowerAxisLabels(
+                        coords, gridColor, powerAxisConfig.majorStepW, powerAxisConfig.minorStepW,
+                        if (isNegativeMode) -1 else 1
+                    )
+                }
                 drawTimeAxisLabels(
                     coords, gridColor, { value ->
                         val offset = (value - recordStartTime).coerceAtLeast(0L)
@@ -410,11 +466,37 @@ fun PowerCapacityChart(
                             )
                         )
                     }
+                    if (activePowerPoints.size == 1) {
+                        // 单点数据无法形成 path，这里补绘圆点，避免“有数据但图上什么都没有”。
+                        val point = activePowerPoints.first()
+                        val pointX = coords.timeToX(point.timestamp)
+                        if (curveVisibility.showTemp) {
+                            drawCircle(
+                                tempColor,
+                                radius = 2.8.dp.toPx(),
+                                center = Offset(pointX, coords.tempToY(point.temp.toDouble()))
+                            )
+                        }
+                        if (hasVisiblePowerCurve) {
+                            drawCircle(
+                                powerColor,
+                                radius = 2.8.dp.toPx(),
+                                center = Offset(pointX, coords.powerToY(powerValueSelector(point)))
+                            )
+                        }
+                        if (curveVisibility.showCapacity) {
+                            drawCircle(
+                                capacityColor,
+                                radius = 2.8.dp.toPx(),
+                                center = Offset(pointX, coords.capacityToY(point.capacity.toDouble()))
+                            )
+                        }
+                    }
                 }
 
                 // 滑动选择器
-                val peakPlotPowerW = if (curveVisibility.showPower) {
-                    renderFilteredPoints.maxOfOrNull { powerValueSelector(it) }
+                val peakPlotPowerW = if (hasVisiblePowerCurve) {
+                    activePowerPoints.maxOfOrNull { powerValueSelector(it) }
                 } else {
                     null
                 }
@@ -480,7 +562,7 @@ fun PowerCapacityChart(
                             end = Offset(selectedX, paddingTop + chartHeight),
                             strokeWidth = 1.dp.toPx()
                         )
-                        if (curveVisibility.showPower) {
+                        if (hasVisiblePowerCurve) {
                             val powerY = coords.powerToY(powerValueSelector(selectedPoint))
                             drawCircle(powerColor, radius = 2.8.dp.toPx(), center = Offset(selectedX, powerY))
                         }
@@ -508,9 +590,9 @@ fun PowerCapacityChart(
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             LegendItem(
-                label = "功耗",
+                label = powerCurveModeLabel(curveVisibility.powerCurveMode),
                 color = powerColor,
-                enabled = curveVisibility.showPower,
+                enabled = hasVisiblePowerCurve,
                 onClick = onTogglePowerVisibility
             )
             LegendItem(
@@ -536,8 +618,9 @@ fun PowerCapacityChart(
  */
 @Composable
 private fun SelectedPointInfo(
-    selected: ChartPoint?,
+    selected: RecordDetailChartPoint?,
     recordStartTime: Long,
+    powerCurveMode: PowerCurveMode,
     isFullscreen: Boolean,
     onToggleFullscreen: () -> Unit,
     startPadding: Dp,
@@ -547,7 +630,12 @@ private fun SelectedPointInfo(
     } else {
         val offset = (selected.timestamp - recordStartTime).coerceAtLeast(0L)
         val timeText = formatRelativeTime(offset)
-        val powerText = String.format(Locale.getDefault(), "%.2f W", selected.power)
+        val displayPowerW = selectPowerValueForDisplay(selected, powerCurveMode)
+        val powerText = if (powerCurveMode == PowerCurveMode.Fitted) {
+            String.format(Locale.getDefault(), "%.2f W（拟合）", displayPowerW)
+        } else {
+            String.format(Locale.getDefault(), "%.2f W", displayPowerW)
+        }
         val capacityText = "${selected.capacity}%"
         val tempText =
             if (selected.temp == 0) "" else " · ${String.format(Locale.getDefault(), "%.1f ℃", selected.temp / 10.0)}"
@@ -618,34 +706,13 @@ private fun LegendItem(
     }
 }
 
-/**
- * 过滤息屏期间的孤立数据点（前后均为亮屏时跳过）
- */
-private fun normalizePoints(
-    points: List<ChartPoint>,
-    recordScreenOffEnabled: Boolean
-): List<ChartPoint> {
-    if (recordScreenOffEnabled) return points
-    if (points.size < 3) return points
-
-    val sorted = points.sortedBy { it.timestamp }
-    val result = ArrayList<ChartPoint>(sorted.size)
-    for (index in sorted.indices) {
-        val current = sorted[index]
-        // 跳过前后均为亮屏的孤立息屏点
-        if (!current.isDisplayOn) {
-            val prev = sorted.getOrNull(index - 1)
-            val next = sorted.getOrNull(index + 1)
-            if (prev?.isDisplayOn == true && next?.isDisplayOn == true) {
-                continue
-            }
-        }
-        result.add(current)
-    }
-    return result
-}
-
-private fun slicePointsForViewport(points: List<ChartPoint>, startTime: Long, endTime: Long): List<ChartPoint> {
+private fun slicePointsForViewport(
+    points: List<RecordDetailChartPoint>,
+    startTime: Long,
+    endTime: Long
+): List<RecordDetailChartPoint> {
+    // 视口切片不是单纯过滤 in-range 点：
+    // 为了让折线在边界处连续，会额外保留左右两侧最近的邻点。
     if (points.isEmpty()) return emptyList()
     val sorted = points.sortedBy { it.timestamp }
     if (startTime <= sorted.first().timestamp && endTime >= sorted.last().timestamp) return sorted
@@ -669,50 +736,93 @@ private fun slicePointsForViewport(points: List<ChartPoint>, startTime: Long, en
 /**
  * 构建功率曲线路径
  */
-private fun buildPath(
-    points: List<ChartPoint>,
+private fun buildPowerPath(
+    points: List<RecordDetailChartPoint>,
     coords: ChartCoordinates,
-    valueSelector: (ChartPoint) -> Double
+    valueSelector: (RecordDetailChartPoint) -> Double,
+    smooth: Boolean,
 ): Path {
-    val path = Path()
-    points.forEachIndexed { index, point ->
-        val x = coords.timeToX(point.timestamp)
-        val y = coords.powerToY(valueSelector(point))
-        if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+    // 功率曲线是唯一同时支持“原始折线 / 趋势平滑线”两种绘制样式的曲线。
+    if (!smooth) {
+        return buildLinearPath(points, coords) { point -> coords.powerToY(valueSelector(point)) }
     }
-    return path
+    return buildSmoothPath(points, coords) { point -> coords.powerToY(valueSelector(point)) }
 }
 
 /**
  * 构建电量曲线路径（固定 0.9 缩放，避免与底部时间轴重叠）
  */
 private fun buildCapacityPath(
-    points: List<ChartPoint>,
+    points: List<RecordDetailChartPoint>,
     coords: ChartCoordinates,
-    valueSelector: (ChartPoint) -> Double
+    valueSelector: (RecordDetailChartPoint) -> Double
 ): Path {
-    val path = Path()
-    points.forEachIndexed { index, point ->
-        val x = coords.timeToX(point.timestamp)
-        val y = coords.capacityToY(valueSelector(point))
-        if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
-    }
-    return path
+    return buildLinearPath(points, coords) { point -> coords.capacityToY(valueSelector(point)) }
 }
 
 /**
  * 构建温度曲线路径（使用 tempToY 映射，0.9 缩放）
  */
 private fun buildTempPath(
-    points: List<ChartPoint>,
+    points: List<RecordDetailChartPoint>,
     coords: ChartCoordinates,
-    valueSelector: (ChartPoint) -> Double
+    valueSelector: (RecordDetailChartPoint) -> Double
 ): Path {
+    return buildLinearPath(points, coords) { point -> coords.tempToY(valueSelector(point)) }
+}
+
+private fun buildLinearPath(
+    points: List<RecordDetailChartPoint>,
+    coords: ChartCoordinates,
+    ySelector: (RecordDetailChartPoint) -> Float,
+): Path {
+    // 通用折线路径构建器，调用方只需要提供“这个点在当前轴上的 Y 值”。
     val path = Path()
     points.forEachIndexed { index, point ->
         val x = coords.timeToX(point.timestamp)
-        val y = coords.tempToY(valueSelector(point))
+        val y = ySelector(point)
         if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+    }
+    return path
+}
+
+private fun buildSmoothPath(
+    points: List<RecordDetailChartPoint>,
+    coords: ChartCoordinates,
+    ySelector: (RecordDetailChartPoint) -> Float,
+): Path {
+    // 使用相邻点推导三次贝塞尔控制点，让趋势曲线更适合表达低频走势。
+    // 它只用于趋势点；原始点仍保持折线，避免把瞬时尖刺错误地视觉平滑成真实走势。
+    val path = Path()
+    if (points.isEmpty()) return path
+
+    val pathPoints = points.map { point ->
+        Offset(coords.timeToX(point.timestamp), ySelector(point))
+    }
+    path.moveTo(pathPoints.first().x, pathPoints.first().y)
+    if (pathPoints.size == 1) return path
+
+    for (index in 0 until pathPoints.lastIndex) {
+        val previous = pathPoints.getOrElse(index - 1) { pathPoints[index] }
+        val current = pathPoints[index]
+        val next = pathPoints[index + 1]
+        val nextNext = pathPoints.getOrElse(index + 2) { next }
+        val controlPoint1 = Offset(
+            x = current.x + (next.x - previous.x) / 6f,
+            y = current.y + (next.y - previous.y) / 6f
+        )
+        val controlPoint2 = Offset(
+            x = next.x - (nextNext.x - current.x) / 6f,
+            y = next.y - (nextNext.y - current.y) / 6f
+        )
+        path.cubicTo(
+            controlPoint1.x,
+            controlPoint1.y,
+            controlPoint2.x,
+            controlPoint2.y,
+            next.x,
+            next.y
+        )
     }
     return path
 }
@@ -835,7 +945,7 @@ private fun DrawScope.drawTimeAxisLabels(
  * 绘制屏幕状态线（亮屏/息屏分色显示）
  */
 private fun DrawScope.drawScreenStateLine(
-    points: List<ChartPoint>,
+    points: List<RecordDetailChartPoint>,
     coords: ChartCoordinates,
     screenOnColor: Color,
     screenOffColor: Color,
@@ -900,7 +1010,7 @@ enum class FixedPowerAxisMode {
 }
 
 /** 温度轴范围：按数据自动扩展，20℃ 步进，无默认范围与硬限制。 */
-private fun computeTempAxisRange(points: List<ChartPoint>): Pair<Double, Double> {
+private fun computeTempAxisRange(points: List<RecordDetailChartPoint>): Pair<Double, Double> {
     val validTemps = points.asSequence()
         .map { it.temp.toDouble() }
         .filter { it > 0.0 }
@@ -979,7 +1089,7 @@ private data class CapacityMarker(
 /**
  * 计算电量标记点（起止点 + 整数倍刻度）
  */
-private fun computeCapacityMarkers(points: List<ChartPoint>): List<CapacityMarker> {
+private fun computeCapacityMarkers(points: List<RecordDetailChartPoint>): List<CapacityMarker> {
     if (points.isEmpty()) return emptyList()
     val sorted = points.sortedBy { it.timestamp }
     val startCapacity = sorted.first().capacity
@@ -1059,7 +1169,7 @@ private fun DrawScope.drawCapacityMarkers(
  * 绘制温度极值标记（最高/最低点圆点+标签）
  */
 private fun DrawScope.drawTempExtremeMarkers(
-    points: List<ChartPoint>,
+    points: List<RecordDetailChartPoint>,
     coords: ChartCoordinates,
     tempColor: Color,
 ) {
@@ -1092,5 +1202,45 @@ private fun DrawScope.drawTempExtremeMarkers(
         val textY = if (isMax) y - padding else y + textHeight + padding
 
         drawContext.canvas.nativeCanvas.drawText(label, textX, textY, textPaint)
+    }
+}
+
+private fun selectPowerValueForChart(
+    point: RecordDetailChartPoint,
+    powerCurveMode: PowerCurveMode,
+    isNegativeMode: Boolean,
+): Double {
+    // 图表坐标轴不接受“向下无限负值”的另一套逻辑，因此负轴模式统一翻成正高度。
+    // 真正展示给用户的符号语义由 selectPowerValueForDisplay 负责保留。
+    val powerValue = when (powerCurveMode) {
+        PowerCurveMode.Raw -> point.rawPowerW
+        PowerCurveMode.Fitted -> point.fittedPowerW
+        PowerCurveMode.Hidden -> point.rawPowerW
+    }
+    return if (isNegativeMode) {
+        (-powerValue).coerceAtLeast(0.0)
+    } else {
+        powerValue
+    }
+}
+
+private fun selectPowerValueForDisplay(
+    point: RecordDetailChartPoint,
+    powerCurveMode: PowerCurveMode,
+): Double {
+    // 展示值不做负轴翻转，保证点选信息与用户当前配置下的功率语义一致。
+    return when (powerCurveMode) {
+        PowerCurveMode.Raw -> point.rawPowerW
+        PowerCurveMode.Fitted -> point.fittedPowerW
+        PowerCurveMode.Hidden -> point.rawPowerW
+    }
+}
+
+private fun powerCurveModeLabel(mode: PowerCurveMode): String {
+    // Hidden 仍显示“功耗”标签，目的是保留同一个点击入口，而不是让图例项消失。
+    return when (mode) {
+        PowerCurveMode.Raw -> "功耗"
+        PowerCurveMode.Fitted -> "趋势"
+        PowerCurveMode.Hidden -> "功耗"
     }
 }

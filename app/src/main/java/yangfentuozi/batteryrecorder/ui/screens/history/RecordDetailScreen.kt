@@ -40,6 +40,7 @@ import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.shared.data.RecordsFile
 import yangfentuozi.batteryrecorder.ui.components.charts.FixedPowerAxisMode
 import yangfentuozi.batteryrecorder.ui.components.charts.PowerCapacityChart
+import yangfentuozi.batteryrecorder.ui.components.charts.PowerCurveMode
 import yangfentuozi.batteryrecorder.ui.components.charts.RecordChartCurveVisibility
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
 import yangfentuozi.batteryrecorder.ui.viewmodel.HistoryViewModel
@@ -49,7 +50,7 @@ import yangfentuozi.batteryrecorder.utils.formatDurationHours
 import yangfentuozi.batteryrecorder.utils.formatPower
 
 private const val RECORD_DETAIL_CHART_PREFS_NAME = "record_detail_chart"
-private const val KEY_SHOW_POWER_CURVE = "show_power_curve"
+private const val KEY_POWER_CURVE_MODE = "power_curve_mode"
 private const val KEY_SHOW_CAPACITY_CURVE = "show_capacity_curve"
 private const val KEY_SHOW_TEMP_CURVE = "show_temp_curve"
 
@@ -71,8 +72,9 @@ fun RecordDetailScreen(
     val chartPrefs = remember(context) {
         context.getSharedPreferences(RECORD_DETAIL_CHART_PREFS_NAME, Context.MODE_PRIVATE)
     }
-    var showPower by remember(chartPrefs) {
-        mutableStateOf(chartPrefs.getBoolean(KEY_SHOW_POWER_CURVE, true))
+    // 这三项是“详情页图表本地展示偏好”，不属于业务配置，因此直接放在页面本地状态里持久化。
+    var powerCurveMode by remember(chartPrefs) {
+        mutableStateOf(loadPowerCurveMode(chartPrefs.getString(KEY_POWER_CURVE_MODE, null)))
     }
     var showCapacity by remember(chartPrefs) {
         mutableStateOf(chartPrefs.getBoolean(KEY_SHOW_CAPACITY_CURVE, true))
@@ -83,11 +85,18 @@ fun RecordDetailScreen(
     var isChartFullscreen by rememberSaveable(recordsFile) { mutableStateOf(false) }
     var fullscreenViewportStartMs by rememberSaveable(recordsFile) { mutableStateOf<Long?>(null) }
 
-    LaunchedEffect(dualCellEnabled, calibrationValue) {
-        viewModel.updatePowerDisplayConfig(dualCellEnabled, calibrationValue)
+    // 图表展示依赖设置页的功率换算配置与息屏过滤配置；
+    // 这几个值任何一个变化，都需要让 ViewModel 重新生成 chartUiState。
+    LaunchedEffect(dualCellEnabled, calibrationValue, recordScreenOffEnabled) {
+        viewModel.updatePowerDisplayConfig(
+            dualCellEnabled = dualCellEnabled,
+            calibrationValue = calibrationValue,
+            recordScreenOffEnabled = recordScreenOffEnabled
+        )
     }
 
     LaunchedEffect(recordsFile) {
+        // 详情页切换记录文件时，重新加载文件内容与图表点。
         viewModel.loadRecord(context, recordsFile)
     }
 
@@ -155,11 +164,13 @@ fun RecordDetailScreen(
             FixedPowerAxisMode.PositiveOnly
         }
         val curveVisibility = RecordChartCurveVisibility(
-            showPower = showPower,
+            powerCurveMode = powerCurveMode,
             showCapacity = showCapacity,
             showTemp = showTemp
         )
 
+        // 只有全屏模式允许横向拖动浏览局部视口；
+        // 非全屏直接展示完整时长，减少普通详情页的认知负担。
         val viewportStartForChart = if (isChartFullscreen && chartUiState.minChartTime != null) {
             val minChartTime = chartUiState.minChartTime!!
             val maxViewportStart = chartUiState.maxViewportStartTime
@@ -183,9 +194,11 @@ fun RecordDetailScreen(
             null
         }
 
+        // chartBlock 统一封装普通模式 / 全屏模式下的同一张图表，避免两套 UI 结构分叉。
         val chartBlock: @Composable (Modifier, Boolean) -> Unit = { modifier, isFullscreenMode ->
             PowerCapacityChart(
-                points = chartUiState.displayPoints,
+                points = chartUiState.points,
+                trendPoints = chartUiState.trendPoints,
                 recordScreenOffEnabled = recordScreenOffEnabled,
                 recordStartTime = stats.startTime,
                 modifier = modifier,
@@ -203,9 +216,9 @@ fun RecordDetailScreen(
                     }
                 },
                 onTogglePowerVisibility = {
-                    val nextValue = !showPower
-                    chartPrefs.edit { putBoolean(KEY_SHOW_POWER_CURVE, nextValue) }
-                    showPower = nextValue
+                    val nextValue = powerCurveMode.next()
+                    chartPrefs.edit { putString(KEY_POWER_CURVE_MODE, nextValue.name) }
+                    powerCurveMode = nextValue
                 },
                 onToggleCapacityVisibility = {
                     val nextValue = !showCapacity
@@ -286,6 +299,22 @@ fun RecordDetailScreen(
                 }
             }
         }
+    }
+}
+
+private fun loadPowerCurveMode(value: String?): PowerCurveMode {
+    // 缺省回到 Raw，而不是 Fitted：
+    // 这样首次进入详情页时语义更接近旧版本的“功耗曲线”默认行为。
+    return PowerCurveMode.entries.firstOrNull { it.name == value } ?: PowerCurveMode.Raw
+}
+
+private fun PowerCurveMode.next(): PowerCurveMode {
+    // 图例点击按 Raw -> Fitted -> Hidden 循环切换，
+    // 让“同一入口控制功耗线模式”比单独再做弹窗或多按钮更轻量。
+    return when (this) {
+        PowerCurveMode.Raw -> PowerCurveMode.Fitted
+        PowerCurveMode.Fitted -> PowerCurveMode.Hidden
+        PowerCurveMode.Hidden -> PowerCurveMode.Raw
     }
 }
 
