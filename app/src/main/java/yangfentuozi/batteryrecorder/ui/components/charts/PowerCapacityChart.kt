@@ -2,9 +2,11 @@ package yangfentuozi.batteryrecorder.ui.components.charts
 
 import android.graphics.Paint
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,10 +46,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.data.model.ChartPoint
 import yangfentuozi.batteryrecorder.utils.formatRelativeTime
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
-import java.util.Locale
 
 /**
  * 创建标准文本画笔
@@ -65,6 +67,12 @@ private val SCREEN_ON_COLOR = Color(0xFF2E7D32)
 private val SCREEN_OFF_COLOR = Color(0xFFD32F2F)
 private val LINE_STROKE_WIDTH = 1.3.dp
 private const val TEMP_EXPAND_STEP_TENTHS = 100.0    // 10℃
+
+data class RecordChartCurveVisibility(
+    val showPower: Boolean,
+    val showCapacity: Boolean,
+    val showTemp: Boolean,
+)
 
 /**
  * 图表坐标系统，封装坐标转换逻辑
@@ -122,9 +130,13 @@ fun PowerCapacityChart(
     recordStartTime: Long,
     modifier: Modifier,
     fixedPowerAxisMode: FixedPowerAxisMode,
+    curveVisibility: RecordChartCurveVisibility,
     chartHeight: Dp,
     isFullscreen: Boolean,
     onToggleFullscreen: () -> Unit,
+    onTogglePowerVisibility: () -> Unit,
+    onToggleCapacityVisibility: () -> Unit,
+    onToggleTempVisibility: () -> Unit,
     useFivePercentTimeGrid: Boolean,
     visibleStartTime: Long?,
     visibleEndTime: Long?,
@@ -184,8 +196,8 @@ fun PowerCapacityChart(
         }
         computeFixedPowerAxisConfig(maxObservedAbsW, fixedPowerAxisMode)
     }
-    val capacityMarkers = remember(renderFilteredPoints) {
-        computeCapacityMarkers(renderFilteredPoints)
+    val capacityMarkers = remember(renderFilteredPoints, curveVisibility.showCapacity) {
+        if (curveVisibility.showCapacity) computeCapacityMarkers(renderFilteredPoints) else emptyList()
     }
     val selectedPointState = remember { mutableStateOf<ChartPoint?>(null) }
     val isNegativeMode = fixedPowerAxisMode == FixedPowerAxisMode.NegativeOnly
@@ -200,7 +212,8 @@ fun PowerCapacityChart(
     }
 
     // 预计算峰值标签文本，用于动态调整右侧 padding
-    val peakLabelText = remember(renderFilteredPoints, isNegativeMode) {
+    val peakLabelText = remember(renderFilteredPoints, isNegativeMode, curveVisibility.showPower) {
+        if (!curveVisibility.showPower) return@remember null
         val peakPlotPowerW = renderFilteredPoints.maxOfOrNull {
             if (isNegativeMode) (-it.power).coerceAtLeast(0.0) else it.power
         } ?: return@remember null
@@ -327,9 +340,21 @@ fun PowerCapacityChart(
                     isNegativeMode -> { p -> (-p.power).coerceIn(minPower, maxPower) }
                     else -> { p -> p.power.coerceIn(minPower, maxPower) }
                 }
-                val powerPath = buildPath(renderFilteredPoints, coords, powerValueSelector)
-                val capacityPath = buildCapacityPath(renderFilteredPoints, coords) { it.capacity.toDouble() }
-                val tempPath = buildTempPath(renderFilteredPoints, coords) { it.temp.toDouble() }
+                val powerPath = if (curveVisibility.showPower) {
+                    buildPath(renderFilteredPoints, coords, powerValueSelector)
+                } else {
+                    null
+                }
+                val capacityPath = if (curveVisibility.showCapacity) {
+                    buildCapacityPath(renderFilteredPoints, coords) { it.capacity.toDouble() }
+                } else {
+                    null
+                }
+                val tempPath = if (curveVisibility.showTemp) {
+                    buildTempPath(renderFilteredPoints, coords) { it.temp.toDouble() }
+                } else {
+                    null
+                }
 
                 // 固定功率轴：垂直网格 + 主次刻度水平线 + 固定刻度标签
                 drawVerticalGridLines(coords, gridColor, verticalGridSegments)
@@ -352,37 +377,47 @@ fun PowerCapacityChart(
                     right = paddingLeft + chartWidth,
                     bottom = paddingTop + chartHeight
                 ) {
-                    drawPath(
-                        path = tempPath,
-                        color = tempColor,
-                        style = Stroke(
-                            width = strokeWidth.toPx(),
-                            cap = StrokeCap.Round,
-                            join = StrokeJoin.Round
+                    tempPath?.let { path ->
+                        drawPath(
+                            path = path,
+                            color = tempColor,
+                            style = Stroke(
+                                width = strokeWidth.toPx(),
+                                cap = StrokeCap.Round,
+                                join = StrokeJoin.Round
+                            )
                         )
-                    )
-                    drawPath(
-                        path = powerPath,
-                        color = powerColor,
-                        style = Stroke(
-                            width = strokeWidth.toPx(),
-                            cap = StrokeCap.Round,
-                            join = StrokeJoin.Round
+                    }
+                    powerPath?.let { path ->
+                        drawPath(
+                            path = path,
+                            color = powerColor,
+                            style = Stroke(
+                                width = strokeWidth.toPx(),
+                                cap = StrokeCap.Round,
+                                join = StrokeJoin.Round
+                            )
                         )
-                    )
-                    drawPath(
-                        path = capacityPath,
-                        color = capacityColor,
-                        style = Stroke(
-                            width = strokeWidth.toPx(),
-                            cap = StrokeCap.Round,
-                            join = StrokeJoin.Round
+                    }
+                    capacityPath?.let { path ->
+                        drawPath(
+                            path = path,
+                            color = capacityColor,
+                            style = Stroke(
+                                width = strokeWidth.toPx(),
+                                cap = StrokeCap.Round,
+                                join = StrokeJoin.Round
+                            )
                         )
-                    )
+                    }
                 }
 
                 // 滑动选择器
-                val peakPlotPowerW = renderFilteredPoints.maxOfOrNull { powerValueSelector(it) }
+                val peakPlotPowerW = if (curveVisibility.showPower) {
+                    renderFilteredPoints.maxOfOrNull { powerValueSelector(it) }
+                } else {
+                    null
+                }
                 if (peakPlotPowerW != null) {
                     val peakY = coords.powerToY(peakPlotPowerW)
                     drawLine(
@@ -412,7 +447,9 @@ fun PowerCapacityChart(
                     drawCapacityMarkers(capacityMarkers, coords, capacityColor)
                 }
 
-                drawTempExtremeMarkers(renderFilteredPoints, coords, tempColor)
+                if (curveVisibility.showTemp) {
+                    drawTempExtremeMarkers(renderFilteredPoints, coords, tempColor)
+                }
 
                 if (renderRawPoints.isNotEmpty()) {
                     // 屏幕状态线保留在底部区域，但仅允许在图表横向范围内绘制
@@ -436,8 +473,6 @@ fun PowerCapacityChart(
                         ?.takeIf { it.timestamp in viewportStart..viewportEnd }
                         ?.let { selectedPoint ->
                         val selectedX = coords.timeToX(selectedPoint.timestamp)
-                        val powerY = coords.powerToY(powerValueSelector(selectedPoint))
-                        val capacityY = coords.capacityToY(selectedPoint.capacity.toDouble())
 
                         drawLine(
                             color = gridColor.copy(alpha = 0.6f),
@@ -445,10 +480,22 @@ fun PowerCapacityChart(
                             end = Offset(selectedX, paddingTop + chartHeight),
                             strokeWidth = 1.dp.toPx()
                         )
-                        drawCircle(powerColor, radius = 2.8.dp.toPx(), center = Offset(selectedX, powerY))
-                        drawCircle(capacityColor, radius = 2.8.dp.toPx(), center = Offset(selectedX, capacityY))
-                        val tempY = coords.tempToY(selectedPoint.temp.toDouble())
-                        drawCircle(tempColor, radius = 2.8.dp.toPx(), center = Offset(selectedX, tempY))
+                        if (curveVisibility.showPower) {
+                            val powerY = coords.powerToY(powerValueSelector(selectedPoint))
+                            drawCircle(powerColor, radius = 2.8.dp.toPx(), center = Offset(selectedX, powerY))
+                        }
+                        if (curveVisibility.showCapacity) {
+                            val capacityY = coords.capacityToY(selectedPoint.capacity.toDouble())
+                            drawCircle(
+                                capacityColor,
+                                radius = 2.8.dp.toPx(),
+                                center = Offset(selectedX, capacityY)
+                            )
+                        }
+                        if (curveVisibility.showTemp) {
+                            val tempY = coords.tempToY(selectedPoint.temp.toDouble())
+                            drawCircle(tempColor, radius = 2.8.dp.toPx(), center = Offset(selectedX, tempY))
+                        }
                     }
                 }
             }
@@ -460,11 +507,26 @@ fun PowerCapacityChart(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            LegendItem(label = "功耗", color = powerColor)
-            LegendItem(label = "电量", color = capacityColor)
-            LegendItem(label = "温度", color = tempColor)
-            LegendItem(label = "亮屏", color = screenOnColor)
-            LegendItem(label = "息屏", color = screenOffColor)
+            LegendItem(
+                label = "功耗",
+                color = powerColor,
+                enabled = curveVisibility.showPower,
+                onClick = onTogglePowerVisibility
+            )
+            LegendItem(
+                label = "电量",
+                color = capacityColor,
+                enabled = curveVisibility.showCapacity,
+                onClick = onToggleCapacityVisibility
+            )
+            LegendItem(
+                label = "温度",
+                color = tempColor,
+                enabled = curveVisibility.showTemp,
+                onClick = onToggleTempVisibility
+            )
+            LegendItem(label = "亮屏", color = screenOnColor, enabled = true, onClick = null)
+            LegendItem(label = "息屏", color = screenOffColor, enabled = true, onClick = null)
         }
     }
 }
@@ -518,16 +580,40 @@ private fun SelectedPointInfo(
  * 图例项：圆点 + 标签
  */
 @Composable
-private fun LegendItem(label: String, color: Color) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+private fun LegendItem(
+    label: String,
+    color: Color,
+    enabled: Boolean,
+    onClick: (() -> Unit)?,
+) {
+    val disabledColor = MaterialTheme.colorScheme.outlineVariant
+    val indicatorColor = if (enabled) color else disabledColor
+    val textColor = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else disabledColor
+    val interactionSource = remember { MutableInteractionSource() }
+    val itemModifier = if (onClick != null) {
+        Modifier
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .padding(horizontal = 4.dp, vertical = 2.dp)
+    } else {
+        Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+    }
+
+    Row(
+        modifier = itemModifier,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Canvas(modifier = Modifier.size(12.dp)) {
-            drawCircle(color = color, radius = size.minDimension / 2f)
+            drawCircle(color = indicatorColor, radius = size.minDimension / 2f)
         }
         Spacer(modifier = Modifier.size(8.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = textColor
         )
     }
 }

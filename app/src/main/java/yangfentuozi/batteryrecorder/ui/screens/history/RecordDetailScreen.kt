@@ -34,17 +34,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.content.edit
 import androidx.lifecycle.viewmodel.compose.viewModel
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.shared.data.RecordsFile
 import yangfentuozi.batteryrecorder.ui.components.charts.FixedPowerAxisMode
 import yangfentuozi.batteryrecorder.ui.components.charts.PowerCapacityChart
+import yangfentuozi.batteryrecorder.ui.components.charts.RecordChartCurveVisibility
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
 import yangfentuozi.batteryrecorder.ui.viewmodel.HistoryViewModel
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
 import yangfentuozi.batteryrecorder.utils.formatDateTime
 import yangfentuozi.batteryrecorder.utils.formatDurationHours
 import yangfentuozi.batteryrecorder.utils.formatPower
+
+private const val RECORD_DETAIL_CHART_PREFS_NAME = "record_detail_chart"
+private const val KEY_SHOW_POWER_CURVE = "show_power_curve"
+private const val KEY_SHOW_CAPACITY_CURVE = "show_capacity_curve"
+private const val KEY_SHOW_TEMP_CURVE = "show_temp_curve"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,6 +68,18 @@ fun RecordDetailScreen(
     val dischargeDisplayPositive by settingsViewModel.dischargeDisplayPositive.collectAsState()
     val calibrationValue by settingsViewModel.calibrationValue.collectAsState()
     val recordScreenOffEnabled by settingsViewModel.screenOffRecord.collectAsState()
+    val chartPrefs = remember(context) {
+        context.getSharedPreferences(RECORD_DETAIL_CHART_PREFS_NAME, Context.MODE_PRIVATE)
+    }
+    var showPower by remember(chartPrefs) {
+        mutableStateOf(chartPrefs.getBoolean(KEY_SHOW_POWER_CURVE, true))
+    }
+    var showCapacity by remember(chartPrefs) {
+        mutableStateOf(chartPrefs.getBoolean(KEY_SHOW_CAPACITY_CURVE, true))
+    }
+    var showTemp by remember(chartPrefs) {
+        mutableStateOf(chartPrefs.getBoolean(KEY_SHOW_TEMP_CURVE, true))
+    }
     var isChartFullscreen by rememberSaveable(recordsFile) { mutableStateOf(false) }
     var fullscreenViewportStartMs by rememberSaveable(recordsFile) { mutableStateOf<Long?>(null) }
 
@@ -135,6 +154,11 @@ fun RecordDetailScreen(
         } else {
             FixedPowerAxisMode.PositiveOnly
         }
+        val curveVisibility = RecordChartCurveVisibility(
+            showPower = showPower,
+            showCapacity = showCapacity,
+            showTemp = showTemp
+        )
 
         val viewportStartForChart = if (isChartFullscreen && chartUiState.minChartTime != null) {
             val minChartTime = chartUiState.minChartTime!!
@@ -166,6 +190,7 @@ fun RecordDetailScreen(
                 recordStartTime = stats.startTime,
                 modifier = modifier,
                 fixedPowerAxisMode = fixedPowerMode,
+                curveVisibility = curveVisibility,
                 chartHeight = if (isFullscreenMode) 320.dp else 240.dp,
                 isFullscreen = isFullscreenMode,
                 onToggleFullscreen = {
@@ -176,6 +201,21 @@ fun RecordDetailScreen(
                         isChartFullscreen = true
                         fullscreenViewportStartMs = chartUiState.minChartTime
                     }
+                },
+                onTogglePowerVisibility = {
+                    val nextValue = !showPower
+                    chartPrefs.edit { putBoolean(KEY_SHOW_POWER_CURVE, nextValue) }
+                    showPower = nextValue
+                },
+                onToggleCapacityVisibility = {
+                    val nextValue = !showCapacity
+                    chartPrefs.edit { putBoolean(KEY_SHOW_CAPACITY_CURVE, nextValue) }
+                    showCapacity = nextValue
+                },
+                onToggleTempVisibility = {
+                    val nextValue = !showTemp
+                    chartPrefs.edit { putBoolean(KEY_SHOW_TEMP_CURVE, nextValue) }
+                    showTemp = nextValue
                 },
                 useFivePercentTimeGrid = isFullscreenMode,
                 visibleStartTime = viewportStartForChart,
