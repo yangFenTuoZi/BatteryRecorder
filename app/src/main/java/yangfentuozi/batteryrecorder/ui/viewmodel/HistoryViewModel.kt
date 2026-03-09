@@ -157,24 +157,34 @@ class HistoryViewModel : ViewModel() {
             _isLoading.value = true
             try {
                 val dischargeDisplayPositive = getDischargeDisplayPositive(context)
+                val recordFile = recordsFile.toFile(context)
+                if (recordFile == null) {
+                    _userMessage.value = "记录文件不存在"
+                    _recordDetail.value = null
+                    _recordPoints.value = emptyList()
+                    recomputeRecordChartUiState()
+                    return@launch
+                }
+
                 val (detail, points) = withContext(Dispatchers.IO) {
-                    val recordFile = recordsFile.toFile(context)
-                    val detail = recordFile
-                        ?.let { HistoryRepository.loadRecord(context, it) }
-                        ?.let { mapHistoryRecordForDisplay(it, dischargeDisplayPositive) }
-                    val points = if (recordFile != null) {
-                        mapChartPointsForDisplay(
-                            points = HistoryRepository.loadRecordPoints(context, recordsFile),
-                            batteryStatus = recordsFile.type,
-                            dischargeDisplayPositive = dischargeDisplayPositive
-                        )
-                    } else {
-                        emptyList()
-                    }
+                    val detail = HistoryRepository.loadRecord(context, recordFile)
+                    val points = mapChartPointsForDisplay(
+                        points = HistoryRepository.loadRecordPoints(recordFile),
+                        batteryStatus = recordsFile.type,
+                        dischargeDisplayPositive = dischargeDisplayPositive
+                    )
                     detail to points
                 }
-                _recordDetail.value = detail
+                _recordDetail.value = mapHistoryRecordForDisplay(detail, dischargeDisplayPositive)
                 _recordPoints.value = points
+                recomputeRecordChartUiState()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "加载记录详情失败: ${recordsFile.name}", e)
+                _userMessage.value = "加载记录详情失败"
+                _recordDetail.value = null
+                _recordPoints.value = emptyList()
                 recomputeRecordChartUiState()
             } finally {
                 _isLoading.value = false

@@ -3,7 +3,6 @@ package yangfentuozi.batteryrecorder.shared.data
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 import java.io.File
-import kotlin.sequences.forEach
 
 @Parcelize
 data class RecordsStats(
@@ -42,11 +41,6 @@ data class RecordsStats(
                 throw IllegalArgumentException("File not found: ${filePath.absolutePath}")
             }
 
-            var startTime = Long.MAX_VALUE
-            var endTime = Long.MIN_VALUE
-            var startCapacity = -1
-            var endCapacity = -1
-
             var screenOnTime = 0L
             var screenOffTime = 0L
 
@@ -54,65 +48,41 @@ data class RecordsStats(
             var totalEnergy = 0.0
             var totalDuration = 0L
 
-            var lastTimestamp: Long? = null
-            var lastPower: Long? = null
-            var lastDisplayOn: Int? = null
+            var firstRecord: LineRecord? = null
+            var previousRecord: LineRecord? = null
 
-            filePath.bufferedReader().useLines { lines ->
-                lines.forEach { raw ->
-                    val line = raw.trim()
-                    if (line.isEmpty()) return@forEach
+            RecordFileParser.forEachValidRecord(filePath) { record ->
+                if (firstRecord == null) firstRecord = record
 
-                    val record = LineRecord.fromString(line) ?: return@forEach
-
-                    // 起止时间与电量
-                    if (record.timestamp < startTime) {
-                        startTime = record.timestamp
-                        startCapacity = record.capacity
-                    }
-                    if (record.timestamp > endTime) {
-                        endTime = record.timestamp
-                        endCapacity = record.capacity
+                val prevRecord = previousRecord
+                if (prevRecord != null) {
+                    val dt = record.timestamp - prevRecord.timestamp
+                    if (prevRecord.isDisplayOn == 1) {
+                        screenOnTime += dt
+                    } else {
+                        screenOffTime += dt
                     }
 
-                    val prevTs = lastTimestamp
-                    val prevPower = lastPower
-                    val prevDisplay = lastDisplayOn
-
-                    if (prevTs != null && prevPower != null && prevDisplay != null) {
-                        val dt = record.timestamp - prevTs
-                        if (dt > 0) {
-                            // 时间统计
-                            if (prevDisplay == 1) {
-                                screenOnTime += dt
-                            } else {
-                                screenOffTime += dt
-                            }
-
-                            // 能量积分（sample-and-hold）
-                            totalEnergy += prevPower * dt
-                            totalDuration += dt
-                        }
-                    }
-
-                    lastTimestamp = record.timestamp
-                    lastPower = record.power
-                    lastDisplayOn = record.isDisplayOn
+                    totalEnergy += prevRecord.power * dt
+                    totalDuration += dt
                 }
+                previousRecord = record
             }
 
-            if (totalDuration <= 0) {
-                throw IllegalStateException("Not enough valid samples")
+            val startRecord = firstRecord
+            val endRecord = previousRecord
+            if (startRecord == null || endRecord == null || totalDuration <= 0) {
+                throw IllegalStateException("Not enough valid samples after filtering: ${filePath.absolutePath}")
             }
 
             // 时间加权平均功耗（μW）
             val averagePower = totalEnergy / totalDuration
 
             return RecordsStats(
-                startTime = startTime,
-                endTime = endTime,
-                startCapacity = startCapacity,
-                endCapacity = endCapacity,
+                startTime = startRecord.timestamp,
+                endTime = endRecord.timestamp,
+                startCapacity = startRecord.capacity,
+                endCapacity = endRecord.capacity,
                 screenOnTimeMs = screenOnTime,
                 screenOffTimeMs = screenOffTime,
                 averagePower = averagePower

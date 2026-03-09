@@ -6,8 +6,10 @@ import yangfentuozi.batteryrecorder.data.model.ChartPoint
 import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.shared.Constants
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
+import yangfentuozi.batteryrecorder.shared.data.RecordFileParser
 import yangfentuozi.batteryrecorder.shared.data.RecordsFile
 import yangfentuozi.batteryrecorder.shared.data.RecordsStats
+import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
@@ -38,7 +40,7 @@ object HistoryRepository {
         return validFile(dataDir, name)
     }
 
-    private fun getCacheDir(context: Context) = File(context.cacheDir, "power_stats")
+    private fun getCacheDir(context: Context) = File(context.cacheDir, "power_stats_v2")
 
     // 确保目录存在且为目录，返回目录对象
     private fun dataDir(context: Context, type: BatteryStatus): File =
@@ -50,6 +52,15 @@ object HistoryRepository {
     // 验证文件有效性，返回 null 表示无效
     private fun validFile(dir: File, name: String): File? =
         File(dir, name).takeIf { it.isFile }
+
+    private fun buildHistoryRecord(file: File, stats: RecordsStats): HistoryRecord {
+        return HistoryRecord(
+            name = file.name,
+            type = BatteryStatus.fromDataDirName(file.parentFile?.name),
+            stats = stats,
+            lastModified = file.lastModified()
+        )
+    }
 
     /** 加载统计数据并构建 HistoryRecord */
     fun loadStats(
@@ -63,14 +74,11 @@ object HistoryRepository {
                 file = file,
                 needCaching = needCaching
             )
+        }.onFailure { error ->
+            LoggerX.e<HistoryRepository>("加载记录统计失败: ${file.absolutePath}", tr = error)
         }.getOrNull() ?: return null
 
-        return HistoryRecord(
-            name = file.name,
-            type = BatteryStatus.fromDataDirName(file.parentFile?.name),
-            stats = stats,
-            lastModified = file.lastModified()
-        )
+        return buildHistoryRecord(file, stats)
     }
 
     /** 仅列出文件，按修改时间降序，不加载 stats */
@@ -89,32 +97,37 @@ object HistoryRepository {
     }
 
     /** 加载指定名称的单条记录 */
-    fun loadRecord(context: Context, file: File): HistoryRecord? {
+    @Throws(Exception::class)
+    fun loadRecord(context: Context, file: File): HistoryRecord {
         val dataDir = file.parentFile!!
         val latestFile = dataDir.listFiles()?.filter { it.isFile }
             ?.maxByOrNull { it.lastModified() }
-
-        return loadStats(context, file, latestFile != file)
+        val stats = RecordsStats.getCachedStats(
+            cacheDir = getCacheDir(context),
+            file = file,
+            needCaching = latestFile != file
+        )
+        return buildHistoryRecord(file, stats)
     }
 
     /** 加载记录的图表数据点，用于绘制功率曲线 */
+    @Throws(FileNotFoundException::class)
     fun loadRecordPoints(context: Context, recordsFile: RecordsFile): List<ChartPoint> {
-        return (recordsFile.toFile(context) ?: return emptyList()).readLines()
-            .asSequence()
-            .filter { it.isNotBlank() }
-            .mapNotNull { line ->
-                val parts = line.split(",")
-                if (parts.size < 5) return@mapNotNull null
-                ChartPoint(
-                    timestamp = parts[0].toLongOrNull() ?: return@mapNotNull null,
-                    power = parts[1].toDoubleOrNull() ?: return@mapNotNull null,
-                    capacity = parts[3].toIntOrNull() ?: return@mapNotNull null,
-                    isDisplayOn = parts[4] == "1",
-                    temp = if (parts.size > 5) parts[5].toIntOrNull() ?: 0 else 0
-                )
-            }
-            .sortedBy { it.timestamp }
-            .toList()
+        val file = recordsFile.toFile(context)
+            ?: throw FileNotFoundException("Record file not found: ${recordsFile.name}")
+        return loadRecordPoints(file)
+    }
+
+    fun loadRecordPoints(file: File): List<ChartPoint> {
+        return RecordFileParser.parseToList(file).map { record ->
+            ChartPoint(
+                timestamp = record.timestamp,
+                power = record.power.toDouble(),
+                capacity = record.capacity,
+                isDisplayOn = record.isDisplayOn == 1,
+                temp = record.temp
+            )
+        }
     }
 
     /** 从 service.currRecordsFile 加载当前记录 */
