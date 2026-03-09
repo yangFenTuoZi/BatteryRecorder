@@ -69,6 +69,14 @@ Server 以 shell 权限运行时数据写入 `com.android.shell` 数据目录。
 - 放电记录显示正值的逻辑通过 `PowerDisplayMapper` 在 ViewModel 层统一处理，UI 层不做正负转换
 - `HistoryViewModel` 提供预转换的 `displayPoints`（通过 `RecordDetailChartUiState`），Screen 层直接使用
 
+### 图表曲线模式
+
+- **原始模式（Raw）**：显示逐点采样的折线，保留瞬时尖刺，`rawPowerW` 字段
+- **趋势模式（Fitted）**：显示时间分桶后的中位数平滑曲线（三次贝塞尔），用于观察低频走势，`fittedPowerW` 字段
+- **隐藏模式（Hidden）**：不绘制功率曲线，但保留选中逻辑
+- 数据模型 `RecordDetailChartPoint` 同时承载两类点，图表层通过 `PowerCurveMode` 切换显示
+- 孤立息屏点过滤：关闭息屏记录显示时，前后均为亮屏的单个息屏点会被视为抖动并过滤
+
 ## App 模块包结构
 
 ```
@@ -138,7 +146,9 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 │       ├── Type.kt
 │       └── AppShape.kt
 ├── data/
-│   ├── model/ChartPoint.kt            # 图表数据点
+│   ├── model/
+│   │   ├── ChartPoint.kt                  # 图表数据点（通用）
+│   │   └── RecordDetailChartPoint.kt      # 记录详情图表数据点（带曲线显示状态）
 │   └── history/
 │       ├── HistoryRepository.kt        # 历史记录仓库（文件 I/O，纯数据，无 UI 逻辑）
 │       ├── SceneStatsComputer.kt       # 场景统计计算（息屏/亮屏日常/游戏分类积分 + 缓存）
