@@ -39,7 +39,6 @@ fun BatteryRecorderApp(
             LoggerX.i<BatteryRecorderAppLogger>("启动更新检测已关闭，跳过检查")
             return@LaunchedEffect
         }
-        hasCheckedUpdateOnStartup = true
         LoggerX.i<BatteryRecorderAppLogger>("启动更新检测开始，请求最新 release")
 
         val update = UpdateUtils.fetchUpdate() ?: run {
@@ -70,7 +69,7 @@ fun BatteryRecorderApp(
     pendingUpdate?.let { update ->
         UpdateDialog(
             update = update,
-            onDismiss = { pendingUpdate = null }
+            onDismiss = { }
         )
     }
 }
