@@ -24,7 +24,7 @@ BatteryRecorder — 一个 Android 电池功率记录 App，通过独立 Server 
 | 构建 | Gradle 8.13 Kotlin DSL, AGP 8.13.2, Kotlin 2.3.0 |
 | JDK | 21 (app/server/shared), 11 (hiddenapi) |
 | NDK | 29.0.14206865, CMake 3.22.1 |
-| 最低 SDK | 31 (Android 12) |
+| SDK | minSdk 31, targetSdk/compileSdk 36 |
 | 依赖管理 | Version Catalog (`gradle/libs.versions.toml`) |
 
 ## 模块结构与依赖
@@ -102,7 +102,8 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 │   │   │   ├── SplicedShapes.kt       # 圆角计算辅助
 │   │   │   ├── SwipeRevealRow.kt      # 左滑显示操作按钮
 │   │   │   ├── SwitchWidget.kt        # M3 开关组件
-│   │   │   └── StatRow.kt             # 统计行组件（label + value）
+│   │   │   ├── StatRow.kt             # 统计行组件（label + value）
+│   │   │   └── MarkdownText.kt        # Markdown 渲染组件
 │   │   ├── home/
 │   │   │   ├── BatteryRecorderTopAppBar.kt
 │   │   │   ├── StartServerCard.kt     # 启动服务引导卡片
@@ -117,11 +118,13 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 │   │           ├── CalibrationSection.kt    # 校准设置组
 │   │           ├── PredictionSection.kt     # 预测设置组
 │   │           ├── PredictionGameFilter.kt  # 游戏过滤器（自动检测 + blacklist）
-│   │           └── ServerSection.kt         # 服务端设置组
+│   │           ├── ServerSection.kt         # 服务端设置组
+│   │           └── AppSection.kt            # 应用设置组
 │   ├── dialog/
 │   │   ├── home/
 │   │   │   ├── AboutDialog.kt
-│   │   │   └── AdbGuideDialog.kt      # ADB 启动引导对话框
+│   │   │   ├── AdbGuideDialog.kt      # ADB 启动引导对话框
+│   │   │   └── UpdateDialog.kt        # 更新提示对话框
 │   │   └── settings/
 │   │       ├── CalibrationDialog.kt
 │   │       ├── RecordIntervalDialog.kt
@@ -144,13 +147,15 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 │       └── SyncUtil.kt                 # 数据同步（PfdFileReceiver 封装）
 ├── startup/
 │   ├── BootCompletedReceiver.kt        # 开机广播接收器
-│   └── RootServerStarter.kt            # Root 服务启动器
+│   ├── RootServerStarter.kt            # Root 服务启动器
+│   └── BootAutoStartNotification.kt    # 开机自启动通知
 ├── ipc/
 │   ├── Service.kt                      # IPC Binder 持有 + ServiceConnection 回调
 │   ├── BinderProvider.kt               # ContentProvider 接收 Server 推送的 Binder
 │   └── ConfigProvider.kt               # ContentProvider 供 Server(shell) 读取配置
 └── utils/
-    └── FormatUtil.kt                   # 格式化工具（时间、功率转换 computePowerW、formatPower）
+    ├── FormatUtil.kt                   # 格式化工具（时间、功率转换 computePowerW、formatPower）
+    └── UpdateUtil.kt                   # 更新检查工具
 ```
 
 ## 关键路径索引
@@ -162,7 +167,7 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 | Server 入口 | `server/.../Server.kt` |
 | IPC 绑定 | `app/.../ipc/BinderProvider.kt`, `app/.../ipc/Service.kt` |
 | 配置系统 | `shared/.../config/Config.kt`, `ConfigConstants.kt`, `ConfigUtil.kt` |
-| 开机自启动 | `app/.../startup/BootCompletedReceiver.kt`, `RootServerStarter.kt` |
+| 开机自启动 | `app/.../startup/BootCompletedReceiver.kt`, `RootServerStarter.kt`, `BootAutoStartNotification.kt` |
 | App 入口 Composable | `app/.../ui/BatteryRecorderApp.kt` |
 | 导航路由 | `app/.../ui/navigation/NavRoute.kt` (Home, Settings, HistoryList, RecordDetail) |
 | ViewModel | `app/.../ui/viewmodel/` (MainViewModel, SettingsViewModel, LiveRecordViewModel, HistoryViewModel) |
@@ -175,7 +180,8 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 | 续航预测 | `app/.../data/history/BatteryPredictor.kt`（PredictionResult 数据类 + predict()） |
 | 历史记录仓库 | `app/.../data/history/HistoryRepository.kt` |
 | 图表组件 | `app/.../ui/components/charts/PowerCapacityChart.kt` |
-| 公共 UI 组件 | `app/.../ui/components/global/` (SplicedColumnGroup, StatRow, SwipeRevealRow, SwitchWidget) |
+| 公共 UI 组件 | `app/.../ui/components/global/` (SplicedColumnGroup, StatRow, SwipeRevealRow, SwitchWidget, MarkdownText) |
+| 更新检查 | `app/.../utils/UpdateUtil.kt`, `app/.../ui/dialog/home/UpdateDialog.kt` |
 
 ## 架构约定
 
