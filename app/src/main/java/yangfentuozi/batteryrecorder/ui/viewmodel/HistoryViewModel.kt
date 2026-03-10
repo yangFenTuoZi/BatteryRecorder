@@ -70,11 +70,16 @@ class HistoryViewModel : ViewModel() {
     private val _userMessage = MutableStateFlow<String?>(null)
     val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
 
+    private val _chargeCapacityChangeFilter = MutableStateFlow<Int?>(null)
+    val chargeCapacityChangeFilter: StateFlow<Int?> = _chargeCapacityChangeFilter.asStateFlow()
+
     // 分页上下文：
     // listFiles / loadedRecordCount 描述“总数据集 + 当前游标”。
     // latestListFile 用于沿用统计缓存策略（最新文件不读缓存）。
     // listLoadToken 用于隔离不同轮次加载，避免旧协程回写新状态。
     private var listFiles: List<File> = emptyList()
+    private var allListRecordsCache: List<HistoryRecord>? = null
+    private var pagedSourceRecords: List<HistoryRecord>? = null
     private var latestListFile: File? = null
     private var loadedRecordCount = 0
     private var listDischargeDisplayPositive = ConfigConstants.DEF_DISCHARGE_DISPLAY_POSITIVE
@@ -102,11 +107,12 @@ class HistoryViewModel : ViewModel() {
                 listLoadToken = token
                 currentListType = type
                 listFiles = files
+                allListRecordsCache = null
+                pagedSourceRecords = null
                 latestListFile = files.firstOrNull()
-                loadedRecordCount = 0
                 listDischargeDisplayPositive = dischargeDisplayPositive
-                _records.value = emptyList()
-                _hasMoreRecords.value = files.isNotEmpty()
+                _chargeCapacityChangeFilter.value = null
+                resetDisplayedRecords(files.size)
                 // 首屏仅加载第一页；后续由 UI 滚动触底显式触发。
                 loadNextPageInternal(context, token)
             } finally {
@@ -125,27 +131,52 @@ class HistoryViewModel : ViewModel() {
         }
     }
 
+    fun updateChargeCapacityChangeFilter(context: Context, minCapacityChange: Int?) {
+        if (_isLoading.value || currentListType != BatteryStatus.Charging) return
+        val normalizedFilter = minCapacityChange?.takeIf { it > 0 }
+        if (_chargeCapacityChangeFilter.value == normalizedFilter) return
+
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val token = listLoadToken + 1
+                listLoadToken = token
+                val nextPagedSourceRecords = when (normalizedFilter) {
+                    null -> null
+                    else -> ensureAllListRecordsCache(context, token).filter { record ->
+                        computeChargingCapacityChange(record) >= normalizedFilter
+                    }
+                }
+                if (token != listLoadToken) return@launch
+                _chargeCapacityChangeFilter.value = normalizedFilter
+                pagedSourceRecords = nextPagedSourceRecords
+                resetDisplayedRecords(currentSourceCount())
+                loadNextPageInternal(context, token)
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
     private suspend fun loadNextPageInternal(context: Context, token: Long) {
         // token 不一致代表列表上下文已切换（如充电/放电页切换），当前任务必须丢弃。
         if (token != listLoadToken || _isPaging.value || !_hasMoreRecords.value) return
         _isPaging.value = true
         try {
             val startIndex = loadedRecordCount
-            val endExclusive = (startIndex + PAGE_SIZE).coerceAtMost(listFiles.size)
+            val sourceRecords = pagedSourceRecords
+            val sourceSize = sourceRecords?.size ?: listFiles.size
+            val endExclusive = (startIndex + PAGE_SIZE).coerceAtMost(sourceSize)
             if (startIndex >= endExclusive) {
                 _hasMoreRecords.value = false
                 return
             }
-            val filesToLoad = listFiles.subList(startIndex, endExclusive).toList()
-            val latestFile = latestListFile
-            val dischargeDisplayPositive = listDischargeDisplayPositive
-            val nextPageRecords = withContext(Dispatchers.IO) {
+            val nextPageRecords = sourceRecords?.subList(startIndex, endExclusive) ?: withContext(Dispatchers.IO) {
+                val filesToLoad = listFiles.subList(startIndex, endExclusive).toList()
+                val latestFile = latestListFile
+                val dischargeDisplayPositive = listDischargeDisplayPositive
                 filesToLoad.mapNotNull { file ->
-                    // 与原策略一致：非最新文件优先读缓存，减少 CSV 解析成本。
-                    HistoryRepository.loadStats(context, file, file != latestFile)
-                        ?.let { record ->
-                            mapHistoryRecordForDisplay(record, dischargeDisplayPositive)
-                        }
+                    buildHistoryRecord(context, file, latestFile, dischargeDisplayPositive)
                 }
             }
             // I/O 返回后再次校验 token，避免旧任务覆盖新列表状态。
@@ -154,7 +185,7 @@ class HistoryViewModel : ViewModel() {
                 _records.value += nextPageRecords
             }
             loadedRecordCount = endExclusive
-            _hasMoreRecords.value = loadedRecordCount < listFiles.size
+            _hasMoreRecords.value = loadedRecordCount < currentSourceCount()
         } finally {
             if (token == listLoadToken) {
                 _isPaging.value = false
@@ -212,12 +243,24 @@ class HistoryViewModel : ViewModel() {
                     HistoryRepository.deleteRecord(context, recordsFile)
                 }
                 if (deleted) {
+                    val deletedName = recordsFile.name
+                    val deletedSourceIndex = findSourceIndexByName(deletedName)
                     _records.value = _records.value.filter { it.asRecordsFile() != recordsFile }
                     if (currentListType == recordsFile.type) {
-                        // 删除后同步修正分页数据源与游标，避免 hasMore 状态失真。
-                        listFiles = listFiles.filter { it.name != recordsFile.name }
-                        loadedRecordCount = loadedRecordCount.coerceAtMost(listFiles.size)
-                        _hasMoreRecords.value = loadedRecordCount < listFiles.size
+                        // 删除后同步修正数据源、筛选缓存与游标，避免翻页跳过未显示项。
+                        listFiles = listFiles.filter { it.name != deletedName }
+                        latestListFile = listFiles.firstOrNull()
+                        allListRecordsCache = allListRecordsCache?.filter { record ->
+                            record.name != deletedName
+                        }
+                        pagedSourceRecords = pagedSourceRecords?.filter { record ->
+                            record.name != deletedName
+                        }
+                        if (deletedSourceIndex in 0 until loadedRecordCount) {
+                            loadedRecordCount -= 1
+                        }
+                        loadedRecordCount = loadedRecordCount.coerceAtMost(currentSourceCount())
+                        _hasMoreRecords.value = loadedRecordCount < currentSourceCount()
                     }
                     val detail = _recordDetail.value
                     if (detail != null && detail.asRecordsFile() == recordsFile) {
@@ -260,6 +303,57 @@ class HistoryViewModel : ViewModel() {
     fun consumeUserMessage() {
         _userMessage.value = null
     }
+
+    private fun resetDisplayedRecords(sourceSize: Int) {
+        loadedRecordCount = 0
+        _records.value = emptyList()
+        _isPaging.value = false
+        _hasMoreRecords.value = sourceSize > 0
+    }
+
+    private fun currentSourceCount(): Int =
+        pagedSourceRecords?.size ?: listFiles.size
+
+    private suspend fun ensureAllListRecordsCache(
+        context: Context,
+        token: Long
+    ): List<HistoryRecord> {
+        allListRecordsCache?.let { return it }
+
+        val latestFile = latestListFile
+        val dischargeDisplayPositive = listDischargeDisplayPositive
+        val records = withContext(Dispatchers.IO) {
+            listFiles.mapNotNull { file ->
+                buildHistoryRecord(context, file, latestFile, dischargeDisplayPositive)
+            }
+        }
+        if (token != listLoadToken) return emptyList()
+        allListRecordsCache = records
+        return records
+    }
+
+    private fun buildHistoryRecord(
+        context: Context,
+        file: File,
+        latestFile: File?,
+        dischargeDisplayPositive: Boolean
+    ): HistoryRecord? {
+        return HistoryRepository.loadStats(context, file, file != latestFile)
+            ?.let { historyRecord ->
+                mapHistoryRecordForDisplay(historyRecord, dischargeDisplayPositive)
+            }
+    }
+
+    private fun findSourceIndexByName(recordName: String): Int {
+        val sourceRecords = pagedSourceRecords
+        if (sourceRecords != null) {
+            return sourceRecords.indexOfFirst { record -> record.name == recordName }
+        }
+        return listFiles.indexOfFirst { file -> file.name == recordName }
+    }
+
+    private fun computeChargingCapacityChange(record: HistoryRecord): Int =
+        record.stats.endCapacity - record.stats.startCapacity
 
     fun updatePowerDisplayConfig(
         dualCellEnabled: Boolean,

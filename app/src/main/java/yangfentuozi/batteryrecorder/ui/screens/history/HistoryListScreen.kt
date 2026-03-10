@@ -3,12 +3,14 @@ package yangfentuozi.batteryrecorder.ui.screens.history
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,6 +26,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -36,12 +39,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.shared.data.RecordsFile
 import yangfentuozi.batteryrecorder.ui.components.global.SwipeRevealRow
+import yangfentuozi.batteryrecorder.ui.theme.AppShape
 import yangfentuozi.batteryrecorder.ui.viewmodel.HistoryViewModel
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
 import yangfentuozi.batteryrecorder.utils.formatDateTime
@@ -49,6 +54,8 @@ import yangfentuozi.batteryrecorder.utils.formatDurationHours
 import yangfentuozi.batteryrecorder.utils.formatPower
 
 private const val NEAR_END_PRELOAD_THRESHOLD = 5
+private val CHARGE_CAPACITY_CHANGE_FILTERS = listOf(20, 40, 70)
+private val ChargeHistoryFilterChipShape = AppShape.medium
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,6 +78,8 @@ fun HistoryListScreen(
     val isPaging by viewModel.isPaging.collectAsState()
     // 是否还有更多历史记录可加载（用于触底预加载判断）
     val hasMoreRecords by viewModel.hasMoreRecords.collectAsState()
+    // 充电历史变化量筛选阈值；null 表示不过滤。
+    val chargeCapacityChangeFilter by viewModel.chargeCapacityChangeFilter.collectAsState()
     // 列表滚动状态（用于计算是否接近列表底部）
     val listState = rememberLazyListState()
     var openRecordName by remember { mutableStateOf<String?>(null) }
@@ -89,6 +98,12 @@ fun HistoryListScreen(
     LaunchedEffect(batteryStatus) {
         openRecordName = null
         viewModel.loadRecords(context, batteryStatus)
+    }
+    LaunchedEffect(chargeCapacityChangeFilter) {
+        openRecordName = null
+        if (listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0) {
+            listState.scrollToItem(0)
+        }
     }
     LaunchedEffect(userMessage) {
         val message = userMessage ?: return@LaunchedEffect
@@ -111,12 +126,35 @@ fun HistoryListScreen(
     }
 
     val title = if (batteryStatus == BatteryStatus.Charging) "充电历史" else "放电历史"
+    val emptyText = if (
+        batteryStatus == BatteryStatus.Charging &&
+        chargeCapacityChangeFilter != null
+    ) {
+        "暂无符合条件的记录"
+    } else {
+        "暂无记录"
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(title) }
             )
+        },
+        bottomBar = {
+            if (batteryStatus == BatteryStatus.Charging) {
+                ChargeHistoryFilterBar(
+                    selectedMinCapacityChange = chargeCapacityChangeFilter,
+                    onSelectFilter = { minCapacityChange ->
+                        val nextFilter = if (chargeCapacityChangeFilter == minCapacityChange) {
+                            null
+                        } else {
+                            minCapacityChange
+                        }
+                        viewModel.updateChargeCapacityChangeFilter(context, nextFilter)
+                    }
+                )
+            }
         }
     ) { paddingValues ->
         if (records.isEmpty()) {
@@ -127,7 +165,7 @@ fun HistoryListScreen(
                     .padding(24.dp)
             ) {
                 Text(
-                    text = "暂无记录",
+                    text = emptyText,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -235,6 +273,60 @@ fun HistoryListScreen(
                     )
                 }
                 item { Spacer(modifier = Modifier.height(8.dp)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChargeHistoryFilterBar(
+    selectedMinCapacityChange: Int?,
+    onSelectFilter: (Int) -> Unit
+) {
+    Surface(
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            CHARGE_CAPACITY_CHANGE_FILTERS.forEach { threshold ->
+                val selected = selectedMinCapacityChange == threshold
+                val borderColor = if (selected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.outlineVariant
+                }
+                val textColor = if (selected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
+                Box(
+                    modifier = Modifier
+                        .clip(ChargeHistoryFilterChipShape)
+                        .border(
+                            width = if (selected) 1.5.dp else 1.dp,
+                            color = borderColor,
+                            shape = ChargeHistoryFilterChipShape
+                        )
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { onSelectFilter(threshold) }
+                        )
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "≥$threshold%",
+                        color = textColor,
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
             }
         }
     }
