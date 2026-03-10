@@ -1,0 +1,352 @@
+package yangfentuozi.batteryrecorder.data.history
+
+import android.content.Context
+import yangfentuozi.batteryrecorder.BuildConfig
+import yangfentuozi.batteryrecorder.shared.Constants
+import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
+import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
+import java.io.File
+import java.io.RandomAccessFile
+import kotlin.math.exp
+import kotlin.math.ln
+import kotlin.math.min
+
+/**
+ * 采样点之间的有效区间。
+ *
+ * raw 与 effective 字段分别承载原始口径和“当前放电文件时间衰减加权”口径。
+ */
+data class DischargeInterval(
+    val packageName: String?,
+    val isDisplayOn: Boolean,
+    val durationMs: Long,
+    val effectiveDurationMs: Double,
+    val energyRawMs: Double,
+    val effectiveEnergyRawMs: Double,
+    val capDrop: Double,
+    val effectiveCapDrop: Double
+)
+
+/**
+ * 单个放电文件扫描通过后的聚合结果。
+ */
+data class AcceptedDischargeFile(
+    val file: File,
+    val intervals: List<DischargeInterval>,
+    val rawTotalEnergyRawMs: Double,
+    val effectiveTotalEnergyRawMs: Double,
+    val rawTotalDurationMs: Long,
+    val effectiveTotalDurationMs: Double,
+    val rawTotalCapDrop: Double,
+    val effectiveTotalCapDrop: Double
+)
+
+/**
+ * 扫描摘要目前主要用于调试和未来扩展。
+ */
+data class DischargeScanSummary(
+    val selectedFileCount: Int,
+    val acceptedFileCount: Int
+)
+
+object DischargeRecordScanner {
+
+    private const val MAX_GAP_FACTOR = 5
+    private const val MAX_DRAIN_RATE_PER_HOUR = 50.0
+    private const val MIN_CURRENT_SESSION_MS = 10 * 60 * 1000L
+    private const val MIN_CURRENT_SESSION_SOC_DROP = 1.0
+
+    /**
+     * 先暂存权重，待整文件遍历完成后再决定是否采用有效口径。
+     *
+     * 是否启用当次加权依赖整文件时长与掉电门槛，因此不能在首轮解析时直接落最终值。
+     */
+    private data class PendingInterval(
+        val packageName: String?,
+        val isDisplayOn: Boolean,
+        val durationMs: Long,
+        val energyRawMs: Double,
+        val capDrop: Double,
+        val weight: Double
+    )
+
+    internal fun computeMaxGapMs(recordIntervalMs: Long): Long =
+        recordIntervalMs * MAX_GAP_FACTOR
+
+    /**
+     * 统一裁剪最近放电文件选择范围，保证不同统计器使用相同样本集。
+     */
+    internal fun listRecentDischargeFiles(
+        context: Context,
+        recentFileCount: Int
+    ): List<File> {
+        val effectiveRecentFileCount = recentFileCount.coerceIn(
+            ConfigConstants.MIN_SCENE_STATS_RECENT_FILE_COUNT,
+            ConfigConstants.MAX_SCENE_STATS_RECENT_FILE_COUNT
+        )
+        val dataDir = File(
+            File(context.dataDir, Constants.APP_POWER_DATA_PATH),
+            BatteryStatus.Discharging.dataDirName
+        )
+        if (!dataDir.isDirectory) return emptyList()
+        return dataDir.listFiles()
+            ?.filter { it.isFile }
+            ?.sortedByDescending { it.lastModified() }
+            ?.take(effectiveRecentFileCount)
+            ?: emptyList()
+    }
+
+    /**
+     * 扫描最近的放电文件，并仅对通过异常值校验的文件回调结果。
+     */
+    fun scan(
+        context: Context,
+        request: StatisticsRequest,
+        currentDischargeFileName: String? = null,
+        onAcceptedFile: (AcceptedDischargeFile) -> Unit
+    ): DischargeScanSummary? {
+        val files = listRecentDischargeFiles(context, request.sceneStatsRecentFileCount)
+        if (files.isEmpty()) return null
+
+        val maxGapMs = computeMaxGapMs(request.recordIntervalMs)
+        val maxMultiplier = (request.predCurrentSessionWeightMaxX100 / 100.0).coerceIn(1.0, 5.0)
+        val halfLifeMs = request.predCurrentSessionWeightHalfLifeMin
+            .coerceIn(1L, 24 * 60L) * 60_000.0
+        val enableTimeDecayWeight = request.predCurrentSessionWeightEnabled &&
+                currentDischargeFileName != null &&
+                maxMultiplier > 1.0 &&
+                halfLifeMs > 0.0
+
+        var acceptedFileCount = 0
+        files.forEach { file ->
+            val acceptedFile = scanFile(
+                file = file,
+                maxGapMs = maxGapMs,
+                currentDischargeFileName = currentDischargeFileName,
+                enableTimeDecayWeight = enableTimeDecayWeight,
+                maxMultiplier = maxMultiplier,
+                halfLifeMs = halfLifeMs
+            ) ?: return@forEach
+            acceptedFileCount += 1
+            onAcceptedFile(acceptedFile)
+        }
+
+        return DischargeScanSummary(
+            selectedFileCount = files.size,
+            acceptedFileCount = acceptedFileCount
+        )
+    }
+
+    private fun scanFile(
+        file: File,
+        maxGapMs: Long,
+        currentDischargeFileName: String?,
+        enableTimeDecayWeight: Boolean,
+        maxMultiplier: Double,
+        halfLifeMs: Double
+    ): AcceptedDischargeFile? {
+        val isCurrentFile = enableTimeDecayWeight && file.name == currentDischargeFileName
+        val fileEndTs = if (isCurrentFile) findFileEndTimestamp(file) else null
+
+        val intervals = ArrayList<PendingInterval>()
+        var rawTotalEnergyRawMs = 0.0
+        var rawTotalDurationMs = 0L
+        var rawTotalCapDrop = 0.0
+
+        var prevTs: Long? = null
+        var prevPower: Long? = null
+        var prevDisplay: Int? = null
+        var prevPkg: String? = null
+        var prevCap: Int? = null
+
+        file.bufferedReader().useLines { lines ->
+            lines.forEach { raw ->
+                val line = raw.trim()
+                if (line.isEmpty()) return@forEach
+
+                val parts = line.split(",")
+                if (parts.size < 6) return@forEach
+
+                val ts = parts[0].toLongOrNull() ?: return@forEach
+                val power = parts[1].toLongOrNull() ?: return@forEach
+                val pkg = parts[2]
+                val capacity = parts[3].toIntOrNull() ?: return@forEach
+                val displayOn = parts[4].toIntOrNull() ?: return@forEach
+
+                val pTs = prevTs
+                val pPower = prevPower
+                val pDisplay = prevDisplay
+                val pPkg = prevPkg
+                val pCap = prevCap
+
+                prevTs = ts
+                prevPower = power
+                prevDisplay = displayOn
+                prevPkg = pkg
+                prevCap = capacity
+
+                if (pTs == null || pPower == null || pDisplay == null || pCap == null) return@forEach
+
+                val dt = ts - pTs
+                if (dt <= 0 || dt > maxGapMs) return@forEach
+
+                val energyRawMs = (pPower.toDouble() + power.toDouble()) * 0.5 * dt.toDouble()
+                val weight = if (isCurrentFile && fileEndTs != null) {
+                    val midTs = pTs + dt / 2
+                    computeTimeDecayWeight(
+                        endTs = fileEndTs,
+                        midTs = midTs,
+                        maxMultiplier = maxMultiplier,
+                        halfLifeMs = halfLifeMs
+                    )
+                } else {
+                    1.0
+                }
+                val capDrop = (pCap - capacity).coerceAtLeast(0).toDouble()
+                rawTotalEnergyRawMs += energyRawMs
+                rawTotalDurationMs += dt
+                rawTotalCapDrop += capDrop
+                intervals += PendingInterval(
+                    packageName = pPkg,
+                    isDisplayOn = pDisplay == 1,
+                    durationMs = dt,
+                    energyRawMs = energyRawMs,
+                    capDrop = capDrop,
+                    weight = weight
+                )
+            }
+        }
+
+        if (rawTotalDurationMs <= 0L || rawTotalEnergyRawMs <= 0.0 || rawTotalCapDrop <= 0.0) {
+            return null
+        }
+
+        val drainPerHour = rawTotalCapDrop / rawTotalDurationMs.toDouble() * 3_600_000.0
+        if (drainPerHour > MAX_DRAIN_RATE_PER_HOUR) {
+            return null
+        }
+
+        val useWeightedCurrentSession = isCurrentFile &&
+                fileEndTs != null &&
+                (BuildConfig.DEBUG || rawTotalDurationMs >= MIN_CURRENT_SESSION_MS) &&
+                (BuildConfig.DEBUG || rawTotalCapDrop >= MIN_CURRENT_SESSION_SOC_DROP)
+
+        // 第二阶段根据是否启用当次加权生成最终区间，避免重复解析原文件。
+        var effectiveTotalEnergyRawMs = 0.0
+        var effectiveTotalDurationMs = 0.0
+        var effectiveTotalCapDrop = 0.0
+        val finalizedIntervals = intervals.map { interval ->
+            val effectiveDurationMs = if (useWeightedCurrentSession) {
+                interval.durationMs.toDouble() * interval.weight
+            } else {
+                interval.durationMs.toDouble()
+            }
+            val effectiveEnergyRawMs = if (useWeightedCurrentSession) {
+                interval.energyRawMs * interval.weight
+            } else {
+                interval.energyRawMs
+            }
+            val effectiveCapDrop = if (useWeightedCurrentSession) {
+                interval.capDrop * interval.weight
+            } else {
+                interval.capDrop
+            }
+            effectiveTotalDurationMs += effectiveDurationMs
+            effectiveTotalEnergyRawMs += effectiveEnergyRawMs
+            effectiveTotalCapDrop += effectiveCapDrop
+            DischargeInterval(
+                packageName = interval.packageName,
+                isDisplayOn = interval.isDisplayOn,
+                durationMs = interval.durationMs,
+                effectiveDurationMs = effectiveDurationMs,
+                energyRawMs = interval.energyRawMs,
+                effectiveEnergyRawMs = effectiveEnergyRawMs,
+                capDrop = interval.capDrop,
+                effectiveCapDrop = effectiveCapDrop
+            )
+        }
+
+        return AcceptedDischargeFile(
+            file = file,
+            intervals = finalizedIntervals,
+            rawTotalEnergyRawMs = rawTotalEnergyRawMs,
+            effectiveTotalEnergyRawMs = effectiveTotalEnergyRawMs,
+            rawTotalDurationMs = rawTotalDurationMs,
+            effectiveTotalDurationMs = effectiveTotalDurationMs,
+            rawTotalCapDrop = rawTotalCapDrop,
+            effectiveTotalCapDrop = effectiveTotalCapDrop
+        )
+    }
+
+    /**
+     * 从文件尾部反向读取最后一条有效记录时间戳，避免整文件扫描两遍。
+     */
+    private fun findFileEndTimestamp(file: File): Long? {
+        val length = file.length()
+        if (length <= 0L) return null
+
+        val maxRead = 128 * 1024
+        var readSize = 4 * 1024
+        while (readSize <= maxRead) {
+            val bytes = readTailBytes(file, min(readSize.toLong(), length).toInt())
+            val ts = parseLastTimestampFromTail(bytes)
+            if (ts != null) return ts
+            readSize *= 2
+        }
+
+        return null
+    }
+
+    /**
+     * 半衰期权重：越靠近文件结尾的区间权重越大。
+     */
+    private fun computeTimeDecayWeight(
+        endTs: Long,
+        midTs: Long,
+        maxMultiplier: Double,
+        halfLifeMs: Double
+    ): Double {
+        if (maxMultiplier <= 1.0 || halfLifeMs <= 0.0) return 1.0
+        val ageMs = (endTs - midTs).toDouble().coerceAtLeast(0.0)
+        val decay = exp(-ln(2.0) * ageMs / halfLifeMs)
+        return 1.0 + (maxMultiplier - 1.0) * decay
+    }
+
+    /**
+     * 仅读取文件尾部字节，供 findFileEndTimestamp 解析最后一行使用。
+     */
+    private fun readTailBytes(file: File, size: Int): ByteArray {
+        RandomAccessFile(file, "r").use { raf ->
+            val length = raf.length()
+            val readSize = size.coerceAtLeast(1).toLong()
+            val start = (length - readSize).coerceAtLeast(0L)
+            raf.seek(start)
+            val bytes = ByteArray((length - start).toInt())
+            raf.readFully(bytes)
+            return bytes
+        }
+    }
+
+    /**
+     * 从尾部文本中反向寻找最后一条可解析 timestamp 的记录。
+     */
+    private fun parseLastTimestampFromTail(bytes: ByteArray): Long? {
+        if (bytes.isEmpty()) return null
+        val text = String(bytes, Charsets.UTF_8)
+        var end = text.length
+        while (end > 0) {
+            while (end > 0 && (text[end - 1] == '\n' || text[end - 1] == '\r')) end--
+            if (end <= 0) return null
+            var start = text.lastIndexOf('\n', end - 1)
+            if (start < 0) start = 0 else start += 1
+            val line = text.substring(start, end).trim()
+            val comma = line.indexOf(',')
+            if (comma > 0) {
+                val ts = line.substring(0, comma).trim().toLongOrNull()
+                if (ts != null) return ts
+            }
+            end = start - 1
+        }
+        return null
+    }
+}

@@ -1,17 +1,14 @@
 package yangfentuozi.batteryrecorder.data.history
 
 import android.content.Context
-import yangfentuozi.batteryrecorder.BuildConfig
-import yangfentuozi.batteryrecorder.shared.Constants
-import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
-import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import java.io.File
-import java.io.RandomAccessFile
-import kotlin.math.exp
-import kotlin.math.ln
-import kotlin.math.min
 import kotlin.math.sqrt
 
+/**
+ * 场景统计结果。
+ *
+ * 同时保留原始与 effective 时长/掉电口径，分别供展示与预测使用。
+ */
 data class SceneStats(
     val screenOffAvgPowerRaw: Double,
     val screenOffTotalMs: Long,
@@ -31,6 +28,11 @@ data class SceneStats(
                 "$totalEnergyRawMs,$totalSocDrop,$totalDurationMs,$fileCount,$rawTotalSocDrop"
 
     companion object {
+        /**
+         * 兼容历史缓存格式。
+         *
+         * 旧版本缺少 effective 时长或 rawTotalSocDrop 时，用原始口径回填。
+         */
         fun fromString(s: String): SceneStats? {
             val p = s.split(",")
             if (p.size < 8) return null
@@ -89,6 +91,9 @@ data class SceneStats(
     }
 }
 
+/**
+ * displayStats 面向 UI 展示，predictionStats 面向预测算法。
+ */
 data class SceneComputeResult(
     val displayStats: SceneStats,
     val predictionStats: SceneStats,
@@ -99,43 +104,25 @@ data class SceneComputeResult(
 
 object SceneStatsComputer {
 
-    private const val MAX_GAP_FACTOR = 5
-    private const val MAX_DRAIN_RATE_PER_HOUR = 50.0   // %/h，超过视为数据异常
-    private const val MIN_CURRENT_SESSION_MS = 10 * 60 * 1000L
-    private const val MIN_CURRENT_SESSION_SOC_DROP = 1.0
-    private const val CACHE_VERSION = 6
-
+    /**
+     * 聚合最近放电文件的场景统计，并生成展示/预测双口径结果。
+     */
     fun compute(
         context: Context,
         request: StatisticsRequest,
         currentDischargeFileName: String? = null,
     ): SceneComputeResult? {
-        val dataDir = File(
-            File(context.dataDir, Constants.APP_POWER_DATA_PATH),
-            BatteryStatus.Discharging.dataDirName
+        val files = DischargeRecordScanner.listRecentDischargeFiles(
+            context = context,
+            recentFileCount = request.sceneStatsRecentFileCount
         )
-        if (!dataDir.isDirectory) return null
-
-        val effectiveRecentFileCount = request.sceneStatsRecentFileCount.coerceIn(
-            ConfigConstants.MIN_SCENE_STATS_RECENT_FILE_COUNT,
-            ConfigConstants.MAX_SCENE_STATS_RECENT_FILE_COUNT
-        )
-        val gamePackages = request.gamePackages
-        val recordIntervalMs = request.recordIntervalMs
-        val predCurrentSessionWeightEnabled = request.predCurrentSessionWeightEnabled
-        val predCurrentSessionWeightMaxX100 = request.predCurrentSessionWeightMaxX100
-        val predCurrentSessionWeightHalfLifeMin = request.predCurrentSessionWeightHalfLifeMin
-        val files = dataDir.listFiles()?.filter { it.isFile }
-            ?.sortedByDescending { it.lastModified() }
-            ?.take(effectiveRecentFileCount) ?: return null
         if (files.isEmpty()) return null
 
-        // 缓存检查
         val cacheDir = File(context.cacheDir, "scene_stats")
         val cacheKey = buildCacheKey(
             files = files,
             request = request,
-            currentDischargeFileName = currentDischargeFileName,
+            currentDischargeFileName = currentDischargeFileName
         )
         val cacheFile = File(cacheDir, "$cacheKey.csv")
         if (cacheFile.exists()) {
@@ -151,17 +138,13 @@ object SceneStatsComputer {
             cacheFile.delete()
         }
 
-        val maxGapMs = recordIntervalMs * MAX_GAP_FACTOR
-
         var rawOffEnergy = 0.0
         var offTime = 0L
         var rawDailyEnergy = 0.0
         var dailyTime = 0L
-        // game 时段也参与总能量计算，保证 drainRate 和 P_avg 口径一致
         var rawGameEnergy = 0.0
         var gameTime = 0L
 
-        // 掉电量统计（与能量积分同口径）
         var rawTotalCapDrop = 0.0
         var effectiveTotalCapDrop = 0.0
         var usedFileCount = 0
@@ -173,177 +156,93 @@ object SceneStatsComputer {
         var effectiveGameEnergy = 0.0
         var effectiveGameTimeWeighted = 0.0
 
-        val maxMultiplier = (predCurrentSessionWeightMaxX100 / 100.0).coerceIn(1.0, 5.0)
-        val halfLifeMs = predCurrentSessionWeightHalfLifeMin.coerceIn(1L, 24 * 60L) * 60_000.0
-        val enableTimeDecayWeight = predCurrentSessionWeightEnabled &&
-                currentDischargeFileName != null &&
-                maxMultiplier > 1.0 &&
-                halfLifeMs > 0.0
-
-        // 分文件 k 输入，用于加权中位数
         data class FileKInput(val capDrop: Double, val energy: Double)
         val fileKInputs = mutableListOf<FileKInput>()
+        val gamePackages = request.gamePackages
 
-        for (file in files) {
-            val isCurrentFile = enableTimeDecayWeight && file.name == currentDischargeFileName
-            val fileEndTs = if (isCurrentFile) findFileEndTimestamp(file) else null
-
+        DischargeRecordScanner.scan(
+            context = context,
+            request = request,
+            currentDischargeFileName = currentDischargeFileName
+        ) { acceptedFile ->
             var fileRawOffEnergy = 0.0
             var fileOffTime = 0L
             var fileRawDailyEnergy = 0.0
             var fileDailyTime = 0L
             var fileRawGameEnergy = 0.0
             var fileGameTime = 0L
-            var fileCapDrop = 0.0
 
-            var fileWeightedOffEnergy = 0.0
-            var fileWeightedOffTime = 0.0
-            var fileWeightedDailyEnergy = 0.0
-            var fileWeightedDailyTime = 0.0
-            var fileWeightedGameEnergy = 0.0
-            var fileWeightedGameTime = 0.0
-            var fileWeightedCapDrop = 0.0
+            var fileEffectiveOffEnergy = 0.0
+            var fileEffectiveOffTime = 0.0
+            var fileEffectiveDailyEnergy = 0.0
+            var fileEffectiveDailyTime = 0.0
+            var fileEffectiveGameEnergy = 0.0
+            var fileEffectiveGameTime = 0.0
 
-            var prevTs: Long? = null
-            var prevPower: Long? = null
-            var prevDisplay: Int? = null
-            var prevPkg: String? = null
-            var prevCap: Int? = null
-
-            file.bufferedReader().useLines { lines ->
-                for (raw in lines) {
-                    val line = raw.trim()
-                    if (line.isEmpty()) continue
-
-                    val parts = line.split(",")
-                    if (parts.size < 6) continue
-
-                    val ts = parts[0].toLongOrNull() ?: continue
-                    val power = parts[1].toLongOrNull() ?: continue
-                    val pkg = parts[2]
-                    val capacity = parts[3].toIntOrNull() ?: continue
-                    val displayOn = parts[4].toIntOrNull() ?: continue
-
-                    val pTs = prevTs
-                    val pPower = prevPower
-                    val pDisplay = prevDisplay
-                    val pPkg = prevPkg
-                    val pCap = prevCap
-
-                    prevTs = ts
-                    prevPower = power
-                    prevDisplay = displayOn
-                    prevPkg = pkg
-                    prevCap = capacity
-
-                    if (pTs == null || pPower == null || pDisplay == null || pCap == null) continue
-
-                    val dt = ts - pTs
-                    if (dt <= 0 || dt > maxGapMs) continue
-
-                    val energyRawMs = (pPower.toDouble() + power.toDouble()) * 0.5 * dt.toDouble()
-                    val weight = if (isCurrentFile && fileEndTs != null) {
-                        val midTs = pTs + dt / 2
-                        computeTimeDecayWeight(
-                            endTs = fileEndTs,
-                            midTs = midTs,
-                            maxMultiplier = maxMultiplier,
-                            halfLifeMs = halfLifeMs
-                        )
-                    } else 1.0
-
-                    // 能量积分（三场景）
-                    when {
-                        pDisplay == 0 -> {
-                            fileRawOffEnergy += energyRawMs
-                            fileOffTime += dt
-                            fileWeightedOffEnergy += energyRawMs * weight
-                            fileWeightedOffTime += dt.toDouble() * weight
-                        }
-                        pDisplay == 1 && (pPkg == null || pPkg !in gamePackages) -> {
-                            fileRawDailyEnergy += energyRawMs
-                            fileDailyTime += dt
-                            fileWeightedDailyEnergy += energyRawMs * weight
-                            fileWeightedDailyTime += dt.toDouble() * weight
-                        }
-                        else -> {
-                            fileRawGameEnergy += energyRawMs
-                            fileGameTime += dt
-                            fileWeightedGameEnergy += energyRawMs * weight
-                            fileWeightedGameTime += dt.toDouble() * weight
-                        }
+            acceptedFile.intervals.forEach { interval ->
+                when {
+                    !interval.isDisplayOn -> {
+                        fileRawOffEnergy += interval.energyRawMs
+                        fileOffTime += interval.durationMs
+                        fileEffectiveOffEnergy += interval.effectiveEnergyRawMs
+                        fileEffectiveOffTime += interval.effectiveDurationMs
                     }
-
-                    // ΔSOC 与能量积分同口径
-                    val capDelta = pCap - capacity
-                    if (capDelta > 0) {
-                        fileCapDrop += capDelta.toDouble()
-                        fileWeightedCapDrop += capDelta.toDouble() * weight
+                    interval.packageName == null || interval.packageName !in gamePackages -> {
+                        fileRawDailyEnergy += interval.energyRawMs
+                        fileDailyTime += interval.durationMs
+                        fileEffectiveDailyEnergy += interval.effectiveEnergyRawMs
+                        fileEffectiveDailyTime += interval.effectiveDurationMs
+                    }
+                    else -> {
+                        fileRawGameEnergy += interval.energyRawMs
+                        fileGameTime += interval.durationMs
+                        fileEffectiveGameEnergy += interval.effectiveEnergyRawMs
+                        fileEffectiveGameTime += interval.effectiveDurationMs
                     }
                 }
             }
 
-            val fileTotalMs = fileOffTime + fileDailyTime + fileGameTime
-            val fileTotalEnergy = fileRawOffEnergy + fileRawDailyEnergy + fileRawGameEnergy
-            if (fileTotalMs <= 0 || fileTotalEnergy <= 0.0 || fileCapDrop <= 0.0) continue
-
-            // 按文件反推掉电速率，剔除 SOC 跳变等异常文件，避免全量一票否决
-            val fileDrainPerHour = fileCapDrop / fileTotalMs.toDouble() * 3_600_000.0
-            if (fileDrainPerHour > MAX_DRAIN_RATE_PER_HOUR) continue
-
-            val useWeightedCurrentSession = isCurrentFile &&
-                    fileEndTs != null &&
-                    (BuildConfig.DEBUG || fileTotalMs >= MIN_CURRENT_SESSION_MS) &&
-                    (BuildConfig.DEBUG || fileCapDrop >= MIN_CURRENT_SESSION_SOC_DROP)
-
-            usedFileCount++
-            val fileEnergy = fileRawOffEnergy + fileRawDailyEnergy + fileRawGameEnergy
-            fileKInputs.add(FileKInput(capDrop = fileCapDrop, energy = fileEnergy))
+            usedFileCount += 1
+            fileKInputs += FileKInput(
+                capDrop = acceptedFile.rawTotalCapDrop,
+                energy = acceptedFile.rawTotalEnergyRawMs
+            )
             rawOffEnergy += fileRawOffEnergy
             offTime += fileOffTime
             rawDailyEnergy += fileRawDailyEnergy
             dailyTime += fileDailyTime
             rawGameEnergy += fileRawGameEnergy
             gameTime += fileGameTime
-            rawTotalCapDrop += fileCapDrop
-
-            if (useWeightedCurrentSession) {
-                effectiveOffEnergy += fileWeightedOffEnergy
-                effectiveOffTimeWeighted += fileWeightedOffTime
-                effectiveDailyEnergy += fileWeightedDailyEnergy
-                effectiveDailyTimeWeighted += fileWeightedDailyTime
-                effectiveGameEnergy += fileWeightedGameEnergy
-                effectiveGameTimeWeighted += fileWeightedGameTime
-                effectiveTotalCapDrop += fileWeightedCapDrop
-            } else {
-                effectiveOffEnergy += fileRawOffEnergy
-                effectiveOffTimeWeighted += fileOffTime.toDouble()
-                effectiveDailyEnergy += fileRawDailyEnergy
-                effectiveDailyTimeWeighted += fileDailyTime.toDouble()
-                effectiveGameEnergy += fileRawGameEnergy
-                effectiveGameTimeWeighted += fileGameTime.toDouble()
-                effectiveTotalCapDrop += fileCapDrop
-            }
+            rawTotalCapDrop += acceptedFile.rawTotalCapDrop
+            effectiveOffEnergy += fileEffectiveOffEnergy
+            effectiveOffTimeWeighted += fileEffectiveOffTime
+            effectiveDailyEnergy += fileEffectiveDailyEnergy
+            effectiveDailyTimeWeighted += fileEffectiveDailyTime
+            effectiveGameEnergy += fileEffectiveGameEnergy
+            effectiveGameTimeWeighted += fileEffectiveGameTime
+            effectiveTotalCapDrop += acceptedFile.effectiveTotalCapDrop
         }
 
-        // 分文件加权中位数 k + 置信度指标
+        // 中位数 k 只使用掉电量足够的文件，降低短样本噪声。
         val minCapDropForMedian = 3.0
         val kEntries = fileKInputs.mapNotNull { input ->
-            if (input.energy > 0 && input.capDrop >= minCapDropForMedian)
+            if (input.energy > 0 && input.capDrop >= minCapDropForMedian) {
                 input.capDrop / input.energy to input.capDrop
-            else null
+            } else {
+                null
+            }
         }
         val medianK = weightedMedian(kEntries)
         val kCV = weightedCV(kEntries)
         val kEffectiveN = effectiveSampleCount(kEntries)
 
-        // totalDurationMs 包含所有场景（含 game），保证与 drainRate 口径一致
         val totalMs = offTime + dailyTime + gameTime
-        if (totalMs <= 0) return null
+        if (totalMs <= 0L) return null
 
         val rawTotalEnergy = rawOffEnergy + rawDailyEnergy + rawGameEnergy
         val effectiveTotalEnergy = effectiveOffEnergy + effectiveDailyEnergy + effectiveGameEnergy
 
+        // 展示口径保持原始观测值，不被当次加权策略影响。
         val displayStats = SceneStats(
             screenOffAvgPowerRaw = if (offTime > 0) rawOffEnergy / offTime.toDouble() else 0.0,
             screenOffTotalMs = offTime,
@@ -358,6 +257,7 @@ object SceneStatsComputer {
             rawTotalSocDrop = rawTotalCapDrop
         )
 
+        // 预测口径使用 effective 能量/时长/掉电，反映当次记录加权后的趋势。
         val predictionStats = SceneStats(
             screenOffAvgPowerRaw = if (effectiveOffTimeWeighted > 0) effectiveOffEnergy / effectiveOffTimeWeighted else 0.0,
             screenOffTotalMs = offTime,
@@ -372,7 +272,6 @@ object SceneStatsComputer {
             rawTotalSocDrop = rawTotalCapDrop
         )
 
-        // 写入缓存：displayStats + predictionStats + medianK + kCV + kEffectiveN
         if (!cacheDir.exists()) cacheDir.mkdirs()
         cacheFile.writeText(
             displayStats.toString() + "\n" + predictionStats.toString() + "\n" +
@@ -389,78 +288,19 @@ object SceneStatsComputer {
     ): String {
         val gamePackages = request.gamePackages
         val recentFileCount = request.sceneStatsRecentFileCount
-        val recordIntervalMs = request.recordIntervalMs
+        val maxGapMs = DischargeRecordScanner.computeMaxGapMs(request.recordIntervalMs)
         val predCurrentSessionWeightEnabled = request.predCurrentSessionWeightEnabled
         val predCurrentSessionWeightMaxX100 = request.predCurrentSessionWeightMaxX100
         val predCurrentSessionWeightHalfLifeMin = request.predCurrentSessionWeightHalfLifeMin
-        val filesHash = files.joinToString(",") { "${it.name}:${it.lastModified()}" }.hashCode()
+        // 带上文件长度，避免仅依赖 lastModified 命中陈旧缓存。
+        val filesHash = files.joinToString(",") { "${it.name}:${it.lastModified()}:${it.length()}" }.hashCode()
         val gamesHash = gamePackages.sorted().joinToString(",").hashCode()
         val currentNameHash = (currentDischargeFileName ?: "").hashCode()
-        return "${CACHE_VERSION}_${filesHash}_${gamesHash}_${recentFileCount}_${recordIntervalMs}_${MAX_GAP_FACTOR}_" +
+        return "${HISTORY_STATS_CACHE_VERSION}_${filesHash}_${gamesHash}_${recentFileCount}_${maxGapMs}_" +
                 "${predCurrentSessionWeightEnabled}_${predCurrentSessionWeightMaxX100}_${predCurrentSessionWeightHalfLifeMin}_${currentNameHash}"
     }
 
-    private fun findFileEndTimestamp(file: File): Long? {
-        val length = file.length()
-        if (length <= 0L) return null
-
-        val maxRead = 128 * 1024
-        var readSize = 4 * 1024
-        while (readSize <= maxRead) {
-            val bytes = readTailBytes(file, min(readSize.toLong(), length).toInt())
-            val ts = parseLastTimestampFromTail(bytes)
-            if (ts != null) return ts
-            readSize *= 2
-        }
-
-        return null
-    }
-
-    private fun computeTimeDecayWeight(
-        endTs: Long,
-        midTs: Long,
-        maxMultiplier: Double,
-        halfLifeMs: Double
-    ): Double {
-        if (maxMultiplier <= 1.0 || halfLifeMs <= 0.0) return 1.0
-        val ageMs = (endTs - midTs).toDouble().coerceAtLeast(0.0)
-        val decay = exp(-ln(2.0) * ageMs / halfLifeMs)
-        return 1.0 + (maxMultiplier - 1.0) * decay
-    }
-
-    private fun readTailBytes(file: File, size: Int): ByteArray {
-        RandomAccessFile(file, "r").use { raf ->
-            val length = raf.length()
-            val readSize = size.coerceAtLeast(1).toLong()
-            val start = (length - readSize).coerceAtLeast(0L)
-            raf.seek(start)
-            val bytes = ByteArray((length - start).toInt())
-            raf.readFully(bytes)
-            return bytes
-        }
-    }
-
-    private fun parseLastTimestampFromTail(bytes: ByteArray): Long? {
-        if (bytes.isEmpty()) return null
-        val text = String(bytes, Charsets.UTF_8)
-        var end = text.length
-        while (end > 0) {
-            while (end > 0 && (text[end - 1] == '\n' || text[end - 1] == '\r')) end--
-            if (end <= 0) return null
-            var start = text.lastIndexOf('\n', end - 1)
-            if (start < 0) start = 0 else start += 1
-            val line = text.substring(start, end).trim()
-            val comma = line.indexOf(',')
-            if (comma > 0) {
-                val ts = line.substring(0, comma).trim().toLongOrNull()
-                if (ts != null) return ts
-            }
-            end = start - 1
-        }
-        return null
-    }
-
-    /** 加权变异系数 CV = σ_weighted / μ_weighted */
+    /** 加权变异系数 CV = σ_weighted / μ_weighted。 */
     private fun weightedCV(entries: List<Pair<Double, Double>>): Double? {
         if (entries.size < 2) return null
         val sumW = entries.sumOf { it.second }
@@ -472,7 +312,7 @@ object SceneStatsComputer {
         return sqrt(variance) / kMean
     }
 
-    /** 加权有效样本量 n_eff = (Σw)² / Σ(w²) */
+    /** 加权有效样本量 n_eff = (Σw)^2 / Σ(w^2)。 */
     private fun effectiveSampleCount(entries: List<Pair<Double, Double>>): Double {
         if (entries.isEmpty()) return 0.0
         val sumW = entries.sumOf { it.second }
@@ -481,7 +321,7 @@ object SceneStatsComputer {
         return sumW * sumW / sumW2
     }
 
-    /** 加权中位数：entries = [(k, weight), ...]，按 k 升序累积权重到 50% 处线性插值 */
+    /** 加权中位数：按 k 升序累积权重到 50% 时线性插值。 */
     private fun weightedMedian(entries: List<Pair<Double, Double>>): Double? {
         if (entries.size < 2) return null
         val sorted = entries.sortedBy { it.first }
@@ -494,7 +334,6 @@ object SceneStatsComputer {
             cumulative += sorted[i].second
             if (cumulative >= halfWeight) {
                 if (i == 0 || prev >= halfWeight) return sorted[i].first
-                // 在 sorted[i-1] 和 sorted[i] 之间线性插值
                 val fraction = (halfWeight - prev) / sorted[i].second
                 return sorted[i - 1].first + (sorted[i].first - sorted[i - 1].first) * fraction
             }

@@ -23,6 +23,7 @@ import yangfentuozi.batteryrecorder.shared.data.RecordsFile
 import yangfentuozi.batteryrecorder.ui.screens.history.HistoryListScreen
 import yangfentuozi.batteryrecorder.ui.screens.history.RecordDetailScreen
 import yangfentuozi.batteryrecorder.ui.screens.home.HomeScreen
+import yangfentuozi.batteryrecorder.ui.screens.prediction.PredictionDetailScreen
 import yangfentuozi.batteryrecorder.ui.screens.settings.SettingsScreen
 import yangfentuozi.batteryrecorder.ui.viewmodel.MainViewModel
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
@@ -64,13 +65,12 @@ fun BatteryRecorderNavHost(
         composable(
             route = NavRoute.Home.route,
             exitTransition = {
-                // 从 MainPage 到 EditPage 时，MainPage 的退出动画
+                // 首页推入二级页时轻微左移，保留“主页面退后”的层级感。
                 slideOutHorizontally(targetOffsetX = { fullWidth -> -fullWidth / 4 }) +
                         fadeOut()
             },
-            // --- MainPage 的 popEnterTransition ---
             popEnterTransition = {
-                // 当从 EditPage 返回 MainPage 时，MainPage 的进入动画
+                // 返回首页时反向平移，与前进动画保持镜像。
                 slideInHorizontally(initialOffsetX = { fullWidth -> -fullWidth / 4 }) +
                         fadeIn()
             },
@@ -96,6 +96,10 @@ fun BatteryRecorderNavHost(
                             Uri.encode(name)
                         )
                     )
+                },
+                onNavigateToPredictionDetail = {
+                    // 预测详情页无参数，直接走固定 route。
+                    navController.navigate(NavRoute.PredictionDetail.route)
                 }
             )
         }
@@ -111,6 +115,18 @@ fun BatteryRecorderNavHost(
                 onNavigateBack = {
                     navController.popBackStack()
                 }
+            )
+        }
+        composable(
+            route = NavRoute.PredictionDetail.route,
+            enterTransition = { defaultEnterTransition },
+            exitTransition = { defaultExitTransition },
+            popEnterTransition = { defaultPopEnterTransition },
+            popExitTransition = { defaultPopExitTransition }
+        ) {
+            // 预测详情页依赖 SettingsViewModel 提供统计请求与展示配置。
+            PredictionDetailScreen(
+                settingsViewModel = settingsViewModel
             )
         }
         composable(

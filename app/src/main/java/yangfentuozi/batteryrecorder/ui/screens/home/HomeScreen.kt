@@ -59,7 +59,8 @@ fun HomeScreen(
     settingsViewModel: SettingsViewModel,
     onNavigateToSettings: () -> Unit = {},
     onNavigateToHistoryList: (BatteryStatus) -> Unit = {},
-    onNavigateToRecordDetail: (BatteryStatus, String) -> Unit = { _, _ -> }
+    onNavigateToRecordDetail: (BatteryStatus, String) -> Unit = { _, _ -> },
+    onNavigateToPredictionDetail: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val serviceConnected by viewModel.serviceConnected.collectAsState()
@@ -80,7 +81,7 @@ fun HomeScreen(
     val intervalMs = settingsState.recordIntervalMs
     val dischargeDisplayPositive = settingsState.dischargeDisplayPositive
 
-    // 场景统计和预测
+    // 首页续航卡片与场景卡片共用同一批统计结果。
     val sceneStats by viewModel.sceneStats.collectAsState()
     val prediction by viewModel.prediction.collectAsState()
 
@@ -92,6 +93,7 @@ fun HomeScreen(
             }
 
             override fun onChangedCurrRecordsFile() {
+                // 当前记录文件切段后，首页统计与预测都要按最新文件重算。
                 viewModel.forceRefreshStatistics(
                     context = context,
                     request = latestStatisticsRequest
@@ -247,9 +249,13 @@ fun HomeScreen(
                         else -> currentRecord?.type == BatteryStatus.Discharging
                     }
 
+                    // 应用预测仅在放电语义下成立，充电记录不展示入口。
                     if (isDischarging) {
                         item {
-                            PredictionCard(prediction = prediction)
+                            PredictionCard(
+                                prediction = prediction,
+                                onClick = onNavigateToPredictionDetail
+                            )
                         }
                     }
 

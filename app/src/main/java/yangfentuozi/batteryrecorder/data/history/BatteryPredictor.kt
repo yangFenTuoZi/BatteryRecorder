@@ -5,9 +5,13 @@ import kotlin.math.roundToInt
 // 预测终点统一按 1% 计算，分别给出当前电量与满电的可用时长
 private const val SOC_CUTOFF = 1.0
 private const val MIN_SCENE_MS = 30 * 60 * 1000L  // 30 分钟
+private const val MIN_APP_SCENE_MS = 10 * 60 * 1000L  // 10 分钟
 private const val MIN_FILE_COUNT = 3
 private const val MAX_DRAIN_RATE_PER_HOUR = 50.0   // %/h，超过视为数据异常
 
+/**
+ * 首页场景预测结果。
+ */
 data class PredictionResult(
     val screenOffCurrentHours: Double?,
     val screenOffFullHours: Double?,
@@ -19,6 +23,11 @@ data class PredictionResult(
 
 object BatteryPredictor {
 
+    /**
+     * 根据场景统计计算首页“息屏/亮屏日常”预测。
+     *
+     * 优先使用分文件中位数 k，避免单个异常文件把整体预测拉偏。
+     */
     fun predict(
         sceneStats: SceneStats?,
         currentSoc: Int,
@@ -94,5 +103,28 @@ object BatteryPredictor {
             insufficientData = false,
             confidenceScore = confidenceScore
         )
+    }
+
+    /**
+     * 计算应用维度的当前剩余时长。
+     *
+     * 这里仍保留原始时长掉电速率校验，用于过滤 SOC 跳变；
+     * 实际剩余时长使用 effective 口径，才能反映“当次记录加权”配置。
+     */
+    fun predictAppCurrentHours(
+        entry: AppStatsEntry,
+        currentSoc: Int
+    ): Double? {
+        if (entry.totalForegroundMs < MIN_APP_SCENE_MS) return null
+        if (entry.rawAvgPowerRaw <= 0) return null
+        if (entry.rawSocDrop <= 0 || entry.effectiveSocDrop <= 0) return null
+        if (entry.effectiveForegroundMs <= 0) return null
+
+        val drainPerHour = entry.rawSocDrop / entry.totalForegroundMs * 3_600_000.0
+        if (drainPerHour > MAX_DRAIN_RATE_PER_HOUR) return null
+
+        val currentRemaining = (currentSoc - SOC_CUTOFF).coerceAtLeast(0.0)
+        val drainPerMs = entry.effectiveSocDrop / entry.effectiveForegroundMs
+        return currentRemaining / (drainPerMs * 3_600_000.0)
     }
 }
