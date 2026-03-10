@@ -219,18 +219,6 @@ fun HomeScreen(
                         )
                     }
 
-                    val isDischarging = when (liveStatus) {
-                        BatteryStatus.Discharging -> true
-                        BatteryStatus.Charging -> false
-                        else -> currentRecord?.type == BatteryStatus.Discharging
-                    }
-
-                    if (isDischarging) {
-                        item {
-                            PredictionCard(prediction = prediction)
-                        }
-                    }
-
                     // 统计卡片行（自动处理圆角）
                     rowItem {
                         item {
@@ -250,6 +238,18 @@ fun HomeScreen(
                                 calibrationValue = calibrationValue,
                                 onClick = { onNavigateToHistoryList(BatteryStatus.Discharging) }
                             )
+                        }
+                    }
+
+                    val isDischarging = when (liveStatus) {
+                        BatteryStatus.Discharging -> true
+                        BatteryStatus.Charging -> false
+                        else -> currentRecord?.type == BatteryStatus.Discharging
+                    }
+
+                    if (isDischarging) {
+                        item {
+                            PredictionCard(prediction = prediction)
                         }
                     }
 
