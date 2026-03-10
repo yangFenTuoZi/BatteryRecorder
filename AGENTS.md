@@ -12,6 +12,7 @@ BatteryRecorder — 一个 Android 电池功率记录 App，通过独立 Server 
 
 - 签名配置从根目录 `signing.properties` 读取，缺失时自动 fallback 到 debug keystore
 - 产物路径：`app/build/outputs/apk/{release,debug}/batteryrecorder-v*-{variant}.apk`
+- Release 混淆产物会额外复制到根目录 `out/apk/`，mapping 会复制到 `out/mapping/`
 - versionCode 由 git commit 数量动态生成，需要完整 git history（`fetch-depth: 0`）
 
 ## 技术栈
@@ -67,7 +68,11 @@ Server 以 shell 权限运行时数据写入 `com.android.shell` 数据目录。
 
 - 原始功率值为记录文件中的原始数值（raw，平台单位可能不一致），统一通过 `FormatUtil.computePowerW()` 做缩放与校准后转换为瓦特用于展示
 - 放电记录显示正值的逻辑通过 `PowerDisplayMapper` 在 ViewModel 层统一处理，UI 层不做正负转换
-- `HistoryViewModel` 提供预转换的 `displayPoints`（通过 `RecordDetailChartUiState`），Screen 层直接使用
+- `HistoryViewModel` 统一产出 `RecordDetailChartUiState`，其中：
+  - `points` 为详情页原始展示点
+  - `trendPoints` 为基于过滤后原始点重新分桶得到的趋势点
+  - `minChartTime` / `maxChartTime` / `maxViewportStartTime` / `viewportDurationMs` 承载全屏视口元数据
+- `RecordDetailScreen` 直接消费 `recordChartUiState`，不再维护独立的图表数据拼装逻辑
 
 ### 图表曲线模式
 
@@ -76,6 +81,10 @@ Server 以 shell 权限运行时数据写入 `com.android.shell` 数据目录。
 - **隐藏模式（Hidden）**：不绘制功率曲线，但保留选中逻辑
 - 数据模型 `RecordDetailChartPoint` 同时承载两类点，图表层通过 `PowerCurveMode` 切换显示
 - 孤立息屏点过滤：关闭息屏记录显示时，前后均为亮屏的单个息屏点会被视为抖动并过滤
+- 固定功率轴：详情页根据记录类型和“放电显示正值”配置切换 `FixedPowerAxisMode.PositiveOnly / NegativeOnly`
+- 全屏模式：详情页进入全屏后切横屏，仅展示总时长的 25% 作为初始视口，支持局部浏览
+- 图表交互：支持单击选点、拖动选点、双指平移视口、功率曲线 `Raw -> Fitted -> Hidden` 循环切换，以及电量/温度曲线显隐切换
+- 图表偏好：`RecordDetailScreen` 通过 `record_detail_chart` SharedPreferences 单独持久化图表展示偏好，不写入业务配置
 
 ## App 模块包结构
 
@@ -146,7 +155,9 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 │       ├── Type.kt
 │       └── AppShape.kt
 ├── data/
-│   ├── model/ChartPoint.kt            # 图表数据点
+│   ├── model/
+│   │   ├── ChartPoint.kt                  # 图表数据点（通用）
+│   │   └── RecordDetailChartPoint.kt      # 记录详情图表数据点（原始/趋势共用）
 │   └── history/
 │       ├── HistoryRepository.kt        # 历史记录仓库（文件 I/O，纯数据，无 UI 逻辑）
 │       ├── SceneStatsComputer.kt       # 场景统计计算（息屏/亮屏日常/游戏分类积分 + 缓存）
@@ -179,7 +190,9 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 | App 入口 Composable | `app/.../ui/BatteryRecorderApp.kt` |
 | 导航路由 | `app/.../ui/navigation/NavRoute.kt` (Home, Settings, HistoryList, RecordDetail) |
 | ViewModel | `app/.../ui/viewmodel/` (MainViewModel, SettingsViewModel, LiveRecordViewModel, HistoryViewModel) |
+| 详情图表状态 | `app/.../ui/viewmodel/HistoryViewModel.kt` (`RecordDetailChartUiState`) |
 | 设置页 UI 模型 | `app/.../ui/model/` (SettingsUiState, SettingsUiProps, SettingsActions) |
+| 图表数据模型 | `app/.../data/model/ChartPoint.kt`, `RecordDetailChartPoint.kt` |
 | 功率显示映射 | `app/.../ui/viewmodel/PowerDisplayMapper.kt` |
 | 功率转换/格式化 | `app/.../utils/FormatUtil.kt` (`computePowerW`, `formatPower`, `formatRelativeTime`, `formatRemainingTime`, `formatDurationHours`) |
 | 数据同步 | `shared/.../sync/PfdFileSender.kt`, `PfdFileReceiver.kt` |
@@ -199,6 +212,10 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 - **UI 组件解耦 IPC**：UI 组件不直接引用 `Service.service`，通过参数传入 `serviceConnected: Boolean`
 - **HistoryRepository**：纯数据仓库，只做文件 I/O 和统计计算，不包含 UI 显示逻辑（如正负值转换）
 - **ViewModel 创建**：`MainViewModel` 和 `SettingsViewModel` 在 `BatteryRecorderApp` 创建后通过参数传递；`HistoryViewModel` 和 `LiveRecordViewModel` 在各 Screen 内局部创建
+- **记录详情图表状态**：详情页统一由 `RecordDetailChartUiState` 承载原始点、趋势点和视口元数据，Screen 层不再自行派生图表数据
+- **趋势曲线生成**：趋势点必须基于过滤后的展示点按时间分桶后取中位数生成，绘制平滑样式属于图表层职责，不在仓库层做“平滑后数据落地”
+- **图表本地偏好**：`PowerCurveMode`、电量/温度曲线显隐属于详情页本地展示偏好，持久化到独立 SharedPreferences，不进入 `SettingsViewModel`
+- **启动日志与启动来源**：ROOT 启动统一经 `RootServerStarter.start(context, source)`，来源使用 `RootServerStarter.Source` 常量，日志保持统一语义
 
 ### 续航预测
 
@@ -229,3 +246,11 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 - `hiddenapi:stub` 模块中的类只做声明（compileOnly），不包含实现
 - 时间格式化统一使用 `FormatUtil` 中的函数，禁止在 Screen/Chart 中定义局部格式化函数
 - 公共 UI 组件放在 `ui/components/global/`，业务特定组件放在对应的 `ui/components/{feature}/`
+
+## 日志约定
+
+- 业务代码统一使用 `LoggerX`，禁止直接调用 `android.util.Log`
+- Kotlin 优先使用 reified 封装：`LoggerX.i<Foo>("...")`、`LoggerX.w<Foo>("...")`、`LoggerX.e<Foo>("...", tr = e)`
+- Java 或无法使用 reified 的场景，使用 `LoggerX.i("Tag", "...")` 这组重载，不自行封装 `Log.i/e/w`
+- 日志内容保持可检索的结构化前缀，如 `[BOOT]`、`[启动请求]`、`[SYNC]`
+- 日志落盘、Logcat 输出、日志级别控制统一交给 `LoggerX`，不要绕过其封装直接写底层实现
