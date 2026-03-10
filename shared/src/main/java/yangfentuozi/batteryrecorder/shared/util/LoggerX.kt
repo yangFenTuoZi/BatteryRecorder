@@ -72,6 +72,43 @@ object LoggerX {
         log(T::class.java.simpleName, LogLevel.Assert, msg, args, tr = tr)
     }
 
+    // Java 无法调用 reified 泛型封装，这组重载用于 Java 侧直接按 tag 记日志。
+    @JvmStatic
+    @JvmOverloads
+    fun v(tag: String, msg: String?, tr: Throwable? = null) {
+        log(tag, LogLevel.Verbose, msg, tr = tr)
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    fun d(tag: String, msg: String?, tr: Throwable? = null) {
+        log(tag, LogLevel.Debug, msg, tr = tr)
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    fun i(tag: String, msg: String?, tr: Throwable? = null) {
+        log(tag, LogLevel.Info, msg, tr = tr)
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    fun w(tag: String, msg: String?, tr: Throwable? = null) {
+        log(tag, LogLevel.Warning, msg, tr = tr)
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    fun e(tag: String, msg: String?, tr: Throwable? = null) {
+        log(tag, LogLevel.Error, msg, tr = tr)
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    fun a(tag: String, msg: String?, tr: Throwable? = null) {
+        log(tag, LogLevel.Assert, msg, tr = tr)
+    }
+
     fun log(tag: String, level: LogLevel, msg: String?, vararg args: Any?, tr: Throwable?) {
         if (!isLoggable(level)) return
         val base = if (args.isEmpty()) msg.toString() else String.format(
