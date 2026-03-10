@@ -14,8 +14,18 @@ import yangfentuozi.batteryrecorder.data.history.PredictionResult
 import yangfentuozi.batteryrecorder.data.history.SceneStats
 import yangfentuozi.batteryrecorder.ui.components.global.StatRow
 import yangfentuozi.batteryrecorder.utils.computePowerW
+import yangfentuozi.batteryrecorder.utils.formatFullRemainingTime
 import yangfentuozi.batteryrecorder.utils.formatRemainingTime
 import java.util.Locale
+
+private fun formatPredictionPair(
+    currentHours: Double?,
+    fullHours: Double?
+): String {
+    val currentText = currentHours?.let(::formatRemainingTime) ?: "数据不足"
+    val fullText = fullHours?.let(::formatFullRemainingTime) ?: "数据不足"
+    return "$currentText / $fullText"
+}
 
 @Composable
 fun PredictionCard(
@@ -46,12 +56,18 @@ fun PredictionCard(
         } else {
             StatRow(
                 label = "息屏",
-                value = prediction.screenOffHours?.let { formatRemainingTime(it) } ?: "数据不足",
+                value = formatPredictionPair(
+                    currentHours = prediction.screenOffCurrentHours,
+                    fullHours = prediction.screenOffFullHours
+                ),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
             StatRow(
                 label = "亮屏日常",
-                value = prediction.screenOnDailyHours?.let { formatRemainingTime(it) } ?: "数据不足",
+                value = formatPredictionPair(
+                    currentHours = prediction.screenOnDailyCurrentHours,
+                    fullHours = prediction.screenOnDailyFullHours
+                ),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
         }

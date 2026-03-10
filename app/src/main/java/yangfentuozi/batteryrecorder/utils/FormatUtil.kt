@@ -104,3 +104,15 @@ fun formatRemainingTime(hours: Double): String {
         else -> "约 ${m}m"
     }
 }
+
+fun formatFullRemainingTime(hours: Double): String {
+    if (hours < 0) return "0m"
+    val totalMinutes = (hours * 60).toLong()
+    val h = totalMinutes / 60
+    val m = totalMinutes % 60
+    return when {
+        h > 0 && m > 0 -> "${h}h${m}m"
+        h > 0 -> "${h}h"
+        else -> "${m}m"
+    }
+}
