@@ -68,6 +68,7 @@ Server 以 shell 权限运行时数据写入 `com.android.shell` 数据目录。
 
 - 原始功率值为记录文件中的原始数值（raw，平台单位可能不一致），统一通过 `FormatUtil.computePowerW()` 做缩放与校准后转换为瓦特用于展示
 - 放电记录显示正值的逻辑通过 `PowerDisplayMapper` 在 ViewModel 层统一处理，UI 层不做正负转换
+- `PredictionDetailViewModel` 仅暴露原始应用功率统计；`PredictionDetailScreen` 基于 `SettingsViewModel.dischargeDisplayPositive` 做最终正负值展示，避免配置源分叉
 - `HistoryViewModel` 统一产出 `RecordDetailChartUiState`，其中：
   - `points` 为详情页原始展示点
   - `trendPoints` 为基于过滤后原始点重新分桶得到的趋势点
@@ -99,6 +100,8 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 │   │   └── BatteryRecorderNavHost.kt  # NavHost + 页面切换动画
 │   ├── screens/
 │   │   ├── home/HomeScreen.kt         # 首页
+│   │   ├── prediction/
+│   │   │   └── PredictionDetailScreen.kt # 应用维度预测详情页
 │   │   ├── settings/SettingsScreen.kt # 设置页
 │   │   └── history/
 │   │       ├── HistoryListScreen.kt   # 历史记录列表
@@ -108,6 +111,7 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 │   │   ├── SettingsViewModel.kt       # 设置读写，统一在 BatteryRecorderApp 初始化
 │   │   ├── LiveRecordViewModel.kt     # 实时功率数据（IRecordListener 回调）
 │   │   ├── HistoryViewModel.kt        # 历史记录列表 + 详情图表数据转换
+│   │   ├── PredictionDetailViewModel.kt # 应用预测详情页状态
 │   │   └── PowerDisplayMapper.kt      # 放电显示正值映射工具函数（internal）
 │   ├── model/
 │   │   ├── SettingsUiState.kt         # 设置页 UI 状态
@@ -116,6 +120,7 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 │   ├── components/
 │   │   ├── global/
 │   │   │   ├── SplicedColumnGroup.kt  # 拼接列分组（自动圆角 DSL）
+│   │   │   ├── LazySplicedColumnGroup.kt # LazyColumn 版拼接列分组
 │   │   │   ├── SplicedShapes.kt       # 圆角计算辅助
 │   │   │   ├── SwipeRevealRow.kt      # 左滑显示操作按钮
 │   │   │   ├── SwitchWidget.kt        # M3 开关组件
@@ -160,6 +165,8 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 │   │   └── RecordDetailChartPoint.kt      # 记录详情图表数据点（原始/趋势共用）
 │   └── history/
 │       ├── HistoryRepository.kt        # 历史记录仓库（文件 I/O，纯数据，无 UI 逻辑）
+│       ├── AppStatsComputer.kt         # 应用前台耗电统计（供预测详情页使用）
+│       ├── DischargeRecordScanner.kt   # 放电文件扫描与时间衰减加权复用工具
 │       ├── SceneStatsComputer.kt       # 场景统计计算（息屏/亮屏日常/游戏分类积分 + 缓存）
 │       ├── BatteryPredictor.kt         # 续航预测（能量比例法：k = ΔSOC / E_total）
 │       ├── StatisticsRequest.kt        # 统计请求数据类
@@ -188,8 +195,9 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 | 配置系统 | `shared/.../config/Config.kt`, `ConfigConstants.kt`, `ConfigUtil.kt` |
 | 开机自启动 | `app/.../startup/BootCompletedReceiver.kt`, `RootServerStarter.kt`, `BootAutoStartNotification.kt` |
 | App 入口 Composable | `app/.../ui/BatteryRecorderApp.kt` |
-| 导航路由 | `app/.../ui/navigation/NavRoute.kt` (Home, Settings, HistoryList, RecordDetail) |
-| ViewModel | `app/.../ui/viewmodel/` (MainViewModel, SettingsViewModel, LiveRecordViewModel, HistoryViewModel) |
+| 导航路由 | `app/.../ui/navigation/NavRoute.kt` (Home, Settings, PredictionDetail, HistoryList, RecordDetail) |
+| ViewModel | `app/.../ui/viewmodel/` (MainViewModel, SettingsViewModel, LiveRecordViewModel, HistoryViewModel, PredictionDetailViewModel) |
+| 预测详情页 | `app/.../ui/screens/prediction/PredictionDetailScreen.kt`, `app/.../ui/viewmodel/PredictionDetailViewModel.kt` |
 | 详情图表状态 | `app/.../ui/viewmodel/HistoryViewModel.kt` (`RecordDetailChartUiState`) |
 | 设置页 UI 模型 | `app/.../ui/model/` (SettingsUiState, SettingsUiProps, SettingsActions) |
 | 图表数据模型 | `app/.../data/model/ChartPoint.kt`, `RecordDetailChartPoint.kt` |
@@ -198,6 +206,7 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 | 数据同步 | `shared/.../sync/PfdFileSender.kt`, `PfdFileReceiver.kt` |
 | 统计请求 | `app/.../data/history/StatisticsRequest.kt` |
 | 场景统计 | `app/.../data/history/SceneStatsComputer.kt`（SceneStats 数据类 + compute()） |
+| 应用统计 | `app/.../data/history/AppStatsComputer.kt`, `DischargeRecordScanner.kt` |
 | 续航预测 | `app/.../data/history/BatteryPredictor.kt`（PredictionResult 数据类 + predict()） |
 | 历史记录仓库 | `app/.../data/history/HistoryRepository.kt` |
 | 图表组件 | `app/.../ui/components/charts/PowerCapacityChart.kt` |
@@ -208,6 +217,7 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 
 - **功率转换**：所有原始功率值 → 瓦特的转换必须通过 `FormatUtil.computePowerW()`，禁止各处重复写 `cellMultiplier * calibrationValue * (power / 1e9)`
 - **放电显示正值**：在 ViewModel 层通过 `PowerDisplayMapper` 函数处理，UI 组件不关心正负转换逻辑
+- **应用预测详情页功率显示**：`PredictionDetailViewModel` 暴露原始 `averagePowerRaw`，由 `PredictionDetailScreen` 结合 `SettingsViewModel.dischargeDisplayPositive` 做展示映射
 - **SettingsViewModel 初始化**：统一在 `BatteryRecorderApp` 中通过 `LaunchedEffect` 调用 `init(context)`，各 Screen 不再重复调用
 - **UI 组件解耦 IPC**：UI 组件不直接引用 `Service.service`，通过参数传入 `serviceConnected: Boolean`
 - **HistoryRepository**：纯数据仓库，只做文件 I/O 和统计计算，不包含 UI 显示逻辑（如正负值转换）
@@ -230,6 +240,8 @@ app/src/main/java/yangfentuozi/batteryrecorder/
   - **相关设置**：`ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_ENABLED`、`ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_MAX_X100`（倍率 x100）、`ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN`（分钟）
 - **口径字段**：`SceneStats` 同时保留”原始时长（记录时长，用于展示/门槛判断）”与”加权时长（用于计算加权平均功耗）”；并保留 `rawTotalSocDrop` 用于整体异常校验，避免加权放大导致误判
 - **缓存兼容**：`SceneStatsComputer` 的 `cacheKey` 包含 `CACHE_VERSION` 与加权参数；`SceneStats.fromString()` 需兼容旧格式缓存（字段增量时不致解析失败）
+- **历史统计缓存版本**：`AppStatsComputer` 与 `SceneStatsComputer` 共用 `HistoryCacheVersions.HISTORY_STATS_CACHE_VERSION`；任一历史统计缓存格式或 key 组成变化时统一提升该版本
+- **应用预测缓存**：`AppStatsComputer` 的 `cacheKey` 需包含文件名、`lastModified`、`length` 与加权参数
 - **游戏检测规则**（`PredictionGameFilter.isGameApp()`）：FLAG_IS_GAME / CATEGORY_GAME、游戏引擎 so（Unity/UE/Cocos）、启动 Activity 横屏方向
 - **游戏 Blacklist**：预设 `PRESET_BLACKLIST`（硬编码误判包名）+ 用户 `gameBlacklist`（取消勾选的自动检测游戏），自动检测时排除两者
 - **数据范围**：最近 N 个放电文件（可配置，默认 20），最少 3 个有效文件才出预测（异常文件会被跳过）
