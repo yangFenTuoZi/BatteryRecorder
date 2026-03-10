@@ -219,7 +219,11 @@ fun HomeScreen(
                         )
                     }
 
-                    val isDischarging = currentRecord?.type != BatteryStatus.Charging
+                    val isDischarging = when (liveStatus) {
+                        BatteryStatus.Discharging -> true
+                        BatteryStatus.Charging -> false
+                        else -> currentRecord?.type == BatteryStatus.Discharging
+                    }
 
                     if (isDischarging) {
                         item {

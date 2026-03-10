@@ -158,19 +158,19 @@ class MainViewModel : ViewModel() {
     suspend fun onLiveStatusChanged(context: Context, liveStatus: BatteryStatus?, intervalMs: Long) {
         if (liveStatus == null) return
 
-        withContext(Dispatchers.IO) {
-            runCatching { SyncUtil.sync(context) }
-        }
-
         val dischargeDisplayPositive = getDischargeDisplayPositive(context)
-        val before = _currentRecord.value
         delay((intervalMs * 2).coerceAtLeast(800L))
 
         repeat(3) {
-            _currentRecord.value = loadLatestRecordForDisplay(context, dischargeDisplayPositive)
+            withContext(Dispatchers.IO) {
+                runCatching { SyncUtil.sync(context) }
+            }
+            val loaded = loadLatestRecordForDisplay(context, dischargeDisplayPositive)
+            if (loaded != null && loaded.type == liveStatus) {
+                _currentRecord.value = loaded
+                return
+            }
             delay(350L)
-            val after = _currentRecord.value
-            if (after?.name != before?.name || after?.type != before?.type) return
         }
     }
 
