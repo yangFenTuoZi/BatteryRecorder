@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.data.model.RecordDetailChartPoint
 import yangfentuozi.batteryrecorder.data.model.normalizeRecordDetailChartPoints
+import yangfentuozi.batteryrecorder.utils.formatDateTime
 import yangfentuozi.batteryrecorder.utils.formatRelativeTime
 import java.util.Locale
 import kotlin.math.abs
@@ -164,6 +165,7 @@ fun PowerCapacityChart(
     val capacityColor = CAPACITY_COLOR
     val tempColor = TEMP_COLOR
     val gridColor = MaterialTheme.colorScheme.outlineVariant
+    val axisLabelColor = MaterialTheme.colorScheme.onSurface
     val strokeWidth = LINE_STROKE_WIDTH
     val screenOnColor = SCREEN_ON_COLOR
     val screenOffColor = SCREEN_OFF_COLOR
@@ -374,7 +376,7 @@ fun PowerCapacityChart(
                 val maxPower = powerAxisConfig.maxValue
                 val (minTemp, maxTemp) = computeTempAxisRange(renderFilteredPoints)
                 val verticalGridSegments = if (useFivePercentTimeGrid) 20 else 4
-                val timeLabelSegments = if (useFivePercentTimeGrid) 20 else 3
+                val timeLabelSegments = if (useFivePercentTimeGrid) 20 else 4
                 val timeLabelStep = if (useFivePercentTimeGrid) 4 else 1
 
                 val coords = ChartCoordinates(
@@ -415,15 +417,12 @@ fun PowerCapacityChart(
                 if (hasVisiblePowerCurve) {
                     drawFixedPowerGridLines(coords, gridColor, powerAxisConfig.majorStepW, powerAxisConfig.minorStepW)
                     drawFixedPowerAxisLabels(
-                        coords, gridColor, powerAxisConfig.majorStepW, powerAxisConfig.minorStepW,
+                        coords, axisLabelColor, powerAxisConfig.majorStepW, powerAxisConfig.minorStepW,
                         if (isNegativeMode) -1 else 1
                     )
                 }
                 drawTimeAxisLabels(
-                    coords, gridColor, { value ->
-                        val offset = (value - recordStartTime).coerceAtLeast(0L)
-                        formatRelativeTime(offset)
-                    },
+                    coords, axisLabelColor, { value -> formatDateTime(value) },
                     timeLabelSegments, timeLabelStep
                 )
 
@@ -882,12 +881,12 @@ private fun DrawScope.drawFixedPowerGridLines(
  */
 private fun DrawScope.drawFixedPowerAxisLabels(
     coords: ChartCoordinates,
-    gridColor: Color,
+    labelColor: Color,
     majorStepW: Int,
     minorStepW: Int,
     labelSignMultiplier: Int,
 ) {
-    val textPaint = createTextPaint(gridColor.toArgb(), 24f)
+    val textPaint = createTextPaint(labelColor.toArgb(), 24f)
     val minW = coords.minPower.roundToInt()
     val maxW = coords.maxPower.roundToInt()
     val minor = minorStepW.coerceAtLeast(1)
@@ -916,12 +915,12 @@ private fun DrawScope.drawFixedPowerAxisLabels(
  */
 private fun DrawScope.drawTimeAxisLabels(
     coords: ChartCoordinates,
-    gridColor: Color,
+    labelColor: Color,
     timeLabelFormatter: (Long) -> String,
     totalSegments: Int,
     labelStep: Int,
 ) {
-    val textPaint = createTextPaint(gridColor.toArgb(), 24f)
+    val textPaint = createTextPaint(labelColor.toArgb(), 24f)
     val cols = totalSegments.coerceAtLeast(1)
     val step = labelStep.coerceAtLeast(1)
     val colStep = coords.chartWidth / cols

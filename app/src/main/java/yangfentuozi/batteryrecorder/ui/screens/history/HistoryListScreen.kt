@@ -49,8 +49,8 @@ import yangfentuozi.batteryrecorder.ui.components.global.SwipeRevealRow
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 import yangfentuozi.batteryrecorder.ui.viewmodel.HistoryViewModel
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
-import yangfentuozi.batteryrecorder.utils.formatDateTime
 import yangfentuozi.batteryrecorder.utils.formatDurationHours
+import yangfentuozi.batteryrecorder.utils.formatFullDateTime
 import yangfentuozi.batteryrecorder.utils.formatPower
 
 private const val NEAR_END_PRELOAD_THRESHOLD = 5
@@ -251,7 +251,7 @@ fun HistoryListScreen(
                                     .padding(16.dp)
                             ) {
                                 Text(
-                                    text = formatDateTime(stats.startTime),
+                                    text = formatFullDateTime(stats.startTime),
                                     style = MaterialTheme.typography.titleSmall
                                 )
                                 Spacer(Modifier.height(6.dp))

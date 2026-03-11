@@ -28,6 +28,16 @@ fun formatDateTime(timestamp: Long): String {
     return formatter.format(Date(timestamp))
 }
 
+/**
+ * 将时间戳格式化为 yyyy/MM/dd HH:mm 格式
+ * @param timestamp Unix 时间戳（毫秒），如 1705900800000
+ * @return 格式化后的时间字符串，如 "2026/03/11 14:30"
+ */
+fun formatFullDateTime(timestamp: Long): String {
+    val formatter = SimpleDateFormat("yyyy/MM/dd HH:mm", Locale.getDefault())
+    return formatter.format(Date(timestamp))
+}
+
 fun formatRelativeTime(offsetMs: Long): String {
     val totalMinutes = (offsetMs / 60000L).toInt().coerceAtLeast(0)
     val hours = totalMinutes / 60
