@@ -1,0 +1,7 @@
+* [首页](README.md)
+* [快速开始](getting-started.md)
+* [校准说明](calibration.md)
+* [排除高负载 App](high-load-apps.md)
+* [续航预测说明](prediction.md)
+* [历史记录操作](history.md)
+* [记录详情图表说明](record-detail.md)
