@@ -3,13 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta content="IE=edge" http-equiv="X-UA-Compatible">
-    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport">
     <title>BatteryRecorder 使用说明</title>
     <meta content="BatteryRecorder 使用说明文档" name="description">
-    <link href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css" rel="stylesheet">
+    <!-- v5 核心主题 -->
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@5/dist/themes/core.min.css">
+    <!-- 可选：叠加 vue 风格附加主题 -->
+    <!-- <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@5/dist/themes/addons/vue.min.css"> -->
 </head>
-<body>
-    <div id="app">加载中...</div>
+<body class="loading">
+    <div id="app"></div>
     <script>
         window.$docsify = {
             name: "BatteryRecorder 使用说明",
@@ -20,6 +23,7 @@
             relativePath: true
         };
     </script>
-    <script src="//cdn.jsdelivr.net/npm/docsify@4"></script>
+    <!-- v5 JS 路径 -->
+    <script src="//cdn.jsdelivr.net/npm/docsify@5/dist/docsify.min.js"></script>
 </body>
 </html>
