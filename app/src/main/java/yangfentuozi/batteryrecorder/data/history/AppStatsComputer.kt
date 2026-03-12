@@ -80,7 +80,6 @@ object AppStatsComputer {
 
         val recentFileCount = request.sceneStatsRecentFileCount
         val maxGapMs = DischargeRecordScanner.computeMaxGapMs(request.recordIntervalMs)
-        val cacheDir = File(context.cacheDir, "app_stats")
         val cacheKey = buildCacheKey(
             files = files,
             recentFileCount = recentFileCount,
@@ -88,7 +87,7 @@ object AppStatsComputer {
             request = request,
             currentDischargeFileName = currentDischargeFileName
         )
-        val cacheFile = File(cacheDir, "app_stats_cache_${cacheKey}.txt")
+        val cacheFile = getAppStatsCacheFile(context.cacheDir, cacheKey)
         if (cacheFile.exists()) {
             val cacheText = cacheFile.readText().trim()
             if (cacheText.isEmpty()) {
@@ -137,7 +136,7 @@ object AppStatsComputer {
             )
         }
 
-        if (!cacheDir.exists()) cacheDir.mkdirs()
+        cacheFile.parentFile?.mkdirs()
         cacheFile.writeText(
             entries.sortedBy { it.packageName }
                 .joinToString(separator = "\n") { it.toString() }
@@ -161,7 +160,7 @@ object AppStatsComputer {
         maxGapMs: Long,
         request: StatisticsRequest,
         currentDischargeFileName: String?
-    ): Int {
+    ): String {
         val filesHash = files.joinToString(",") { "${it.name}:${it.lastModified()}:${it.length()}" }.hashCode()
         return listOf(
             HISTORY_STATS_CACHE_VERSION,
@@ -172,6 +171,6 @@ object AppStatsComputer {
             request.predCurrentSessionWeightMaxX100,
             request.predCurrentSessionWeightHalfLifeMin,
             currentDischargeFileName?.hashCode() ?: 0
-        ).joinToString("_").hashCode()
+        ).joinToString("_").hashCode().toString()
     }
 }

@@ -243,7 +243,9 @@ app/src/main/java/yangfentuozi/batteryrecorder/
   - **相关设置**：`ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_ENABLED`、`ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_MAX_X100`（倍率 x100）、`ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN`（分钟）
 - **口径字段**：`SceneStats` 同时保留"原始时长（记录时长，用于展示/门槛判断）"与"加权时长（用于计算加权平均功耗）"；并保留 `rawTotalSocDrop` 用于整体异常校验，避免加权放大导致误判
 - **缓存兼容**：`SceneStatsComputer` 的 `cacheKey` 包含 `CACHE_VERSION` 与加权参数；`SceneStats.fromString()` 需兼容旧格式缓存（字段增量时不致解析失败）
-- **历史统计缓存版本**：`AppStatsComputer` 与 `SceneStatsComputer` 共用 `HistoryCacheVersions.HISTORY_STATS_CACHE_VERSION`；任一历史统计缓存格式或 key 组成变化时统一提升该版本
+- **历史统计缓存版本**：`AppStatsComputer`、`SceneStatsComputer` 与记录详情 `power_stats` 共用 `HistoryCacheVersions.HISTORY_STATS_CACHE_VERSION`；任一历史统计缓存格式或 key 组成变化时统一提升该版本
+- **历史统计缓存命名**：三类缓存统一使用 `类型目录/v{HISTORY_STATS_CACHE_VERSION}/{key}.cache`；`app_stats` 与 `scene_stats` 的 key 为各自 `cacheKey`，`power_stats` 的 key 为源记录文件名；路径生成统一走 `HistoryCacheNaming.kt`
+- **记录详情统计缓存失效**：`RecordsStats.getCachedStats()` 除命中当前版本目录外，还必须校验缓存内保存的 `sourceLastModified` 与源文件 `lastModified()` 一致；不一致或缓存损坏时直接删除并重算，避免头部统计与图表解析结果分叉
 - **应用预测缓存**：`AppStatsComputer` 的 `cacheKey` 需包含文件名、`lastModified`、`length` 与加权参数
 - **首页失败原因链路**：`DischargeRecordScanner` 负责区分文件级过滤原因（无有效采样区间 / 无有效功耗 / 无有效掉电 / 掉电速率超过 50%/h），`SceneStatsComputer` 通过 `insufficientReason` 向上透传，`MainViewModel` 传给 `BatteryPredictor`，最终由 `PredictionCard` 直接展示具体原因
 - **游戏检测规则**（`PredictionGameFilter.isGameApp()`）：FLAG_IS_GAME / CATEGORY_GAME、游戏引擎 so（Unity/UE/Cocos）、启动 Activity 横屏方向

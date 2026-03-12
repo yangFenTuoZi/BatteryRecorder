@@ -42,8 +42,6 @@ object HistoryRepository {
         return validFile(dataDir, name)
     }
 
-    private fun getCacheDir(context: Context) = File(context.cacheDir, "power_stats_v2")
-
     // 确保目录存在且为目录，返回目录对象
     private fun dataDir(context: Context, type: BatteryStatus): File =
         File(File(context.dataDir, Constants.APP_POWER_DATA_PATH), type.dataDirName).apply {
@@ -70,10 +68,11 @@ object HistoryRepository {
         file: File,
         needCaching: Boolean
     ): HistoryRecord? {
+        val cacheFile = getPowerStatsCacheFile(context.cacheDir, file.name)
         val stats = runCatching {
             RecordsStats.getCachedStats(
-                cacheDir = getCacheDir(context),
-                file = file,
+                cacheFile = cacheFile,
+                sourceFile = file,
                 needCaching = needCaching
             )
         }.onFailure { error ->
@@ -104,9 +103,10 @@ object HistoryRepository {
         val dataDir = file.parentFile!!
         val latestFile = dataDir.listFiles()?.filter { it.isFile }
             ?.maxByOrNull { it.lastModified() }
+        val cacheFile = getPowerStatsCacheFile(context.cacheDir, file.name)
         val stats = RecordsStats.getCachedStats(
-            cacheDir = getCacheDir(context),
-            file = file,
+            cacheFile = cacheFile,
+            sourceFile = file,
             needCaching = latestFile != file
         )
         return buildHistoryRecord(file, stats)
@@ -200,7 +200,7 @@ object HistoryRepository {
 
         if (runCatching { recordsFile.toFile(context)!!.delete() }.getOrDefault(false)) {
             // 同步删除缓存文件
-            runCatching { File(getCacheDir(context), recordsFile.name).delete() }
+            runCatching { getPowerStatsCacheFile(context.cacheDir, recordsFile.name).delete() }
             return true
         }
         return false

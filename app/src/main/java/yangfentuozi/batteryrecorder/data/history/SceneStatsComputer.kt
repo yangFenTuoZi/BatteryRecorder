@@ -91,13 +91,12 @@ object SceneStatsComputer {
             )
         }
 
-        val cacheDir = File(context.cacheDir, "scene_stats")
         val cacheKey = buildCacheKey(
             files = files,
             request = request,
             currentDischargeFileName = currentDischargeFileName
         )
-        val cacheFile = File(cacheDir, "$cacheKey.csv")
+        val cacheFile = getSceneStatsCacheFile(context.cacheDir, cacheKey)
         if (cacheFile.exists()) {
             val cacheLines = cacheFile.readText().trim().lines()
             val displayStats = cacheLines.getOrNull(0)?.let { SceneStats.fromString(it) }
@@ -265,7 +264,7 @@ object SceneStatsComputer {
             rawTotalSocDrop = rawTotalCapDrop
         )
 
-        if (!cacheDir.exists()) cacheDir.mkdirs()
+        cacheFile.parentFile?.mkdirs()
         cacheFile.writeText(
             displayStats.toString() + "\n" + predictionStats.toString() + "\n" +
                     (medianK ?: "") + "\n" + (kCV ?: "") + "\n" + kEffectiveN

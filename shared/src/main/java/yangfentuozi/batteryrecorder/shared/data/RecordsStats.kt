@@ -36,6 +36,22 @@ data class RecordsStats(
             )
         }
 
+        private fun fromCachedString(
+            cacheText: String,
+            sourceLastModified: Long
+        ): RecordsStats? {
+            val parts = cacheText.split(",")
+            if (parts.size < 8) return null
+            val cachedSourceLastModified = parts[0].toLongOrNull() ?: return null
+            if (cachedSourceLastModified != sourceLastModified) return null
+            return fromString(parts.drop(1).joinToString(","))
+        }
+
+        private fun toCachedString(
+            stats: RecordsStats,
+            sourceLastModified: Long
+        ): String = "$sourceLastModified,${stats}"
+
         fun parseAndCompute(filePath: File): RecordsStats {
             if (!filePath.exists()) {
                 throw IllegalArgumentException("File not found: ${filePath.absolutePath}")
@@ -90,21 +106,20 @@ data class RecordsStats(
         }
 
         fun getCachedStats(
-            cacheDir: File,
-            file: File,
+            cacheFile: File,
+            sourceFile: File,
             needCaching: Boolean = true
         ): RecordsStats {
-            if (!cacheDir.exists()) cacheDir.mkdirs()
-
-            val cacheFile = File(cacheDir, file.name)
+            val sourceLastModified = sourceFile.lastModified()
             if (cacheFile.exists()) {
-                fromString(cacheFile.readText().trim())?.let { return it }
+                fromCachedString(cacheFile.readText().trim(), sourceLastModified)?.let { return it }
                 cacheFile.delete()
             }
-            val recordsStats = parseAndCompute(file)
+            val recordsStats = parseAndCompute(sourceFile)
             if (needCaching) {
+                cacheFile.parentFile?.mkdirs()
                 cacheFile.createNewFile()
-                cacheFile.writeText(recordsStats.toString())
+                cacheFile.writeText(toCachedString(recordsStats, sourceLastModified))
             }
             return recordsStats
         }
