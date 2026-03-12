@@ -44,4 +44,3 @@
 
 - [QQ 群](https://qm.qq.com/q/6q5etoYAuc) (推荐)
 - [GitHub Issues](https://github.com/Itosang/BatteryRecorder/issues)
-- 
