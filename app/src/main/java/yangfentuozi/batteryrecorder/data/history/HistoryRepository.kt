@@ -13,6 +13,8 @@ import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 data class HistoryRecord(
     val name: String,
@@ -220,6 +222,31 @@ object HistoryRepository {
         sourceFile.inputStream().use { input ->
             outputStream.use { output ->
                 input.copyTo(output)
+            }
+        }
+    }
+
+    /** 导出当前列表内的所有记录到 ZIP */
+    @Throws(IOException::class)
+    fun exportRecordsZip(
+        context: Context,
+        recordsFiles: List<RecordsFile>,
+        destinationUri: Uri
+    ) {
+        val outputStream = context.contentResolver.openOutputStream(destinationUri, "w")
+            ?: throw IOException("Failed to open destination: $destinationUri")
+
+        outputStream.use { rawOutput ->
+            ZipOutputStream(rawOutput).use { zipOutput ->
+                recordsFiles.forEach { recordsFile ->
+                    val sourceFile = recordsFile.toFile(context)
+                        ?: throw FileNotFoundException("Record file not found: ${recordsFile.name}")
+                    zipOutput.putNextEntry(ZipEntry(sourceFile.name))
+                    sourceFile.inputStream().use { input ->
+                        input.copyTo(zipOutput)
+                    }
+                    zipOutput.closeEntry()
+                }
             }
         }
     }

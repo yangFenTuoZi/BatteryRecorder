@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Outbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -94,6 +95,13 @@ fun HistoryListScreen(
             viewModel.exportRecord(context, exportFile, uri)
         }
     }
+    val exportAllLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri ->
+        if (uri != null) {
+            viewModel.exportAllRecords(context, batteryStatus, uri)
+        }
+    }
 
     LaunchedEffect(batteryStatus) {
         openRecordName = null
@@ -138,7 +146,19 @@ fun HistoryListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(title) }
+                title = { Text(title) },
+                actions = {
+                    IconButton(
+                        onClick = {
+                            exportAllLauncher.launch(buildHistoryZipFileName(batteryStatus))
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Outbox,
+                            contentDescription = "导出全部"
+                        )
+                    }
+                }
             )
         },
         bottomBar = {
@@ -275,6 +295,14 @@ fun HistoryListScreen(
                 item { Spacer(modifier = Modifier.height(8.dp)) }
             }
         }
+    }
+}
+
+private fun buildHistoryZipFileName(batteryStatus: BatteryStatus): String {
+    return if (batteryStatus == BatteryStatus.Charging) {
+        "charge-history.zip"
+    } else {
+        "discharge-history.zip"
     }
 }
 

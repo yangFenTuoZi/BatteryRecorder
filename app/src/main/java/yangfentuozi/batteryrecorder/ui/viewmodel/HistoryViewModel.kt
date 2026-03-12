@@ -2,7 +2,6 @@ package yangfentuozi.batteryrecorder.ui.viewmodel
 
 import android.content.Context
 import android.net.Uri
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
@@ -21,6 +20,7 @@ import yangfentuozi.batteryrecorder.data.model.normalizeRecordDetailChartPoints
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.shared.data.RecordsFile
+import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import yangfentuozi.batteryrecorder.utils.computePowerW
 import java.io.File
 import kotlin.math.roundToLong
@@ -88,7 +88,6 @@ class HistoryViewModel : ViewModel() {
 
     private companion object {
         const val PAGE_SIZE = 10
-        const val TAG = "HistoryViewModel"
         // 目标不是“固定桶时长”，而是让不同记录长度大致映射到相近数量的趋势点。
         const val TARGET_TREND_BUCKET_COUNT = 240L
     }
@@ -223,7 +222,7 @@ class HistoryViewModel : ViewModel() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e(TAG, "加载记录详情失败: ${recordsFile.name}", e)
+                LoggerX.e<HistoryViewModel>("[记录详情] 加载失败: ${recordsFile.name}", tr = e)
                 _userMessage.value = "加载记录详情失败"
                 _recordDetail.value = null
                 recordPoints = emptyList()
@@ -291,8 +290,35 @@ class HistoryViewModel : ViewModel() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                // 导出失败只做可见提示并记录日志，不向上抛出导致界面崩溃
-                Log.e(TAG, "导出失败: ${recordsFile.name}", e)
+                LoggerX.e<HistoryViewModel>("[导出] 单记录导出失败: ${recordsFile.name}", tr = e)
+                _userMessage.value = "导出失败"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun exportAllRecords(
+        context: Context,
+        type: BatteryStatus,
+        destinationUri: Uri
+    ) {
+        if (_isLoading.value) return
+        val currentExportRecords = resolveCurrentExportRecords(type)
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                withContext(Dispatchers.IO) {
+                    val exportRecords = currentExportRecords ?: HistoryRepository
+                        .listRecordFiles(context, type)
+                        .map { file -> RecordsFile.fromFile(file) }
+                    HistoryRepository.exportRecordsZip(context, exportRecords, destinationUri)
+                }
+                _userMessage.value = "导出成功"
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                LoggerX.e<HistoryViewModel>("[导出] 批量导出失败: ${type.dataDirName}", tr = e)
                 _userMessage.value = "导出失败"
             } finally {
                 _isLoading.value = false
@@ -350,6 +376,14 @@ class HistoryViewModel : ViewModel() {
             return sourceRecords.indexOfFirst { record -> record.name == recordName }
         }
         return listFiles.indexOfFirst { file -> file.name == recordName }
+    }
+
+    private fun resolveCurrentExportRecords(type: BatteryStatus): List<RecordsFile>? {
+        if (currentListType != type) return null
+        pagedSourceRecords?.let { records ->
+            return records.map { record -> record.asRecordsFile() }
+        }
+        return listFiles.map { file -> RecordsFile.fromFile(file) }
     }
 
     private fun computeChargingCapacityChange(record: HistoryRecord): Int =
