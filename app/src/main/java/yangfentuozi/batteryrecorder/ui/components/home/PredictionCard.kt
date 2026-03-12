@@ -10,7 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalLocale
+import java.util.Locale
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import yangfentuozi.batteryrecorder.data.history.PredictionUnavailableReason
@@ -25,7 +25,6 @@ import yangfentuozi.batteryrecorder.utils.formatRemainingTime
 /**
  * 首页卡片统一显示“当前电量 / 满电”两种口径，缺数据时保持一致文案。
  */
-@Composable
 private fun formatPredictionPair(
     currentHours: Double?,
     fullHours: Double?,
@@ -37,7 +36,6 @@ private fun formatPredictionPair(
     return "$currentText / $fullText"
 }
 
-@Composable
 private fun formatPredictionUnavailableReason(reason: PredictionUnavailableReason): String =
     when (reason.type) {
         PredictionUnavailableReasonType.NoSceneStats -> "暂无可用的放电统计"
@@ -48,7 +46,7 @@ private fun formatPredictionUnavailableReason(reason: PredictionUnavailableReaso
         }
         PredictionUnavailableReasonType.InvalidTotalSocDrop -> {
             val actual = reason.actual ?: 0.0
-            String.format(LocalLocale.current.platformLocale, "总掉电量无效（%.2f%%）", actual)
+            String.format(Locale.getDefault(), "总掉电量无效（%.2f%%）", actual)
         }
         PredictionUnavailableReasonType.InvalidTotalEnergy -> "总能量统计无效"
         PredictionUnavailableReasonType.InvalidTotalDuration -> "总时长统计无效"
@@ -56,7 +54,7 @@ private fun formatPredictionUnavailableReason(reason: PredictionUnavailableReaso
             val actual = reason.actual ?: 0.0
             val required = reason.required ?: 0.0
             String.format(
-                LocalLocale.current.platformLocale,
+                Locale.getDefault(),
                 "掉电速率异常（%.1f%%/h > %.1f%%/h）",
                 actual,
                 required
@@ -153,7 +151,7 @@ fun SceneStatsCard(
             val offPowerText = if (sceneStats.screenOffTotalMs > 0) {
                 var w = computePowerW(sceneStats.screenOffAvgPowerRaw, dualCellEnabled, calibrationValue)
                 if (dischargeDisplayPositive) w = kotlin.math.abs(w)
-                String.format(LocalLocale.current.platformLocale, "%.2f W", w)
+                String.format(Locale.getDefault(), "%.2f W", w)
             } else "数据不足"
 
             StatRow(
@@ -166,7 +164,7 @@ fun SceneStatsCard(
             val dailyPowerText = if (sceneStats.screenOnDailyTotalMs > 0) {
                 var w = computePowerW(sceneStats.screenOnDailyAvgPowerRaw, dualCellEnabled, calibrationValue)
                 if (dischargeDisplayPositive) w = kotlin.math.abs(w)
-                String.format(LocalLocale.current.platformLocale, "%.2f W", w)
+                String.format(Locale.getDefault(), "%.2f W", w)
             } else "数据不足"
 
             StatRow(
