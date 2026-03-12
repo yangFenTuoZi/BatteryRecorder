@@ -177,8 +177,8 @@ object SceneStatsComputer {
 
             usedFileCount += 1
             fileKInputs += FileKInput(
-                capDrop = acceptedFile.rawTotalCapDrop,
-                energy = acceptedFile.rawTotalEnergyMagnitudeRawMs
+                capDrop = acceptedFile.effectiveTotalCapDrop,
+                energy = acceptedFile.effectiveTotalEnergyMagnitudeRawMs
             )
             rawSignedOffEnergy += fileRawSignedOffEnergy
             offTime += fileOffTime
