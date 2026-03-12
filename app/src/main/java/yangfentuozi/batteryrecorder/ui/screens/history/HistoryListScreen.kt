@@ -107,12 +107,6 @@ fun HistoryListScreen(
         openRecordName = null
         viewModel.loadRecords(context, batteryStatus)
     }
-    LaunchedEffect(chargeCapacityChangeFilter) {
-        openRecordName = null
-        if (listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0) {
-            listState.scrollToItem(0)
-        }
-    }
     LaunchedEffect(userMessage) {
         val message = userMessage ?: return@LaunchedEffect
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()

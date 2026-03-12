@@ -84,6 +84,7 @@ class HistoryViewModel : ViewModel() {
     private var loadedRecordCount = 0
     private var listDischargeDisplayPositive = ConfigConstants.DEF_DISCHARGE_DISPLAY_POSITIVE
     private var currentListType: BatteryStatus? = null
+    private var hasInitializedListContext = false
     private var listLoadToken: Long = 0L
 
     private companion object {
@@ -94,6 +95,7 @@ class HistoryViewModel : ViewModel() {
 
     fun loadRecords(context: Context, type: BatteryStatus) {
         if (_isLoading.value) return
+        if (currentListType == type && hasInitializedListContext) return
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -110,6 +112,7 @@ class HistoryViewModel : ViewModel() {
                 pagedSourceRecords = null
                 latestListFile = files.firstOrNull()
                 listDischargeDisplayPositive = dischargeDisplayPositive
+                hasInitializedListContext = true
                 _chargeCapacityChangeFilter.value = null
                 resetDisplayedRecords(files.size)
                 // 首屏仅加载第一页；后续由 UI 滚动触底显式触发。
