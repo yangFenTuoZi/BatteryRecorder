@@ -58,7 +58,7 @@ App 进程 (UI)  ←─ AIDL Binder ─→  Server 进程 (root/shell)
 1. `power_reader.c` — 缓存打开 `/sys/class/power_supply/battery/` 下 5 个 sysfs 文件（voltage_now, current_now, capacity, status, temp），通过 JNI 返回
 2. `Monitor.kt` — 按可配置间隔循环采集，监听 TaskStack 和 Display 事件
 3. `PowerRecordWriter.kt` — 分充电/放电两路写入 CSV，延迟批量 flush，按时间分段
-4. 数据格式：`timestamp,power,packageName,capacity,isDisplayOn,temp`
+4. 数据格式：`timestamp,power,packageName,capacity,isDisplayOn,temp,voltage,current`
 
 ### 数据同步
 
@@ -68,6 +68,7 @@ Server 以 shell 权限运行时数据写入 `com.android.shell` 数据目录。
 
 - 原始功率值为记录文件中的原始数值（raw，平台单位可能不一致），统一通过 `FormatUtil.computePowerW()` 做缩放与校准后转换为瓦特用于展示
 - 放电记录显示正值的逻辑通过 `PowerDisplayMapper` 在 ViewModel 层统一处理，UI 层不做正负转换
+- 预测统计口径中的功耗一律按幅值计算：放电原始值即使为负，也要按绝对值参与 `DischargeRecordScanner`、`SceneStatsComputer`、`BatteryPredictor` 与 `AppStatsComputer` 的能量/功率统计，避免把正常放电误判为“无有效功耗数据”
 - `PredictionDetailViewModel` 仅暴露原始应用功率统计；`PredictionDetailScreen` 基于 `SettingsViewModel.dischargeDisplayPositive` 做最终正负值展示，避免配置源分叉
 - `HistoryViewModel` 统一产出 `RecordDetailChartUiState`，其中：
   - `points` 为详情页原始展示点
@@ -146,6 +147,7 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 │   │   ├── home/
 │   │   │   ├── AboutDialog.kt
 │   │   │   ├── AdbGuideDialog.kt      # ADB 启动引导对话框
+│   │   │   ├── DocsIntroDialog.kt     # 文档说明对话框
 │   │   │   └── UpdateDialog.kt        # 更新提示对话框
 │   │   └── settings/
 │   │       ├── CalibrationDialog.kt
@@ -230,6 +232,7 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 ### 续航预测
 
 - **预测算法**：能量比例法，`k = ΔSOC_total / E_total`，`drain_scene = k × P_scene`，不依赖电池容量 Wh
+- **符号口径**：记录文件中的放电功率可能为负；展示层保留原始正负语义，而预测统计层统一按功耗幅值计算 `E_total` 与 `P_scene`
 - **场景分类**：息屏（displayOn=0）、亮屏日常（displayOn=1 且非游戏）、游戏（displayOn=1 且在游戏列表）；三场景均参与 E_total 和 ΔSOC_total 统计，保证 k 口径一致
 - **当次记录加权（时间衰减）**：在不改变"典型息屏/典型日常"两条预测语义的前提下，仅对**当前放电文件**引入指数衰减权重，强化"最近行为"对预测的影响；其余历史文件固定 `w=1`
   - **当前放电文件定义**：以 `Service.currRecordsFile` 对应的 `HistoryRecord` 为准，且必须 `type == Discharging`；未命中则不启用当次加权
@@ -242,10 +245,12 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 - **缓存兼容**：`SceneStatsComputer` 的 `cacheKey` 包含 `CACHE_VERSION` 与加权参数；`SceneStats.fromString()` 需兼容旧格式缓存（字段增量时不致解析失败）
 - **历史统计缓存版本**：`AppStatsComputer` 与 `SceneStatsComputer` 共用 `HistoryCacheVersions.HISTORY_STATS_CACHE_VERSION`；任一历史统计缓存格式或 key 组成变化时统一提升该版本
 - **应用预测缓存**：`AppStatsComputer` 的 `cacheKey` 需包含文件名、`lastModified`、`length` 与加权参数
+- **首页失败原因链路**：`DischargeRecordScanner` 负责区分文件级过滤原因（无有效采样区间 / 无有效功耗 / 无有效掉电 / 掉电速率超过 50%/h），`SceneStatsComputer` 通过 `insufficientReason` 向上透传，`MainViewModel` 传给 `BatteryPredictor`，最终由 `PredictionCard` 直接展示具体原因
 - **游戏检测规则**（`PredictionGameFilter.isGameApp()`）：FLAG_IS_GAME / CATEGORY_GAME、游戏引擎 so（Unity/UE/Cocos）、启动 Activity 横屏方向
 - **游戏 Blacklist**：预设 `PRESET_BLACKLIST`（硬编码误判包名）+ 用户 `gameBlacklist`（取消勾选的自动检测游戏），自动检测时排除两者
 - **数据范围**：最近 N 个放电文件（可配置，默认 20），最少 3 个有效文件才出预测（异常文件会被跳过）
 - **异常值校验**：按文件与全局两层过滤，反推掉电速率超过 50%/h 时判定 SOC 跳变等异常并跳过/拒绝输出
+- **采样间隔匹配**：文件级扫描仅统计 `dt > 0 && dt <= recordIntervalMs * 5` 的相邻点；若当前配置的 `recordIntervalMs` 明显小于历史文件实际采样间隔，可能触发“无有效采样区间”提示
 
 ## 编码约定
 
