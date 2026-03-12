@@ -12,6 +12,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
+import yangfentuozi.batteryrecorder.data.history.PredictionUnavailableReason
+import yangfentuozi.batteryrecorder.data.history.PredictionUnavailableReasonType
 import yangfentuozi.batteryrecorder.data.history.PredictionResult
 import yangfentuozi.batteryrecorder.data.history.SceneStats
 import yangfentuozi.batteryrecorder.ui.components.global.StatRow
@@ -22,14 +25,50 @@ import yangfentuozi.batteryrecorder.utils.formatRemainingTime
 /**
  * 首页卡片统一显示“当前电量 / 满电”两种口径，缺数据时保持一致文案。
  */
+@Composable
 private fun formatPredictionPair(
     currentHours: Double?,
-    fullHours: Double?
+    fullHours: Double?,
+    unavailableReason: PredictionUnavailableReason?
 ): String {
-    val currentText = currentHours?.let(::formatRemainingTime) ?: "数据不足"
-    val fullText = fullHours?.let(::formatFullRemainingTime) ?: "数据不足"
+    if (unavailableReason != null) return formatPredictionUnavailableReason(unavailableReason)
+    val currentText = currentHours?.let(::formatRemainingTime) ?: "暂无预测结果"
+    val fullText = fullHours?.let(::formatFullRemainingTime) ?: "暂无预测结果"
     return "$currentText / $fullText"
 }
+
+@Composable
+private fun formatPredictionUnavailableReason(reason: PredictionUnavailableReason): String =
+    when (reason.type) {
+        PredictionUnavailableReasonType.NoSceneStats -> "暂无可用的放电统计"
+        PredictionUnavailableReasonType.InsufficientFileCount -> {
+            val actual = reason.actual?.roundToInt() ?: 0
+            val required = reason.required?.roundToInt() ?: 0
+            "有效放电记录不足（$actual/$required）"
+        }
+        PredictionUnavailableReasonType.InvalidTotalSocDrop -> {
+            val actual = reason.actual ?: 0.0
+            String.format(LocalLocale.current.platformLocale, "总掉电量无效（%.2f%%）", actual)
+        }
+        PredictionUnavailableReasonType.InvalidTotalEnergy -> "总能量统计无效"
+        PredictionUnavailableReasonType.InvalidTotalDuration -> "总时长统计无效"
+        PredictionUnavailableReasonType.AbnormalDrainRate -> {
+            val actual = reason.actual ?: 0.0
+            val required = reason.required ?: 0.0
+            String.format(
+                LocalLocale.current.platformLocale,
+                "掉电速率异常（%.1f%%/h > %.1f%%/h）",
+                actual,
+                required
+            )
+        }
+        PredictionUnavailableReasonType.InsufficientSceneDuration -> {
+            val actualMinutes = ((reason.actual ?: 0.0) / 60_000.0).roundToInt()
+            val requiredMinutes = ((reason.required ?: 0.0) / 60_000.0).roundToInt()
+            "样本时长不足（${actualMinutes}分钟/${requiredMinutes}分钟）"
+        }
+        PredictionUnavailableReasonType.InvalidScenePower -> "场景功耗无效"
+    }
 
 @Composable
 fun PredictionCard(
@@ -56,7 +95,8 @@ fun PredictionCard(
 
         if (prediction == null || prediction.insufficientData) {
             Text(
-                text = "数据不足",
+                text = prediction?.unavailableReason?.let(::formatPredictionUnavailableReason)
+                    ?: "暂无预测结果",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -65,7 +105,8 @@ fun PredictionCard(
                 label = "息屏",
                 value = formatPredictionPair(
                     currentHours = prediction.screenOffCurrentHours,
-                    fullHours = prediction.screenOffFullHours
+                    fullHours = prediction.screenOffFullHours,
+                    unavailableReason = prediction.screenOffUnavailableReason
                 ),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
@@ -73,7 +114,8 @@ fun PredictionCard(
                 label = "亮屏日常",
                 value = formatPredictionPair(
                     currentHours = prediction.screenOnDailyCurrentHours,
-                    fullHours = prediction.screenOnDailyFullHours
+                    fullHours = prediction.screenOnDailyFullHours,
+                    unavailableReason = prediction.screenOnDailyUnavailableReason
                 ),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
