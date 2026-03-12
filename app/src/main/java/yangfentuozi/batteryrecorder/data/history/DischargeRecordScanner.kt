@@ -7,6 +7,7 @@ import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import java.io.File
 import java.io.RandomAccessFile
+import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.min
@@ -14,15 +15,16 @@ import kotlin.math.min
 /**
  * 采样点之间的有效区间。
  *
- * raw 与 effective 字段分别承载原始口径和“当前放电文件时间衰减加权”口径。
+ * signed 能量保留原始正负号，供展示层还原平均功率方向；
+ * magnitude 能量统一取绝对值，供预测与异常校验使用。
  */
 data class DischargeInterval(
     val packageName: String?,
     val isDisplayOn: Boolean,
     val durationMs: Long,
     val effectiveDurationMs: Double,
-    val energyRawMs: Double,
-    val effectiveEnergyRawMs: Double,
+    val signedEnergyRawMs: Double,
+    val effectiveEnergyMagnitudeRawMs: Double,
     val capDrop: Double,
     val effectiveCapDrop: Double
 )
@@ -33,8 +35,8 @@ data class DischargeInterval(
 data class AcceptedDischargeFile(
     val file: File,
     val intervals: List<DischargeInterval>,
-    val rawTotalEnergyRawMs: Double,
-    val effectiveTotalEnergyRawMs: Double,
+    val rawTotalEnergyMagnitudeRawMs: Double,
+    val effectiveTotalEnergyMagnitudeRawMs: Double,
     val rawTotalDurationMs: Long,
     val effectiveTotalDurationMs: Double,
     val rawTotalCapDrop: Double,
@@ -46,7 +48,11 @@ data class AcceptedDischargeFile(
  */
 data class DischargeScanSummary(
     val selectedFileCount: Int,
-    val acceptedFileCount: Int
+    val acceptedFileCount: Int,
+    val rejectedNoValidDurationCount: Int,
+    val rejectedNoEnergyCount: Int,
+    val rejectedNoSocDropCount: Int,
+    val rejectedAbnormalDrainRateCount: Int
 )
 
 object DischargeRecordScanner {
@@ -55,6 +61,18 @@ object DischargeRecordScanner {
     private const val MAX_DRAIN_RATE_PER_HOUR = 50.0
     private const val MIN_CURRENT_SESSION_MS = 10 * 60 * 1000L
     private const val MIN_CURRENT_SESSION_SOC_DROP = 1.0
+
+    private enum class RejectedReason {
+        NoValidDuration,
+        NoEnergy,
+        NoSocDrop,
+        AbnormalDrainRate
+    }
+
+    private data class ScanFileResult(
+        val acceptedFile: AcceptedDischargeFile? = null,
+        val rejectedReason: RejectedReason? = null
+    )
 
     /**
      * 先暂存权重，待整文件遍历完成后再决定是否采用有效口径。
@@ -65,7 +83,7 @@ object DischargeRecordScanner {
         val packageName: String?,
         val isDisplayOn: Boolean,
         val durationMs: Long,
-        val energyRawMs: Double,
+        val signedEnergyRawMs: Double,
         val capDrop: Double,
         val weight: Double
     )
@@ -118,22 +136,41 @@ object DischargeRecordScanner {
                 halfLifeMs > 0.0
 
         var acceptedFileCount = 0
+        var rejectedNoValidDurationCount = 0
+        var rejectedNoEnergyCount = 0
+        var rejectedNoSocDropCount = 0
+        var rejectedAbnormalDrainRateCount = 0
         files.forEach { file ->
-            val acceptedFile = scanFile(
+            val result = scanFile(
                 file = file,
                 maxGapMs = maxGapMs,
                 currentDischargeFileName = currentDischargeFileName,
                 enableTimeDecayWeight = enableTimeDecayWeight,
                 maxMultiplier = maxMultiplier,
                 halfLifeMs = halfLifeMs
-            ) ?: return@forEach
+            )
+            val acceptedFile = result.acceptedFile
+            if (acceptedFile == null) {
+                when (result.rejectedReason) {
+                    RejectedReason.NoValidDuration -> rejectedNoValidDurationCount += 1
+                    RejectedReason.NoEnergy -> rejectedNoEnergyCount += 1
+                    RejectedReason.NoSocDrop -> rejectedNoSocDropCount += 1
+                    RejectedReason.AbnormalDrainRate -> rejectedAbnormalDrainRateCount += 1
+                    null -> {}
+                }
+                return@forEach
+            }
             acceptedFileCount += 1
             onAcceptedFile(acceptedFile)
         }
 
         return DischargeScanSummary(
             selectedFileCount = files.size,
-            acceptedFileCount = acceptedFileCount
+            acceptedFileCount = acceptedFileCount,
+            rejectedNoValidDurationCount = rejectedNoValidDurationCount,
+            rejectedNoEnergyCount = rejectedNoEnergyCount,
+            rejectedNoSocDropCount = rejectedNoSocDropCount,
+            rejectedAbnormalDrainRateCount = rejectedAbnormalDrainRateCount
         )
     }
 
@@ -144,12 +181,12 @@ object DischargeRecordScanner {
         enableTimeDecayWeight: Boolean,
         maxMultiplier: Double,
         halfLifeMs: Double
-    ): AcceptedDischargeFile? {
+    ): ScanFileResult {
         val isCurrentFile = enableTimeDecayWeight && file.name == currentDischargeFileName
         val fileEndTs = if (isCurrentFile) findFileEndTimestamp(file) else null
 
         val intervals = ArrayList<PendingInterval>()
-        var rawTotalEnergyRawMs = 0.0
+        var rawTotalEnergyMagnitudeRawMs = 0.0
         var rawTotalDurationMs = 0L
         var rawTotalCapDrop = 0.0
 
@@ -190,7 +227,8 @@ object DischargeRecordScanner {
                 val dt = ts - pTs
                 if (dt <= 0 || dt > maxGapMs) return@forEach
 
-                val energyRawMs = (pPower.toDouble() + power.toDouble()) * 0.5 * dt.toDouble()
+                val signedEnergyRawMs = (pPower.toDouble() + power.toDouble()) * 0.5 * dt.toDouble()
+                val energyMagnitudeRawMs = abs(signedEnergyRawMs)
                 val weight = if (isCurrentFile && fileEndTs != null) {
                     val midTs = pTs + dt / 2
                     computeTimeDecayWeight(
@@ -203,27 +241,33 @@ object DischargeRecordScanner {
                     1.0
                 }
                 val capDrop = (pCap - capacity).coerceAtLeast(0).toDouble()
-                rawTotalEnergyRawMs += energyRawMs
+                rawTotalEnergyMagnitudeRawMs += energyMagnitudeRawMs
                 rawTotalDurationMs += dt
                 rawTotalCapDrop += capDrop
                 intervals += PendingInterval(
                     packageName = pPkg,
                     isDisplayOn = pDisplay == 1,
                     durationMs = dt,
-                    energyRawMs = energyRawMs,
+                    signedEnergyRawMs = signedEnergyRawMs,
                     capDrop = capDrop,
                     weight = weight
                 )
             }
         }
 
-        if (rawTotalDurationMs <= 0L || rawTotalEnergyRawMs <= 0.0 || rawTotalCapDrop <= 0.0) {
-            return null
+        if (rawTotalDurationMs <= 0L) {
+            return ScanFileResult(rejectedReason = RejectedReason.NoValidDuration)
+        }
+        if (rawTotalEnergyMagnitudeRawMs <= 0.0) {
+            return ScanFileResult(rejectedReason = RejectedReason.NoEnergy)
+        }
+        if (rawTotalCapDrop <= 0.0) {
+            return ScanFileResult(rejectedReason = RejectedReason.NoSocDrop)
         }
 
         val drainPerHour = rawTotalCapDrop / rawTotalDurationMs.toDouble() * 3_600_000.0
         if (drainPerHour > MAX_DRAIN_RATE_PER_HOUR) {
-            return null
+            return ScanFileResult(rejectedReason = RejectedReason.AbnormalDrainRate)
         }
 
         val useWeightedCurrentSession = isCurrentFile &&
@@ -232,7 +276,7 @@ object DischargeRecordScanner {
                 (BuildConfig.DEBUG || rawTotalCapDrop >= MIN_CURRENT_SESSION_SOC_DROP)
 
         // 第二阶段根据是否启用当次加权生成最终区间，避免重复解析原文件。
-        var effectiveTotalEnergyRawMs = 0.0
+        var effectiveTotalEnergyMagnitudeRawMs = 0.0
         var effectiveTotalDurationMs = 0.0
         var effectiveTotalCapDrop = 0.0
         val finalizedIntervals = intervals.map { interval ->
@@ -241,10 +285,10 @@ object DischargeRecordScanner {
             } else {
                 interval.durationMs.toDouble()
             }
-            val effectiveEnergyRawMs = if (useWeightedCurrentSession) {
-                interval.energyRawMs * interval.weight
+            val effectiveEnergyMagnitudeRawMs = if (useWeightedCurrentSession) {
+                abs(interval.signedEnergyRawMs) * interval.weight
             } else {
-                interval.energyRawMs
+                abs(interval.signedEnergyRawMs)
             }
             val effectiveCapDrop = if (useWeightedCurrentSession) {
                 interval.capDrop * interval.weight
@@ -252,29 +296,31 @@ object DischargeRecordScanner {
                 interval.capDrop
             }
             effectiveTotalDurationMs += effectiveDurationMs
-            effectiveTotalEnergyRawMs += effectiveEnergyRawMs
+            effectiveTotalEnergyMagnitudeRawMs += effectiveEnergyMagnitudeRawMs
             effectiveTotalCapDrop += effectiveCapDrop
             DischargeInterval(
                 packageName = interval.packageName,
                 isDisplayOn = interval.isDisplayOn,
                 durationMs = interval.durationMs,
                 effectiveDurationMs = effectiveDurationMs,
-                energyRawMs = interval.energyRawMs,
-                effectiveEnergyRawMs = effectiveEnergyRawMs,
+                signedEnergyRawMs = interval.signedEnergyRawMs,
+                effectiveEnergyMagnitudeRawMs = effectiveEnergyMagnitudeRawMs,
                 capDrop = interval.capDrop,
                 effectiveCapDrop = effectiveCapDrop
             )
         }
 
-        return AcceptedDischargeFile(
-            file = file,
-            intervals = finalizedIntervals,
-            rawTotalEnergyRawMs = rawTotalEnergyRawMs,
-            effectiveTotalEnergyRawMs = effectiveTotalEnergyRawMs,
-            rawTotalDurationMs = rawTotalDurationMs,
-            effectiveTotalDurationMs = effectiveTotalDurationMs,
-            rawTotalCapDrop = rawTotalCapDrop,
-            effectiveTotalCapDrop = effectiveTotalCapDrop
+        return ScanFileResult(
+            acceptedFile = AcceptedDischargeFile(
+                file = file,
+                intervals = finalizedIntervals,
+                rawTotalEnergyMagnitudeRawMs = rawTotalEnergyMagnitudeRawMs,
+                effectiveTotalEnergyMagnitudeRawMs = effectiveTotalEnergyMagnitudeRawMs,
+                rawTotalDurationMs = rawTotalDurationMs,
+                effectiveTotalDurationMs = effectiveTotalDurationMs,
+                rawTotalCapDrop = rawTotalCapDrop,
+                effectiveTotalCapDrop = effectiveTotalCapDrop
+            )
         )
     }
 

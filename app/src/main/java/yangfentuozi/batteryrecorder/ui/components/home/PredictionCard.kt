@@ -56,7 +56,7 @@ fun PredictionCard(
 
         if (prediction == null || prediction.insufficientData) {
             Text(
-                text = "数据不足",
+                text = prediction?.insufficientReason ?: "数据不足",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

@@ -230,7 +230,9 @@ class MainViewModel : ViewModel() {
                     _prediction.value =
                         BatteryPredictor.predict(
                             stats?.predictionStats, soc, stats?.medianK,
-                            kCV = stats?.kCV, kEffectiveN = stats?.kEffectiveN ?: 0.0
+                            kCV = stats?.kCV,
+                            kEffectiveN = stats?.kEffectiveN ?: 0.0,
+                            upstreamInsufficientReason = stats?.insufficientReason
                         )
                 }
             } finally {

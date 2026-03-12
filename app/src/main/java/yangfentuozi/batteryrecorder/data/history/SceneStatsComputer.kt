@@ -7,7 +7,9 @@ import kotlin.math.sqrt
 /**
  * 场景统计结果。
  *
- * 同时保留原始与 effective 时长/掉电口径，分别供展示与预测使用。
+ * 同一个模型同时承载展示口径与预测口径：
+ * 展示口径保留有符号平均功率用于 UI 显示方向，预测口径保留加权时长与绝对值能量用于续航计算。
+ * 因此 effective 时长字段在展示口径实例中会回填为原始时长，统一下游消费与缓存结构。
  */
 data class SceneStats(
     val screenOffAvgPowerRaw: Double,
@@ -28,49 +30,10 @@ data class SceneStats(
                 "$totalEnergyRawMs,$totalSocDrop,$totalDurationMs,$fileCount,$rawTotalSocDrop"
 
     companion object {
-        /**
-         * 兼容历史缓存格式。
-         *
-         * 旧版本缺少 effective 时长或 rawTotalSocDrop 时，用原始口径回填。
-         */
+        // 历史缓存通过版本号统一失效，这里只解析当前 11 字段格式。
         fun fromString(s: String): SceneStats? {
             val p = s.split(",")
-            if (p.size < 8) return null
-            if (p.size == 8) {
-                val totalSocDrop = p[5].toDoubleOrNull() ?: return null
-                return SceneStats(
-                    screenOffAvgPowerRaw = p[0].toDoubleOrNull() ?: return null,
-                    screenOffTotalMs = p[1].toLongOrNull() ?: return null,
-                    screenOffEffectiveTotalMs = (p[1].toLongOrNull() ?: return null).toDouble(),
-                    screenOnDailyAvgPowerRaw = p[2].toDoubleOrNull() ?: return null,
-                    screenOnDailyTotalMs = p[3].toLongOrNull() ?: return null,
-                    screenOnDailyEffectiveTotalMs = (p[3].toLongOrNull() ?: return null).toDouble(),
-                    totalEnergyRawMs = p[4].toDoubleOrNull() ?: return null,
-                    totalSocDrop = totalSocDrop,
-                    totalDurationMs = p[6].toLongOrNull() ?: return null,
-                    fileCount = p[7].toIntOrNull() ?: return null,
-                    rawTotalSocDrop = totalSocDrop
-                )
-            }
-            if (p.size == 9) {
-                val offTotalMs = p[1].toLongOrNull() ?: return null
-                val dailyTotalMs = p[3].toLongOrNull() ?: return null
-                return SceneStats(
-                    screenOffAvgPowerRaw = p[0].toDoubleOrNull() ?: return null,
-                    screenOffTotalMs = offTotalMs,
-                    screenOffEffectiveTotalMs = offTotalMs.toDouble(),
-                    screenOnDailyAvgPowerRaw = p[2].toDoubleOrNull() ?: return null,
-                    screenOnDailyTotalMs = dailyTotalMs,
-                    screenOnDailyEffectiveTotalMs = dailyTotalMs.toDouble(),
-                    totalEnergyRawMs = p[4].toDoubleOrNull() ?: return null,
-                    totalSocDrop = p[5].toDoubleOrNull() ?: return null,
-                    totalDurationMs = p[6].toLongOrNull() ?: return null,
-                    fileCount = p[7].toIntOrNull() ?: return null,
-                    rawTotalSocDrop = p[8].toDoubleOrNull() ?: return null
-                )
-            }
-
-            if (p.size < 11) return null
+            if (p.size != 11) return null
 
             val offTotalMs = p[1].toLongOrNull() ?: return null
             val dailyTotalMs = p[4].toLongOrNull() ?: return null
@@ -95,11 +58,12 @@ data class SceneStats(
  * displayStats 面向 UI 展示，predictionStats 面向预测算法。
  */
 data class SceneComputeResult(
-    val displayStats: SceneStats,
-    val predictionStats: SceneStats,
+    val displayStats: SceneStats?,
+    val predictionStats: SceneStats?,
     val medianK: Double?,
     val kCV: Double?,
-    val kEffectiveN: Double
+    val kEffectiveN: Double,
+    val insufficientReason: String? = null
 )
 
 object SceneStatsComputer {
@@ -116,7 +80,16 @@ object SceneStatsComputer {
             context = context,
             recentFileCount = request.sceneStatsRecentFileCount
         )
-        if (files.isEmpty()) return null
+        if (files.isEmpty()) {
+            return SceneComputeResult(
+                displayStats = null,
+                predictionStats = null,
+                medianK = null,
+                kCV = null,
+                kEffectiveN = 0.0,
+                insufficientReason = "最近没有放电记录"
+            )
+        }
 
         val cacheDir = File(context.cacheDir, "scene_stats")
         val cacheKey = buildCacheKey(
@@ -138,11 +111,11 @@ object SceneStatsComputer {
             cacheFile.delete()
         }
 
-        var rawOffEnergy = 0.0
+        var rawSignedOffEnergy = 0.0
         var offTime = 0L
-        var rawDailyEnergy = 0.0
+        var rawSignedDailyEnergy = 0.0
         var dailyTime = 0L
-        var rawGameEnergy = 0.0
+        var rawSignedGameEnergy = 0.0
         var gameTime = 0L
 
         var rawTotalCapDrop = 0.0
@@ -160,16 +133,16 @@ object SceneStatsComputer {
         val fileKInputs = mutableListOf<FileKInput>()
         val gamePackages = request.gamePackages
 
-        DischargeRecordScanner.scan(
+        val scanSummary = DischargeRecordScanner.scan(
             context = context,
             request = request,
             currentDischargeFileName = currentDischargeFileName
         ) { acceptedFile ->
-            var fileRawOffEnergy = 0.0
+            var fileRawSignedOffEnergy = 0.0
             var fileOffTime = 0L
-            var fileRawDailyEnergy = 0.0
+            var fileRawSignedDailyEnergy = 0.0
             var fileDailyTime = 0L
-            var fileRawGameEnergy = 0.0
+            var fileRawSignedGameEnergy = 0.0
             var fileGameTime = 0L
 
             var fileEffectiveOffEnergy = 0.0
@@ -182,21 +155,21 @@ object SceneStatsComputer {
             acceptedFile.intervals.forEach { interval ->
                 when {
                     !interval.isDisplayOn -> {
-                        fileRawOffEnergy += interval.energyRawMs
+                        fileRawSignedOffEnergy += interval.signedEnergyRawMs
                         fileOffTime += interval.durationMs
-                        fileEffectiveOffEnergy += interval.effectiveEnergyRawMs
+                        fileEffectiveOffEnergy += interval.effectiveEnergyMagnitudeRawMs
                         fileEffectiveOffTime += interval.effectiveDurationMs
                     }
                     interval.packageName == null || interval.packageName !in gamePackages -> {
-                        fileRawDailyEnergy += interval.energyRawMs
+                        fileRawSignedDailyEnergy += interval.signedEnergyRawMs
                         fileDailyTime += interval.durationMs
-                        fileEffectiveDailyEnergy += interval.effectiveEnergyRawMs
+                        fileEffectiveDailyEnergy += interval.effectiveEnergyMagnitudeRawMs
                         fileEffectiveDailyTime += interval.effectiveDurationMs
                     }
                     else -> {
-                        fileRawGameEnergy += interval.energyRawMs
+                        fileRawSignedGameEnergy += interval.signedEnergyRawMs
                         fileGameTime += interval.durationMs
-                        fileEffectiveGameEnergy += interval.effectiveEnergyRawMs
+                        fileEffectiveGameEnergy += interval.effectiveEnergyMagnitudeRawMs
                         fileEffectiveGameTime += interval.effectiveDurationMs
                     }
                 }
@@ -205,13 +178,13 @@ object SceneStatsComputer {
             usedFileCount += 1
             fileKInputs += FileKInput(
                 capDrop = acceptedFile.rawTotalCapDrop,
-                energy = acceptedFile.rawTotalEnergyRawMs
+                energy = acceptedFile.rawTotalEnergyMagnitudeRawMs
             )
-            rawOffEnergy += fileRawOffEnergy
+            rawSignedOffEnergy += fileRawSignedOffEnergy
             offTime += fileOffTime
-            rawDailyEnergy += fileRawDailyEnergy
+            rawSignedDailyEnergy += fileRawSignedDailyEnergy
             dailyTime += fileDailyTime
-            rawGameEnergy += fileRawGameEnergy
+            rawSignedGameEnergy += fileRawSignedGameEnergy
             gameTime += fileGameTime
             rawTotalCapDrop += acceptedFile.rawTotalCapDrop
             effectiveOffEnergy += fileEffectiveOffEnergy
@@ -221,6 +194,17 @@ object SceneStatsComputer {
             effectiveGameEnergy += fileEffectiveGameEnergy
             effectiveGameTimeWeighted += fileEffectiveGameTime
             effectiveTotalCapDrop += acceptedFile.effectiveTotalCapDrop
+        }
+
+        if (usedFileCount <= 0) {
+            return SceneComputeResult(
+                displayStats = null,
+                predictionStats = null,
+                medianK = null,
+                kCV = null,
+                kEffectiveN = 0.0,
+                insufficientReason = buildScanFailureReason(scanSummary, request)
+            )
         }
 
         // 中位数 k 只使用掉电量足够的文件，降低短样本噪声。
@@ -237,17 +221,26 @@ object SceneStatsComputer {
         val kEffectiveN = effectiveSampleCount(kEntries)
 
         val totalMs = offTime + dailyTime + gameTime
-        if (totalMs <= 0L) return null
+        if (totalMs <= 0L) {
+            return SceneComputeResult(
+                displayStats = null,
+                predictionStats = null,
+                medianK = null,
+                kCV = null,
+                kEffectiveN = 0.0,
+                insufficientReason = "有效放电记录未形成可统计的场景时长"
+            )
+        }
 
-        val rawTotalEnergy = rawOffEnergy + rawDailyEnergy + rawGameEnergy
+        val rawTotalEnergy = rawSignedOffEnergy + rawSignedDailyEnergy + rawSignedGameEnergy
         val effectiveTotalEnergy = effectiveOffEnergy + effectiveDailyEnergy + effectiveGameEnergy
 
         // 展示口径保持原始观测值，不被当次加权策略影响。
         val displayStats = SceneStats(
-            screenOffAvgPowerRaw = if (offTime > 0) rawOffEnergy / offTime.toDouble() else 0.0,
+            screenOffAvgPowerRaw = if (offTime > 0) rawSignedOffEnergy / offTime.toDouble() else 0.0,
             screenOffTotalMs = offTime,
             screenOffEffectiveTotalMs = offTime.toDouble(),
-            screenOnDailyAvgPowerRaw = if (dailyTime > 0) rawDailyEnergy / dailyTime.toDouble() else 0.0,
+            screenOnDailyAvgPowerRaw = if (dailyTime > 0) rawSignedDailyEnergy / dailyTime.toDouble() else 0.0,
             screenOnDailyTotalMs = dailyTime,
             screenOnDailyEffectiveTotalMs = dailyTime.toDouble(),
             totalEnergyRawMs = rawTotalEnergy,
@@ -278,7 +271,41 @@ object SceneStatsComputer {
                     (medianK ?: "") + "\n" + (kCV ?: "") + "\n" + kEffectiveN
         )
 
-        return SceneComputeResult(displayStats, predictionStats, medianK, kCV, kEffectiveN)
+        return SceneComputeResult(
+            displayStats = displayStats,
+            predictionStats = predictionStats,
+            medianK = medianK,
+            kCV = kCV,
+            kEffectiveN = kEffectiveN,
+            insufficientReason = null
+        )
+    }
+
+    private fun buildScanFailureReason(
+        summary: DischargeScanSummary?,
+        request: StatisticsRequest
+    ): String {
+        if (summary == null || summary.selectedFileCount <= 0) {
+            return "最近没有放电记录"
+        }
+
+        val selected = summary.selectedFileCount
+        if (summary.rejectedAbnormalDrainRateCount == selected) {
+            return "最近${selected}个放电文件均因掉电速率超过 50%/h 被异常校验过滤"
+        }
+        if (summary.rejectedNoValidDurationCount == selected) {
+            val maxGapMs = DischargeRecordScanner.computeMaxGapMs(request.recordIntervalMs)
+            return "最近${selected}个放电文件均无有效采样区间，请检查记录间隔设置是否与历史数据匹配（当前最大间隔 ${maxGapMs}ms）"
+        }
+        if (summary.rejectedNoSocDropCount == selected) {
+            return "最近${selected}个放电文件均未形成有效掉电"
+        }
+        if (summary.rejectedNoEnergyCount == selected) {
+            return "最近${selected}个放电文件均未形成有效功耗数据"
+        }
+
+        val rejected = selected - summary.acceptedFileCount
+        return "最近${selected}个放电文件中仅 ${summary.acceptedFileCount} 个通过校验，${rejected} 个被过滤"
     }
 
     private fun buildCacheKey(

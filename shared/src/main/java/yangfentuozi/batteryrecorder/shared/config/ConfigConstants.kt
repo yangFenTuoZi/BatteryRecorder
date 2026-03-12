@@ -59,7 +59,7 @@ object ConfigConstants {
     const val KEY_SCENE_STATS_RECENT_FILE_COUNT = "scene_stats_recent_file_count"
     const val MIN_SCENE_STATS_RECENT_FILE_COUNT = 5
     const val MAX_SCENE_STATS_RECENT_FILE_COUNT = 100
-    const val DEF_SCENE_STATS_RECENT_FILE_COUNT = 30
+    const val DEF_SCENE_STATS_RECENT_FILE_COUNT = 20
 
     /** 校准值 */
     const val KEY_CALIBRATION_VALUE = "calibration_value"

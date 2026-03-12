@@ -52,7 +52,7 @@ data class AppStatsComputeResult(
 object AppStatsComputer {
 
     private data class MutableAppStats(
-        var rawEnergyRawMs: Double = 0.0,
+        var rawSignedEnergyRawMs: Double = 0.0,
         var totalForegroundMs: Long = 0L,
         var effectiveForegroundMs: Double = 0.0,
         var rawSocDrop: Double = 0.0,
@@ -112,12 +112,12 @@ object AppStatsComputer {
             request = request,
             currentDischargeFileName = currentDischargeFileName
         ) { acceptedFile ->
-            // 仅统计亮屏前台区间；息屏或空包名数据不属于应用维度展示。
+            // 应用维度展示仍保留有符号能量，避免丢失放电方向；预测耗时另走 effective 时长/掉电口径。
             acceptedFile.intervals.forEach { interval ->
                 if (!interval.isDisplayOn) return@forEach
                 val packageName = interval.packageName?.takeIf { it.isNotBlank() } ?: return@forEach
                 val stats = statsMap.getOrPut(packageName) { MutableAppStats() }
-                stats.rawEnergyRawMs += interval.energyRawMs
+                stats.rawSignedEnergyRawMs += interval.signedEnergyRawMs
                 stats.totalForegroundMs += interval.durationMs
                 stats.effectiveForegroundMs += interval.effectiveDurationMs
                 stats.rawSocDrop += interval.capDrop
@@ -129,7 +129,7 @@ object AppStatsComputer {
             if (stats.totalForegroundMs <= 0L) return@mapNotNull null
             AppStatsEntry(
                 packageName = packageName,
-                rawAvgPowerRaw = stats.rawEnergyRawMs / stats.totalForegroundMs.toDouble(),
+                rawAvgPowerRaw = stats.rawSignedEnergyRawMs / stats.totalForegroundMs.toDouble(),
                 totalForegroundMs = stats.totalForegroundMs,
                 effectiveForegroundMs = stats.effectiveForegroundMs,
                 rawSocDrop = stats.rawSocDrop,
