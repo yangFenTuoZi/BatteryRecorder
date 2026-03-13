@@ -1,5 +1,6 @@
 package yangfentuozi.batteryrecorder.ui.components.home
 
+import android.content.Intent
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -19,9 +20,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import yangfentuozi.batteryrecorder.R
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 
@@ -37,6 +40,7 @@ fun BatteryRecorderTopAppBar(
     onBackClick: () -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     TopAppBar(
         title = {
@@ -77,6 +81,13 @@ fun BatteryRecorderTopAppBar(
                         }
                     )
                 }
+                DropdownMenuItem(
+                    text = { Text("使用手册") },
+                    onClick = {
+                        showMenu = false
+                        context.startActivity(Intent(Intent.ACTION_VIEW, "https://itosang.github.io/BatteryRecorder".toUri()))
+                    }
+                )
                 DropdownMenuItem(
                     text = { Text("关于") },
                     onClick = {
