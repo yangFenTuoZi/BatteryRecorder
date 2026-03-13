@@ -6,6 +6,7 @@ import yangfentuozi.batteryrecorder.data.model.ChartPoint
 import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.shared.Constants
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
+import yangfentuozi.batteryrecorder.shared.data.LineRecord
 import yangfentuozi.batteryrecorder.shared.data.RecordFileParser
 import yangfentuozi.batteryrecorder.shared.data.RecordsFile
 import yangfentuozi.batteryrecorder.shared.data.RecordsStats
@@ -121,7 +122,7 @@ object HistoryRepository {
     }
 
     fun loadRecordPoints(file: File): List<ChartPoint> {
-        return RecordFileParser.parseToList(file).map { record ->
+        return loadLineRecords(file).map { record ->
             ChartPoint(
                 timestamp = record.timestamp,
                 power = record.power.toDouble(),
@@ -132,6 +133,9 @@ object HistoryRepository {
             )
         }
     }
+
+    fun loadLineRecords(file: File): List<LineRecord> =
+        RecordFileParser.parseToList(file)
 
     /** 从 service.currRecordsFile 加载当前记录 */
     fun loadLatestRecord(

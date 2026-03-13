@@ -14,11 +14,13 @@ import kotlinx.coroutines.withContext
 import yangfentuozi.batteryrecorder.data.history.HistoryRecord
 import yangfentuozi.batteryrecorder.data.history.HistoryRepository
 import yangfentuozi.batteryrecorder.data.history.HistoryRepository.toFile
+import yangfentuozi.batteryrecorder.data.history.RecordAppStatsComputer
 import yangfentuozi.batteryrecorder.data.model.ChartPoint
 import yangfentuozi.batteryrecorder.data.model.RecordDetailChartPoint
 import yangfentuozi.batteryrecorder.data.model.normalizeRecordDetailChartPoints
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
+import yangfentuozi.batteryrecorder.shared.data.LineRecord
 import yangfentuozi.batteryrecorder.shared.data.RecordsFile
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import yangfentuozi.batteryrecorder.utils.computePowerW
@@ -36,6 +38,17 @@ data class RecordDetailChartUiState(
     val viewportDurationMs: Long = 0L
 )
 
+data class RecordAppDetailUiEntry(
+    val key: String,
+    val packageName: String?,
+    val appLabel: String,
+    val averagePowerRaw: Double,
+    val averageTempCelsius: Double?,
+    val maxTempCelsius: Double?,
+    val durationMs: Long,
+    val isScreenOff: Boolean
+)
+
 class HistoryViewModel : ViewModel() {
     private val _records = MutableStateFlow<List<HistoryRecord>>(emptyList())
     val records: StateFlow<List<HistoryRecord>> = _records.asStateFlow()
@@ -48,9 +61,16 @@ class HistoryViewModel : ViewModel() {
     private val _recordChartUiState = MutableStateFlow(RecordDetailChartUiState())
     val recordChartUiState: StateFlow<RecordDetailChartUiState> = _recordChartUiState.asStateFlow()
 
+    private val _recordAppDetailEntries = MutableStateFlow<List<RecordAppDetailUiEntry>>(emptyList())
+    val recordAppDetailEntries: StateFlow<List<RecordAppDetailUiEntry>> =
+        _recordAppDetailEntries.asStateFlow()
+
     // recordPoints 保存从记录文件读取并完成“放电正负显示映射”后的原始点。
     // 它仍然保留 ChartPoint，是因为 computePowerW 前还需要读取原始功率字段。
     private var recordPoints: List<ChartPoint> = emptyList()
+    private var recordLineRecords: List<LineRecord> = emptyList()
+    private var recordDetailSamplingIntervalMs = ConfigConstants.DEF_RECORD_INTERVAL_MS
+    private var recordDetailContext: Context? = null
 
     // 这三个字段是图表派生状态的输入，不需要被外部订阅，因此使用普通字段即可。
     private var dualCellEnabled = ConfigConstants.DEF_DUAL_CELL_ENABLED
@@ -204,26 +224,37 @@ class HistoryViewModel : ViewModel() {
             _isLoading.value = true
             try {
                 val dischargeDisplayPositive = getDischargeDisplayPositive(context)
+                recordDetailContext = context.applicationContext
                 val recordFile = recordsFile.toFile(context)
                 if (recordFile == null) {
                     _userMessage.value = "记录文件不存在"
                     _recordDetail.value = null
                     recordPoints = emptyList()
+                    recordLineRecords = emptyList()
+                    _recordAppDetailEntries.value = emptyList()
                     recomputeRecordChartUiState()
                     return@launch
                 }
 
-                val (detail, points) = withContext(Dispatchers.IO) {
+                val (detail, lineRecords, appEntries) = withContext(Dispatchers.IO) {
                     val detail = HistoryRepository.loadRecord(context, recordFile)
-                    val points = mapChartPointsForDisplay(
-                        points = HistoryRepository.loadRecordPoints(recordFile),
-                        batteryStatus = recordsFile.type,
-                        dischargeDisplayPositive = dischargeDisplayPositive
+                    val lineRecords = HistoryRepository.loadLineRecords(recordFile)
+                    val appEntries = buildRecordAppDetailEntries(
+                        context = context.applicationContext,
+                        detailType = recordsFile.type,
+                        lineRecords = lineRecords
                     )
-                    detail to points
+                    Triple(detail, lineRecords, appEntries)
                 }
+                val points = mapChartPointsForDisplay(
+                    points = lineRecords.toChartPoints(),
+                    batteryStatus = recordsFile.type,
+                    dischargeDisplayPositive = dischargeDisplayPositive
+                )
                 _recordDetail.value = mapHistoryRecordForDisplay(detail, dischargeDisplayPositive)
+                recordLineRecords = lineRecords
                 recordPoints = points
+                _recordAppDetailEntries.value = appEntries
                 recomputeRecordChartUiState()
             } catch (e: CancellationException) {
                 throw e
@@ -232,9 +263,41 @@ class HistoryViewModel : ViewModel() {
                 _userMessage.value = "加载记录详情失败"
                 _recordDetail.value = null
                 recordPoints = emptyList()
+                recordLineRecords = emptyList()
+                _recordAppDetailEntries.value = emptyList()
                 recomputeRecordChartUiState()
             } finally {
                 _isLoading.value = false
+            }
+        }
+    }
+
+    fun updateRecordDetailSamplingConfig(recordIntervalMs: Long) {
+        if (recordDetailSamplingIntervalMs == recordIntervalMs) return
+        recordDetailSamplingIntervalMs = recordIntervalMs
+
+        val context = recordDetailContext ?: return
+        val detailType = _recordDetail.value?.type ?: return
+        if (detailType != BatteryStatus.Discharging || recordLineRecords.isEmpty()) {
+            _recordAppDetailEntries.value = emptyList()
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val entries = withContext(Dispatchers.IO) {
+                    buildRecordAppDetailEntries(
+                        context = context,
+                        detailType = detailType,
+                        lineRecords = recordLineRecords
+                    )
+                }
+                _recordAppDetailEntries.value = entries
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                LoggerX.e<HistoryViewModel>("[记录详情] 重算应用详情失败", tr = e)
+                _recordAppDetailEntries.value = emptyList()
             }
         }
     }
@@ -271,6 +334,8 @@ class HistoryViewModel : ViewModel() {
                     if (detail != null && detail.asRecordsFile() == recordsFile) {
                         _recordDetail.value = null
                         recordPoints = emptyList()
+                        recordLineRecords = emptyList()
+                        _recordAppDetailEntries.value = emptyList()
                         recomputeRecordChartUiState()
                     }
                     _userMessage.value = "删除成功"
@@ -506,6 +571,59 @@ class HistoryViewModel : ViewModel() {
             maxViewportStartTime = maxViewportStart,
             viewportDurationMs = viewportDurationMs
         )
+    }
+
+    private fun buildRecordAppDetailEntries(
+        context: Context,
+        detailType: BatteryStatus,
+        lineRecords: List<LineRecord>
+    ): List<RecordAppDetailUiEntry> {
+        if (detailType != BatteryStatus.Discharging) return emptyList()
+        val statsEntries = RecordAppStatsComputer.compute(lineRecords, recordDetailSamplingIntervalMs)
+        if (statsEntries.isEmpty()) return emptyList()
+
+        val packageManager = context.packageManager
+        return statsEntries.map { entry ->
+            val appLabel = if (entry.isScreenOff) {
+                "息屏详情"
+            } else {
+                resolveAppLabel(packageManager = packageManager, packageName = entry.packageName)
+            }
+            RecordAppDetailUiEntry(
+                key = if (entry.isScreenOff) "screen_off" else entry.packageName.orEmpty(),
+                packageName = entry.packageName,
+                appLabel = appLabel,
+                averagePowerRaw = entry.averagePowerRaw,
+                averageTempCelsius = entry.averageTempCelsius,
+                maxTempCelsius = entry.maxTempCelsius,
+                durationMs = entry.totalDurationMs,
+                isScreenOff = entry.isScreenOff
+            )
+        }
+    }
+
+    private fun resolveAppLabel(
+        packageManager: android.content.pm.PackageManager,
+        packageName: String?
+    ): String {
+        val resolvedPackageName = packageName?.takeIf { it.isNotBlank() } ?: return ""
+        return runCatching {
+            val appInfo = packageManager.getApplicationInfo(resolvedPackageName, 0)
+            appInfo.loadLabel(packageManager).toString()
+        }.getOrDefault(resolvedPackageName)
+    }
+
+    private fun List<LineRecord>.toChartPoints(): List<ChartPoint> {
+        return map { record ->
+            ChartPoint(
+                timestamp = record.timestamp,
+                power = record.power.toDouble(),
+                packageName = record.packageName,
+                capacity = record.capacity,
+                isDisplayOn = record.isDisplayOn == 1,
+                temp = record.temp
+            )
+        }
     }
 
     private fun computeTrendPoints(points: List<RecordDetailChartPoint>): List<RecordDetailChartPoint> {

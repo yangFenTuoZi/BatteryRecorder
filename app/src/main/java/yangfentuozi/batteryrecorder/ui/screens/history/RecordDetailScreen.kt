@@ -8,6 +8,8 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,7 +17,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -41,9 +45,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -55,9 +63,13 @@ import yangfentuozi.batteryrecorder.ui.components.charts.PowerCurveMode
 import yangfentuozi.batteryrecorder.ui.components.charts.RecordChartCurveVisibility
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
 import yangfentuozi.batteryrecorder.ui.dialog.history.ChartGuideDialog
+import yangfentuozi.batteryrecorder.ui.theme.AppShape
 import yangfentuozi.batteryrecorder.ui.viewmodel.HistoryViewModel
+import yangfentuozi.batteryrecorder.ui.viewmodel.RecordAppDetailUiEntry
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
+import yangfentuozi.batteryrecorder.utils.AppIconMemoryCache
 import yangfentuozi.batteryrecorder.utils.formatDateTime
+import yangfentuozi.batteryrecorder.utils.formatDetailDuration
 import yangfentuozi.batteryrecorder.utils.formatDurationHours
 import yangfentuozi.batteryrecorder.utils.formatPower
 
@@ -79,10 +91,12 @@ fun RecordDetailScreen(
     val activity = remember(context) { context.findActivity() }
     val record by viewModel.recordDetail.collectAsState()
     val chartUiState by viewModel.recordChartUiState.collectAsState()
+    val recordAppDetailEntries by viewModel.recordAppDetailEntries.collectAsState()
     val userMessage by viewModel.userMessage.collectAsState()
     val dualCellEnabled by settingsViewModel.dualCellEnabled.collectAsState()
     val dischargeDisplayPositive by settingsViewModel.dischargeDisplayPositive.collectAsState()
     val calibrationValue by settingsViewModel.calibrationValue.collectAsState()
+    val recordIntervalMs by settingsViewModel.recordIntervalMs.collectAsState()
     val recordScreenOffEnabled by settingsViewModel.screenOffRecord.collectAsState()
     val chartPrefs = remember(context) {
         context.getSharedPreferences(RECORD_DETAIL_CHART_PREFS_NAME, Context.MODE_PRIVATE)
@@ -120,6 +134,10 @@ fun RecordDetailScreen(
             calibrationValue = calibrationValue,
             recordScreenOffEnabled = recordScreenOffEnabled
         )
+    }
+
+    LaunchedEffect(recordIntervalMs) {
+        viewModel.updateRecordDetailSamplingConfig(recordIntervalMs)
     }
 
     LaunchedEffect(recordsFile) {
@@ -327,6 +345,12 @@ fun RecordDetailScreen(
             return@Scaffold
         }
 
+        val appDetailDisplayConfig = RecordAppDetailDisplayConfig(
+            dischargeDisplayPositive = dischargeDisplayPositive,
+            dualCellEnabled = dualCellEnabled,
+            calibrationValue = calibrationValue
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -355,7 +379,7 @@ fun RecordDetailScreen(
                         InfoRow("电量变化", "${capacityChange}%")
                         InfoRow("亮屏", formatDurationHours(stats.screenOnTimeMs))
                         InfoRow("息屏", formatDurationHours(stats.screenOffTimeMs))
-                        InfoRow("记录ID", detail.name.dropLast(4))
+//                        InfoRow("记录ID", detail.name.dropLast(4))
                     }
                 }
             }
@@ -364,6 +388,22 @@ fun RecordDetailScreen(
                 item {
                     Column(modifier = Modifier.padding(12.dp)) {
                         chartBlock(Modifier.fillMaxWidth(), false)
+                    }
+                }
+            }
+
+            if (
+                detail.type == BatteryStatus.Discharging &&
+                recordAppDetailEntries.isNotEmpty()
+            ) {
+                SplicedColumnGroup(title = "应用详情") {
+                    recordAppDetailEntries.forEach { entry ->
+                        item(key = entry.key) {
+                            RecordAppDetailRow(
+                                entry = entry,
+                                displayConfig = appDetailDisplayConfig
+                            )
+                        }
                     }
                 }
             }
@@ -400,6 +440,12 @@ fun RecordDetailScreen(
     }
 }
 
+private data class RecordAppDetailDisplayConfig(
+    val dischargeDisplayPositive: Boolean,
+    val dualCellEnabled: Boolean,
+    val calibrationValue: Int
+)
+
 private fun loadPowerCurveMode(value: String?): PowerCurveMode {
     // 缺省回到 Raw，而不是 Fitted：
     // 这样首次进入详情页时语义更接近旧版本的“功耗曲线”默认行为。
@@ -414,6 +460,126 @@ private fun PowerCurveMode.next(): PowerCurveMode {
         PowerCurveMode.Fitted -> PowerCurveMode.Hidden
         PowerCurveMode.Hidden -> PowerCurveMode.Raw
     }
+}
+
+@Composable
+private fun RecordAppDetailRow(
+    entry: RecordAppDetailUiEntry,
+    displayConfig: RecordAppDetailDisplayConfig
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RecordAppDetailIcon(entry = entry)
+
+        Spacer(Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = entry.appLabel,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    text = formatDetailDuration(entry.durationMs),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.End
+                )
+            }
+            Spacer(Modifier.height(2.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = buildAvgAndTempText(entry, displayConfig),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    text = buildMaxTempText(entry),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.End
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecordAppDetailIcon(entry: RecordAppDetailUiEntry) {
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val iconSize = 36.dp
+    val iconSizePx = with(density) { iconSize.roundToPx() }
+    val packageName = entry.packageName
+    var iconBitmap by remember(packageName, iconSizePx) {
+        mutableStateOf(
+            packageName?.let { AppIconMemoryCache.get(it, iconSizePx) }
+        )
+    }
+
+    LaunchedEffect(packageName, iconSizePx) {
+        if (entry.isScreenOff) return@LaunchedEffect
+        val resolvedPackageName = packageName ?: return@LaunchedEffect
+        if (iconBitmap != null) return@LaunchedEffect
+        if (!AppIconMemoryCache.shouldLoad(resolvedPackageName, iconSizePx)) {
+            iconBitmap = AppIconMemoryCache.get(resolvedPackageName, iconSizePx)
+            return@LaunchedEffect
+        }
+        iconBitmap = AppIconMemoryCache.loadAndCache(context, resolvedPackageName, iconSizePx)
+    }
+
+    Box(
+        modifier = Modifier
+            .size(iconSize)
+            .clip(AppShape.medium)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+    ) {
+        val bitmap = iconBitmap
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+}
+
+private fun buildAvgAndTempText(
+    entry: RecordAppDetailUiEntry,
+    displayConfig: RecordAppDetailDisplayConfig
+): String {
+    val displayMultiplier = if (displayConfig.dischargeDisplayPositive) -1.0 else 1.0
+    val powerText = formatPower(
+        entry.averagePowerRaw * displayMultiplier,
+        displayConfig.dualCellEnabled,
+        displayConfig.calibrationValue
+    ).replace(" ", "")
+    return "AVG:$powerText  ${formatTempText(entry.averageTempCelsius)}"
+}
+
+private fun buildMaxTempText(entry: RecordAppDetailUiEntry): String =
+    "MAX:${formatTempText(entry.maxTempCelsius)}"
+
+private fun formatTempText(tempCelsius: Double?): String {
+    if (tempCelsius == null) return "--℃"
+    return String.format(java.util.Locale.getDefault(), "%.1f℃", tempCelsius)
 }
 
 @Composable

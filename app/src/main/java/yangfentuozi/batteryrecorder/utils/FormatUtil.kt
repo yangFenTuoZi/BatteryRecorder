@@ -18,6 +18,21 @@ fun formatDurationHours(durationMs: Long): String {
     return if (hours > 0) "${hours}h${minutes}m" else "${minutes}m"
 }
 
+fun formatDetailDuration(durationMs: Long): String {
+    val totalSeconds = (durationMs / 1000L).coerceAtLeast(0L)
+    val hours = totalSeconds / 3600L
+    val minutes = (totalSeconds % 3600L) / 60L
+    val seconds = totalSeconds % 60L
+
+    if (hours > 0L) {
+        return if (minutes > 0L) "${hours}h${minutes}m" else "${hours}h"
+    }
+    if (minutes > 0L) {
+        return if (seconds > 0L) "${minutes}m${seconds}s" else "${minutes}m"
+    }
+    return "${seconds}s"
+}
+
 /**
  * 将时间戳格式化为 HH:mm 格式
  * @param timestamp Unix 时间戳（毫秒），如 1705900800000
