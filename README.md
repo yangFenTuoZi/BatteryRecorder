@@ -11,6 +11,10 @@
 - 自定义曲线隐藏
 - 息屏功耗记录，探索🧐未知场景
 
+## 使用文档
+- [文档](https://itosang.github.io/BatteryRecorder/)
+
+
 ## ToDo
 
 ### app
@@ -37,10 +41,10 @@
 
 ## 下载
 
-- [GitHub Releases](https://github.com/Itosang/BatteryRecorder/releases) (暂无)
+- [GitHub Releases](https://github.com/Itosang/BatteryRecorder/releases)
 - [GitHub Actions](https://github.com/Itosang/BatteryRecorder/actions)
 
 ## 反馈
 
-- [QQ 群](https://qm.qq.com/q/6q5etoYAuc) (推荐)
-- [GitHub Issues](https://github.com/Itosang/BatteryRecorder/issues)
+- [QQ 群](https://qm.qq.com/q/6q5etoYAuc)
+- [GitHub Issues](https://github.com/Itosang/BatteryRecorder/issues) (推荐)
