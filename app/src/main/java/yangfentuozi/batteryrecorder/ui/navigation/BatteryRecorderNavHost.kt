@@ -13,6 +13,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -25,6 +26,7 @@ import yangfentuozi.batteryrecorder.ui.screens.history.RecordDetailScreen
 import yangfentuozi.batteryrecorder.ui.screens.home.HomeScreen
 import yangfentuozi.batteryrecorder.ui.screens.prediction.PredictionDetailScreen
 import yangfentuozi.batteryrecorder.ui.screens.settings.SettingsScreen
+import yangfentuozi.batteryrecorder.ui.viewmodel.HistoryViewModel
 import yangfentuozi.batteryrecorder.ui.viewmodel.MainViewModel
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
 
@@ -57,6 +59,8 @@ fun BatteryRecorderNavHost(
     settingsViewModel: SettingsViewModel,
     modifier: Modifier = Modifier
 ) {
+    val historyViewModel: HistoryViewModel = viewModel()
+
     NavHost(
         navController = navController,
         startDestination = NavRoute.Home.route,
@@ -160,6 +164,7 @@ fun BatteryRecorderNavHost(
             }
             HistoryListScreen(
                 batteryStatus = batteryStatus,
+                viewModel = historyViewModel,
                 onNavigateToRecordDetail = { type, name ->
                     navController.navigate(
                         NavRoute.RecordDetail.createRoute(type.dataDirName, Uri.encode(name))
@@ -189,7 +194,11 @@ fun BatteryRecorderNavHost(
             }
             RecordDetailScreen(
                 recordsFile = RecordsFile(batteryStatus, Uri.decode(nameArg)),
-                settingsViewModel = settingsViewModel
+                viewModel = historyViewModel,
+                settingsViewModel = settingsViewModel,
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
             )
         }
     }

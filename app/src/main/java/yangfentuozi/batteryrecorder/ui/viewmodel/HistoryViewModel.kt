@@ -273,7 +273,15 @@ class HistoryViewModel : ViewModel() {
                         recordPoints = emptyList()
                         recomputeRecordChartUiState()
                     }
+                    _userMessage.value = "删除成功"
+                } else {
+                    _userMessage.value = "删除失败"
                 }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                LoggerX.e<HistoryViewModel>("[删除] 记录删除失败: ${recordsFile.name}", tr = e)
+                _userMessage.value = "删除失败"
             } finally {
                 _isLoading.value = false
             }

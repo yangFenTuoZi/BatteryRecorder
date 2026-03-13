@@ -4,7 +4,10 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,10 +19,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Outbox
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -43,6 +54,7 @@ import yangfentuozi.batteryrecorder.ui.components.charts.PowerCapacityChart
 import yangfentuozi.batteryrecorder.ui.components.charts.PowerCurveMode
 import yangfentuozi.batteryrecorder.ui.components.charts.RecordChartCurveVisibility
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
+import yangfentuozi.batteryrecorder.ui.dialog.history.ChartGuideDialog
 import yangfentuozi.batteryrecorder.ui.viewmodel.HistoryViewModel
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
 import yangfentuozi.batteryrecorder.utils.formatDateTime
@@ -61,11 +73,13 @@ fun RecordDetailScreen(
     recordsFile: RecordsFile,
     viewModel: HistoryViewModel = viewModel(),
     settingsViewModel: SettingsViewModel,
+    onNavigateBack: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
     val record by viewModel.recordDetail.collectAsState()
     val chartUiState by viewModel.recordChartUiState.collectAsState()
+    val userMessage by viewModel.userMessage.collectAsState()
     val dualCellEnabled by settingsViewModel.dualCellEnabled.collectAsState()
     val dischargeDisplayPositive by settingsViewModel.dischargeDisplayPositive.collectAsState()
     val calibrationValue by settingsViewModel.calibrationValue.collectAsState()
@@ -88,6 +102,15 @@ fun RecordDetailScreen(
     }
     var isChartFullscreen by rememberSaveable(recordsFile) { mutableStateOf(false) }
     var fullscreenViewportStartMs by rememberSaveable(recordsFile) { mutableStateOf<Long?>(null) }
+    var showDeleteDialog by rememberSaveable(recordsFile) { mutableStateOf(false) }
+    var showGuideDialog by rememberSaveable(recordsFile) { mutableStateOf(false) }
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri ->
+        if (uri != null) {
+            viewModel.exportRecord(context, recordsFile, uri)
+        }
+    }
 
     // 图表展示依赖设置页的功率换算配置与息屏过滤配置；
     // 这几个值任何一个变化，都需要让 ViewModel 重新生成 chartUiState。
@@ -102,6 +125,14 @@ fun RecordDetailScreen(
     LaunchedEffect(recordsFile) {
         // 详情页切换记录文件时，重新加载文件内容与图表点。
         viewModel.loadRecord(context, recordsFile)
+    }
+    LaunchedEffect(userMessage) {
+        val message = userMessage ?: return@LaunchedEffect
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        viewModel.consumeUserMessage()
+        if (message == "删除成功") {
+            onNavigateBack()
+        }
     }
 
     BackHandler(enabled = isChartFullscreen) {
@@ -131,7 +162,33 @@ fun RecordDetailScreen(
         topBar = {
             if (!isChartFullscreen) {
                 TopAppBar(
-                    title = { Text("记录详情") }
+                    title = { Text("记录详情") },
+                    actions = {
+                        IconButton(
+                            onClick = { exportLauncher.launch(recordsFile.name) }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Outbox,
+                                contentDescription = "导出记录"
+                            )
+                        }
+                        IconButton(
+                            onClick = { showDeleteDialog = true }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.DeleteOutline,
+                                contentDescription = "删除记录"
+                            )
+                        }
+                        IconButton(
+                            onClick = { showGuideDialog = true }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Info,
+                                contentDescription = "查看图表说明"
+                            )
+                        }
+                    }
                 )
             }
         }
@@ -311,6 +368,35 @@ fun RecordDetailScreen(
                 }
             }
         }
+    }
+
+    if (showGuideDialog) {
+        ChartGuideDialog(
+            onDismiss = { showGuideDialog = false }
+        )
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("删除记录") },
+            text = { Text("删除后不可恢复，确认继续吗？") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        viewModel.deleteRecord(context, recordsFile)
+                    }
+                ) {
+                    Text("删除")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
     }
 }
 
