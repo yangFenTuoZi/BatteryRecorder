@@ -18,6 +18,7 @@ data class RecordDetailChartPoint(
     val timestamp: Long,
     val rawPowerW: Double,
     val fittedPowerW: Double,
+    val packageName: String?,
     val capacity: Int,
     val isDisplayOn: Boolean,
     val temp: Int,

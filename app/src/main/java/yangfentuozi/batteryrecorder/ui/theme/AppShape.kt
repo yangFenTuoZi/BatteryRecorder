@@ -9,6 +9,7 @@ import com.kyant.capsule.ContinuousRoundedRectangle
  */
 object AppShape {
     // 基础圆角大小
+    val icon = ContinuousRoundedRectangle(3.dp)
     val extraSmall = ContinuousRoundedRectangle(6.dp)
     val small = ContinuousRoundedRectangle(8.dp)
     val medium = ContinuousRoundedRectangle(12.dp)

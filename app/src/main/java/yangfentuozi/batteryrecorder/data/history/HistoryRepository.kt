@@ -125,6 +125,7 @@ object HistoryRepository {
             ChartPoint(
                 timestamp = record.timestamp,
                 power = record.power.toDouble(),
+                packageName = record.packageName,
                 capacity = record.capacity,
                 isDisplayOn = record.isDisplayOn == 1,
                 temp = record.temp

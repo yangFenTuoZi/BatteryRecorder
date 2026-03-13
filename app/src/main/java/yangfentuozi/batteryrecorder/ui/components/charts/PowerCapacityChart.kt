@@ -26,27 +26,37 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.data.model.RecordDetailChartPoint
 import yangfentuozi.batteryrecorder.data.model.normalizeRecordDetailChartPoints
+import yangfentuozi.batteryrecorder.ui.theme.AppShape
+import yangfentuozi.batteryrecorder.utils.AppIconMemoryCache
 import yangfentuozi.batteryrecorder.utils.formatDateTime
 import yangfentuozi.batteryrecorder.utils.formatRelativeTime
 import java.util.Locale
@@ -69,6 +79,7 @@ private val TEMP_COLOR = Color(0xFFFF8A65)
 private val SCREEN_ON_COLOR = Color(0xFF2E7D32)
 private val SCREEN_OFF_COLOR = Color(0xFFD32F2F)
 private val LINE_STROKE_WIDTH = 1.3.dp
+private const val APP_ICON_ALPHA = 0.75f
 private const val TEMP_EXPAND_STEP_TENTHS = 100.0    // 10℃
 
 enum class PowerCurveMode {
@@ -160,6 +171,8 @@ fun PowerCapacityChart(
     onTogglePowerVisibility: () -> Unit,
     onToggleCapacityVisibility: () -> Unit,
     onToggleTempVisibility: () -> Unit,
+    showAppIcons: Boolean,
+    onToggleAppIconsVisibility: () -> Unit,
     useFivePercentTimeGrid: Boolean,
     visibleStartTime: Long?,
     visibleEndTime: Long?,
@@ -276,6 +289,29 @@ fun PowerCapacityChart(
         }
 
     val density = LocalDensity.current
+    val layoutDirection = LocalLayoutDirection.current
+    val appIconSizePx = with(density) { AppIconMemoryCache.chartIconSizeDp.roundToPx() }
+    val appIconClipPath = remember(appIconSizePx, density, layoutDirection) {
+        outlineToPath(
+            AppShape.icon.createOutline(
+                size = Size(appIconSizePx.toFloat(), appIconSizePx.toFloat()),
+                layoutDirection = layoutDirection,
+                density = density
+            )
+        )
+    }
+    val packageFirstTimestamps = remember(filteredPoints) {
+        buildPackageFirstTimestamps(filteredPoints)
+    }
+    val visibleAppPoints = remember(filteredPoints, viewportStart, viewportEnd) {
+        filteredPoints.filter { it.timestamp in viewportStart..viewportEnd }
+    }
+    val visibleAppPackages = remember(visibleAppPoints) {
+        visibleAppPoints.asSequence()
+            .mapNotNull { normalizePackageName(it.packageName) }
+            .toSet()
+    }
+    val appIcons = rememberAppIconBitmaps(visibleAppPackages, appIconSizePx)
 
     // 预计算功率轴标签最左侧位置，用于 SelectedPointInfo 对齐
     val powerAxisStartDp = remember(filteredPoints, powerAxisConfig) {
@@ -420,6 +456,17 @@ fun PowerCapacityChart(
                 val coords = ChartCoordinates(
                     paddingLeft, paddingTop, chartWidth, chartHeight,
                     viewportStart, viewportEnd, minPower, maxPower, minTemp, maxTemp
+                )
+                val appIconPlacements = computeAppIconPlacements(
+                    points = visibleAppPoints,
+                    viewportStart = viewportStart,
+                    viewportEnd = viewportEnd,
+                    chartLeft = paddingLeft,
+                    chartTop = paddingTop,
+                    chartWidth = chartWidth,
+                    chartHeight = chartHeight,
+                    iconSizePx = appIconSizePx.toFloat(),
+                    packageFirstTimestamps = packageFirstTimestamps
                 )
 
                 // 绘图值与展示值是分离的：
@@ -643,6 +690,28 @@ fun PowerCapacityChart(
                             }
                         }
                 }
+
+                if (showAppIcons) {
+                    clipRect(
+                        left = paddingLeft,
+                        top = paddingTop,
+                        right = paddingLeft + chartWidth,
+                        bottom = paddingTop + chartHeight
+                    ) {
+                        appIconPlacements.forEach { placement ->
+                            val icon = appIcons[placement.packageName] ?: return@forEach
+                            translate(left = placement.topLeft.x, top = placement.topLeft.y) {
+                                clipPath(appIconClipPath) {
+                                    drawImage(
+                                        image = icon,
+                                        topLeft = Offset.Zero,
+                                        alpha = APP_ICON_ALPHA
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -670,8 +739,12 @@ fun PowerCapacityChart(
                 enabled = curveVisibility.showTemp,
                 onClick = onToggleTempVisibility
             )
-            LegendItem(label = "亮屏", color = screenOnColor, enabled = true, onClick = null)
-            LegendItem(label = "息屏", color = screenOffColor, enabled = true, onClick = null)
+            LegendItem(
+                label = "应用",
+                color = MaterialTheme.colorScheme.secondary,
+                enabled = showAppIcons,
+                onClick = onToggleAppIconsVisibility
+            )
         }
     }
 }
@@ -801,6 +874,143 @@ private fun slicePointsForViewport(
         if (previous != null) add(previous)
         addAll(inRange)
         if (next != null) add(next)
+    }
+}
+
+private data class AppBucketUsage(
+    val packageName: String,
+    val count: Int,
+)
+
+private data class AppIconPlacement(
+    val packageName: String,
+    val topLeft: Offset,
+)
+
+@Composable
+private fun rememberAppIconBitmaps(
+    packageNames: Set<String>,
+    iconSizePx: Int,
+): Map<String, ImageBitmap> {
+    val context = LocalContext.current
+    val packageList = remember(packageNames) { packageNames.toList().sorted() }
+    return produceState(
+        initialValue = emptyMap(),
+        key1 = context,
+        key2 = packageList,
+        key3 = iconSizePx
+    ) {
+        if (iconSizePx <= 0) {
+            value = emptyMap()
+            return@produceState
+        }
+
+        // 先同步当前已命中的全局缓存，避免视口切换时重复等待异步加载完成。
+        val currentIcons = LinkedHashMap<String, ImageBitmap>()
+        packageList.forEach { packageName ->
+            AppIconMemoryCache.get(packageName, iconSizePx)?.let { bitmap ->
+                currentIcons[packageName] = bitmap
+            }
+        }
+        value = currentIcons.toMap()
+
+        // 仅补齐当前视口缺失的图标；每成功加载一个包名就立刻刷新结果，让图表逐步显示。
+        for (packageName in packageList) {
+            if (currentIcons.containsKey(packageName)) continue
+            if (!AppIconMemoryCache.shouldLoad(packageName, iconSizePx)) continue
+
+            AppIconMemoryCache.loadAndCache(context, packageName, iconSizePx)?.let { bitmap ->
+                currentIcons[packageName] = bitmap
+                value = currentIcons.toMap()
+            }
+        }
+    }.value
+}
+
+private fun normalizePackageName(packageName: String?): String? =
+    packageName?.trim()?.takeIf { it.isNotEmpty() }
+
+private fun buildPackageFirstTimestamps(points: List<RecordDetailChartPoint>): Map<String, Long> {
+    if (points.isEmpty()) return emptyMap()
+
+    val firstTimestamps = LinkedHashMap<String, Long>()
+    for (point in points) {
+        val packageName = normalizePackageName(point.packageName) ?: continue
+        // 同频次下按首次出现时间稳定排序，避免同一列里图标顺序随着重组抖动。
+        firstTimestamps.putIfAbsent(packageName, point.timestamp)
+    }
+    return firstTimestamps
+}
+
+private fun computeAppIconPlacements(
+    points: List<RecordDetailChartPoint>,
+    viewportStart: Long,
+    viewportEnd: Long,
+    chartLeft: Float,
+    chartTop: Float,
+    chartWidth: Float,
+    chartHeight: Float,
+    iconSizePx: Float,
+    packageFirstTimestamps: Map<String, Long>,
+): List<AppIconPlacement> {
+    if (points.isEmpty() || chartWidth < iconSizePx || chartHeight < iconSizePx || iconSizePx <= 0f) {
+        return emptyList()
+    }
+
+    val columnCount = (chartWidth / iconSizePx).toInt().coerceAtLeast(1)
+    val maxRows = (chartHeight / iconSizePx).toInt().coerceAtLeast(1)
+    val bucketWidth = chartWidth / columnCount
+    val timeRange = (viewportEnd - viewportStart).coerceAtLeast(1L).toDouble()
+    val bucketCounts = Array(columnCount) { LinkedHashMap<String, Int>() }
+
+    for (point in points) {
+        if (!point.isDisplayOn) continue
+        val packageName = normalizePackageName(point.packageName) ?: continue
+        // 图标只表达“当前时间段前台应用分布”，因此仅统计亮屏采样点。
+        val bucketIndex = (((point.timestamp - viewportStart) / timeRange) * columnCount)
+            .toInt()
+            .coerceIn(0, columnCount - 1)
+        val counts = bucketCounts[bucketIndex]
+        counts[packageName] = (counts[packageName] ?: 0) + 1
+    }
+
+    return buildList {
+        bucketCounts.forEachIndexed { columnIndex, counts ->
+            if (counts.isEmpty()) return@forEachIndexed
+
+            val columnUsages = counts.entries
+                .map { (packageName, count) -> AppBucketUsage(packageName, count) }
+                .sortedWith(
+                    compareByDescending<AppBucketUsage> { it.count }
+                        .thenBy { packageFirstTimestamps[it.packageName] ?: Long.MAX_VALUE }
+                        .thenBy { it.packageName }
+                )
+                .take(maxRows)
+
+            val columnLeft = chartLeft + bucketWidth * columnIndex + (bucketWidth - iconSizePx) / 2f
+            columnUsages.forEachIndexed { rowIndex, usage ->
+                add(
+                    AppIconPlacement(
+                        packageName = usage.packageName,
+                        topLeft = Offset(
+                            x = columnLeft,
+                            y = chartTop + chartHeight - (rowIndex + 1) * iconSizePx
+                        )
+                    )
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 将 Compose Outline 转成 Path，供图标绘制时的 clipPath 裁剪复用。
+ */
+private fun outlineToPath(outline: Outline): Path {
+    return when (outline) {
+        is Outline.Generic -> outline.path
+        is Outline.Rounded -> Path().apply { addRoundRect(outline.roundRect) }
+        is Outline.Rectangle -> Path().apply { addRect(outline.rect) }
     }
 }
 

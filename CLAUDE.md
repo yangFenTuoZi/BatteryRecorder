@@ -82,11 +82,13 @@ Server 以 shell 权限运行时数据写入 `com.android.shell` 数据目录。
 - **趋势模式（Fitted）**：显示时间分桶后的中位数平滑曲线（三次贝塞尔），用于观察低频走势，`fittedPowerW` 字段
 - **隐藏模式（Hidden）**：不绘制功率曲线，但保留选中逻辑
 - 数据模型 `RecordDetailChartPoint` 同时承载两类点，图表层通过 `PowerCurveMode` 切换显示
+- 应用图标层：详情图表可按列叠加前台应用图标，仅统计亮屏采样点，并按“出现次数优先 + 首次出现时间”稳定排序
 - 孤立息屏点过滤：关闭息屏记录显示时，前后均为亮屏的单个息屏点会被视为抖动并过滤
 - 固定功率轴：详情页根据记录类型和“放电显示正值”配置切换 `FixedPowerAxisMode.PositiveOnly / NegativeOnly`
 - 全屏模式：详情页进入全屏后切横屏，仅展示总时长的 25% 作为初始视口，支持局部浏览
-- 图表交互：支持单击选点、拖动选点、双指平移视口、功率曲线 `Raw -> Fitted -> Hidden` 循环切换，以及电量/温度曲线显隐切换
+- 图表交互：支持单击选点、拖动选点、双指平移视口、功率曲线 `Raw -> Fitted -> Hidden` 循环切换，以及电量/温度/应用图标显隐切换
 - 图表偏好：`RecordDetailScreen` 通过 `record_detail_chart` SharedPreferences 单独持久化图表展示偏好，不写入业务配置
+- 图标缓存：`AppIconMemoryCache` 仅负责按包名与尺寸缓存已请求图标；禁止恢复启动期预热或全量历史扫描
 
 ## App 模块包结构
 
@@ -182,6 +184,7 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 │   ├── BinderProvider.kt               # ContentProvider 接收 Server 推送的 Binder
 │   └── ConfigProvider.kt               # ContentProvider 供 Server(shell) 读取配置
 └── utils/
+    ├── AppIconMemoryCache.kt           # 记录详情图表应用图标按需内存缓存
     ├── FormatUtil.kt                   # 格式化工具（时间、功率转换 computePowerW、formatPower）
     └── UpdateUtil.kt                   # 更新检查工具
 ```
@@ -212,6 +215,7 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 | 续航预测 | `app/.../data/history/BatteryPredictor.kt`（PredictionResult 数据类 + predict()） |
 | 历史记录仓库 | `app/.../data/history/HistoryRepository.kt` |
 | 图表组件 | `app/.../ui/components/charts/PowerCapacityChart.kt` |
+| 图标缓存 | `app/.../utils/AppIconMemoryCache.kt` |
 | 公共 UI 组件 | `app/.../ui/components/global/` (SplicedColumnGroup, StatRow, SwipeRevealRow, SwitchWidget, MarkdownText) |
 | 更新检查 | `app/.../utils/UpdateUtil.kt`, `app/.../ui/dialog/home/UpdateDialog.kt` |
 
@@ -226,7 +230,8 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 - **ViewModel 创建**：`MainViewModel` 和 `SettingsViewModel` 在 `BatteryRecorderApp` 创建后通过参数传递；`HistoryViewModel` 和 `LiveRecordViewModel` 在各 Screen 内局部创建
 - **记录详情图表状态**：详情页统一由 `RecordDetailChartUiState` 承载原始点、趋势点和视口元数据，Screen 层不再自行派生图表数据
 - **趋势曲线生成**：趋势点必须基于过滤后的展示点按时间分桶后取中位数生成，绘制平滑样式属于图表层职责，不在仓库层做“平滑后数据落地”
-- **图表本地偏好**：`PowerCurveMode`、电量/温度曲线显隐属于详情页本地展示偏好，持久化到独立 SharedPreferences，不进入 `SettingsViewModel`
+- **图表本地偏好**：`PowerCurveMode`、电量/温度曲线显隐、应用图标显隐属于详情页本地展示偏好，持久化到独立 SharedPreferences，不进入 `SettingsViewModel`
+- **应用图标加载**：`PowerCapacityChart` 只按当前视口包名集合触发图标请求；Compose 层用响应式状态消费 `AppIconMemoryCache`，不维护第二份业务缓存
 - **启动日志与启动来源**：ROOT 启动统一经 `RootServerStarter.start(context, source)`，来源使用 `RootServerStarter.Source` 常量，日志保持统一语义
 
 ### 续航预测

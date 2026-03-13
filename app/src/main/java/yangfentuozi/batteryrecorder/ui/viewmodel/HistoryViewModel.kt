@@ -458,6 +458,7 @@ class HistoryViewModel : ViewModel() {
                 timestamp = point.timestamp,
                 rawPowerW = rawPowerW,
                 fittedPowerW = rawPowerW,
+                packageName = point.packageName,
                 capacity = point.capacity,
                 isDisplayOn = point.isDisplayOn,
                 temp = point.temp

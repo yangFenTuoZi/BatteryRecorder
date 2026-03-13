@@ -53,6 +53,7 @@ private const val RECORD_DETAIL_CHART_PREFS_NAME = "record_detail_chart"
 private const val KEY_POWER_CURVE_MODE = "power_curve_mode"
 private const val KEY_SHOW_CAPACITY_CURVE = "show_capacity_curve"
 private const val KEY_SHOW_TEMP_CURVE = "show_temp_curve"
+private const val KEY_SHOW_APP_ICONS = "show_app_icons"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,6 +82,9 @@ fun RecordDetailScreen(
     }
     var showTemp by remember(chartPrefs) {
         mutableStateOf(chartPrefs.getBoolean(KEY_SHOW_TEMP_CURVE, true))
+    }
+    var showAppIcons by remember(chartPrefs) {
+        mutableStateOf(chartPrefs.getBoolean(KEY_SHOW_APP_ICONS, true))
     }
     var isChartFullscreen by rememberSaveable(recordsFile) { mutableStateOf(false) }
     var fullscreenViewportStartMs by rememberSaveable(recordsFile) { mutableStateOf<Long?>(null) }
@@ -230,6 +234,12 @@ fun RecordDetailScreen(
                     val nextValue = !showTemp
                     chartPrefs.edit { putBoolean(KEY_SHOW_TEMP_CURVE, nextValue) }
                     showTemp = nextValue
+                },
+                showAppIcons = showAppIcons,
+                onToggleAppIconsVisibility = {
+                    val nextValue = !showAppIcons
+                    chartPrefs.edit { putBoolean(KEY_SHOW_APP_ICONS, nextValue) }
+                    showAppIcons = nextValue
                 },
                 useFivePercentTimeGrid = isFullscreenMode,
                 visibleStartTime = viewportStartForChart,
