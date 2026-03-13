@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,26 +23,25 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import yangfentuozi.batteryrecorder.ui.components.global.LazySplicedColumnGroup
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 import yangfentuozi.batteryrecorder.ui.viewmodel.PredictionDetailUiEntry
 import yangfentuozi.batteryrecorder.ui.viewmodel.PredictionDetailViewModel
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
+import yangfentuozi.batteryrecorder.utils.AppIconMemoryCache
 import yangfentuozi.batteryrecorder.utils.formatPower
 import yangfentuozi.batteryrecorder.utils.formatRemainingTime
 
@@ -150,6 +150,7 @@ private fun PredictionDetailRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = 64.dp)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -199,26 +200,31 @@ private fun PredictionDetailRow(
 @Composable
 private fun AppPredictionIcon(packageName: String) {
     val context = LocalContext.current
-    val icon by produceState<ImageBitmap?>(initialValue = null, key1 = packageName) {
-        // 图标解码放到后台线程，避免滚动时阻塞主线程。
-        value = withContext(Dispatchers.IO) {
-            runCatching {
-                val packageManager = context.packageManager
-                val appInfo = packageManager.getApplicationInfo(packageName, 0)
-                appInfo.loadIcon(packageManager).toBitmap(48, 48).asImageBitmap()
-            }.getOrNull()
+    val density = LocalDensity.current
+    val iconSize = 36.dp
+    val iconSizePx = with(density) { iconSize.roundToPx() }
+    var iconBitmap by remember(packageName, iconSizePx) {
+        mutableStateOf(AppIconMemoryCache.get(packageName, iconSizePx))
+    }
+
+    LaunchedEffect(packageName, iconSizePx) {
+        if (iconBitmap != null) return@LaunchedEffect
+        if (!AppIconMemoryCache.shouldLoad(packageName, iconSizePx)) {
+            iconBitmap = AppIconMemoryCache.get(packageName, iconSizePx)
+            return@LaunchedEffect
         }
+        iconBitmap = AppIconMemoryCache.loadAndCache(context, packageName, iconSizePx)
     }
 
     Box(
         modifier = Modifier
-            .size(40.dp)
+            .size(iconSize)
             .clip(AppShape.medium)
             .background(MaterialTheme.colorScheme.surfaceContainerHighest)
     ) {
-        if (icon != null) {
+        if (iconBitmap != null) {
             Image(
-                bitmap = icon!!,
+                bitmap = iconBitmap!!,
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
