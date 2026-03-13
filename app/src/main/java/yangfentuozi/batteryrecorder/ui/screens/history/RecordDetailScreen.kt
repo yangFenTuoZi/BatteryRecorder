@@ -218,7 +218,7 @@ fun RecordDetailScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(16.dp)
+                    .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 0.dp)
             ) {
                 Text(
                     text = "暂无数据",
@@ -356,7 +356,7 @@ fun RecordDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
+                .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 0.dp)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -377,7 +377,9 @@ fun RecordDetailScreen(
                             "平均功率",
                             formatPower(stats.averagePower, dualCellEnabled, calibrationValue)
                         )
-                        InfoRow("电量变化", "${capacityChange}%")
+                        if (detail.type == BatteryStatus.Charging) {
+                            InfoRow("电量变化", "${capacityChange}%")
+                        }
                         InfoRow("亮屏", formatDurationHours(stats.screenOnTimeMs))
                         InfoRow("息屏", formatDurationHours(stats.screenOffTimeMs))
 //                        InfoRow("记录ID", detail.name.dropLast(4))
