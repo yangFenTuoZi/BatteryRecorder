@@ -158,11 +158,12 @@ fun RecordDetailScreen(
         }
         val typeLabel = if (detail.type == BatteryStatus.Charging) "充电记录" else "放电记录"
 
-        val fixedPowerMode = if (detail.type == BatteryStatus.Discharging && !dischargeDisplayPositive) {
-            FixedPowerAxisMode.NegativeOnly
-        } else {
-            FixedPowerAxisMode.PositiveOnly
-        }
+        val fixedPowerMode =
+            if (detail.type == BatteryStatus.Discharging && !dischargeDisplayPositive) {
+                FixedPowerAxisMode.NegativeOnly
+            } else {
+                FixedPowerAxisMode.PositiveOnly
+            }
         val curveVisibility = RecordChartCurveVisibility(
             powerCurveMode = powerCurveMode,
             showCapacity = showCapacity,
@@ -238,7 +239,8 @@ fun RecordDetailScreen(
                     val maxViewportStart = chartUiState.maxViewportStartTime!!
                     val currentStart = (fullscreenViewportStartMs ?: minChartTime)
                         .coerceIn(minChartTime, maxViewportStart)
-                    fullscreenViewportStartMs = (currentStart + deltaMs).coerceIn(minChartTime, maxViewportStart)
+                    fullscreenViewportStartMs =
+                        (currentStart + deltaMs).coerceIn(minChartTime, maxViewportStart)
                 } else {
                     null
                 }

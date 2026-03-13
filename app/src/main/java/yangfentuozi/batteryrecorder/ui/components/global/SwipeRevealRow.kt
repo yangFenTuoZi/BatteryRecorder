@@ -156,7 +156,10 @@ fun SwipeRevealRow(
                         }
 
                         if (!latestIsOpen) latestOnOpenChange(true)
-                        val next = (offsetPx.value + dragAmount).coerceIn(-endTargetRevealPx, startTargetRevealPx)
+                        val next = (offsetPx.value + dragAmount).coerceIn(
+                            -endTargetRevealPx,
+                            startTargetRevealPx
+                        )
                         scope.launch { offsetPx.snapTo(next) }
                     },
                     onDragEnd = {

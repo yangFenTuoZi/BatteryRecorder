@@ -87,7 +87,8 @@ fun HomeScreen(
 
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    val listener = remember { object : IRecordListener.Stub() {
+    val listener = remember {
+        object : IRecordListener.Stub() {
             override fun onRecord(timestamp: Long, power: Long, status: BatteryStatus, temp: Int) {
                 liveRecordViewModel.handleRecord(power, status, temp)
             }

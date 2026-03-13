@@ -5,8 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import android.util.Log
-import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import androidx.core.content.edit
+import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 
 class BootCompletedReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -46,7 +46,10 @@ class BootCompletedReceiver : BroadcastReceiver() {
                             ConfigConstants.DEF_ROOT_BOOT_AUTO_START_LAST_BOOT_COUNT
                         )
                         if (lastBootCount == currentBootCount) {
-                            Log.i(TAG, "[BOOT] 命中 boot_count 去重，跳过自启动，boot_count=$currentBootCount")
+                            Log.i(
+                                TAG,
+                                "[BOOT] 命中 boot_count 去重，跳过自启动，boot_count=$currentBootCount"
+                            )
                             return@Thread
                         }
                         prefs.edit {

@@ -151,7 +151,8 @@ fun BatteryRecorderNavHost(
             },
             popExitTransition = { defaultPopExitTransition }
         ) { backStackEntry ->
-            val typeArg = backStackEntry.arguments?.getString("type") ?: BatteryStatus.Charging.dataDirName
+            val typeArg =
+                backStackEntry.arguments?.getString("type") ?: BatteryStatus.Charging.dataDirName
             val batteryStatus = if (typeArg == BatteryStatus.Discharging.dataDirName) {
                 BatteryStatus.Discharging
             } else {
@@ -178,7 +179,8 @@ fun BatteryRecorderNavHost(
             popEnterTransition = { defaultPopEnterTransition },
             popExitTransition = { defaultPopExitTransition }
         ) { backStackEntry ->
-            val typeArg = backStackEntry.arguments?.getString("type") ?: BatteryStatus.Charging.dataDirName
+            val typeArg =
+                backStackEntry.arguments?.getString("type") ?: BatteryStatus.Charging.dataDirName
             val nameArg = backStackEntry.arguments?.getString("name") ?: ""
             val batteryStatus = if (typeArg == BatteryStatus.Discharging.dataDirName) {
                 BatteryStatus.Discharging

@@ -275,7 +275,13 @@ fun HistoryListScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    text = "平均功率 ${formatPower(stats.averagePower, dualCellEnabled, calibrationValue)}",
+                                    text = "平均功率 ${
+                                        formatPower(
+                                            stats.averagePower,
+                                            dualCellEnabled,
+                                            calibrationValue
+                                        )
+                                    }",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

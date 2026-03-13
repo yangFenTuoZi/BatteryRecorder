@@ -182,7 +182,11 @@ private fun PredictionDetailRow(
                 textAlign = TextAlign.End
             )
             Text(
-                text = formatPower(entry.averagePowerRaw * displayMultiplier, dualCellEnabled, calibrationValue)
+                text = formatPower(
+                    entry.averagePowerRaw * displayMultiplier,
+                    dualCellEnabled,
+                    calibrationValue
+                )
                     .replace(" ", ""),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

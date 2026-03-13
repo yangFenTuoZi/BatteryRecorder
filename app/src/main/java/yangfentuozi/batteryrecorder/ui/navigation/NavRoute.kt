@@ -8,11 +8,13 @@ package yangfentuozi.batteryrecorder.ui.navigation
 sealed class NavRoute(val route: String) {
     object Home : NavRoute("home")
     object Settings : NavRoute("settings")
+
     // 应用预测详情页无入参，直接复用固定 route。
     object PredictionDetail : NavRoute("prediction")
     object HistoryList : NavRoute("history/{type}") {
         fun createRoute(type: String): String = "history/$type"
     }
+
     object RecordDetail : NavRoute("record/{type}/{name}") {
         fun createRoute(type: String, name: String): String = "record/$type/$name"
     }

@@ -72,7 +72,12 @@ fun UpdateDialog(
                         Text("取消")
                     }
                     TextButton(onClick = {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, update.downloadUrl.toUri()))
+                        context.startActivity(
+                            Intent(
+                                Intent.ACTION_VIEW,
+                                update.downloadUrl.toUri()
+                            )
+                        )
                         onDismiss()
                     }) {
                         Text("下载更新")

@@ -43,6 +43,7 @@ class PredictionDetailViewModel : ViewModel() {
 
     private val _uiState = MutableStateFlow(PredictionDetailUiState())
     val uiState: StateFlow<PredictionDetailUiState> = _uiState.asStateFlow()
+
     // 详情页配置变化时允许新请求覆盖旧请求，避免 isLoading 把刷新吞掉。
     private var loadJob: Job? = null
     private var loadGeneration = 0L

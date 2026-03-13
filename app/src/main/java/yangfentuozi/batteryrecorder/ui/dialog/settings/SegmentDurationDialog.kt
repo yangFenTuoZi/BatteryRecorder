@@ -28,7 +28,8 @@ fun SegmentDurationDialog(
 ) {
     var value by remember { mutableStateOf(currentValueMin.toString()) }
     val parsedValue = value.toLongOrNull()
-    val isError = parsedValue == null || parsedValue < ConfigConstants.MIN_SEGMENT_DURATION_MIN || parsedValue > ConfigConstants.MAX_SEGMENT_DURATION_MIN
+    val isError =
+        parsedValue == null || parsedValue < ConfigConstants.MIN_SEGMENT_DURATION_MIN || parsedValue > ConfigConstants.MAX_SEGMENT_DURATION_MIN
 
     AlertDialog(
         onDismissRequest = onDismiss,

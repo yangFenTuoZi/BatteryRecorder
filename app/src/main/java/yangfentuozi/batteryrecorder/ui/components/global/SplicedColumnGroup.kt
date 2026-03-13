@@ -145,12 +145,14 @@ class SplicedGroupScope {
         visible: Boolean = true,
         content: @Composable () -> Unit
     ) {
-        items.add(SplicedItemData(
-            key = key,
-            visible = visible,
-            type = SplicedItemType.NORMAL,
-            content = content
-        ))
+        items.add(
+            SplicedItemData(
+                key = key,
+                visible = visible,
+                type = SplicedItemType.NORMAL,
+                content = content
+            )
+        )
     }
 
     /**
@@ -167,12 +169,14 @@ class SplicedGroupScope {
         content: SplicedGroupScope.() -> Unit
     ) {
         val rowScope = SplicedGroupScope().apply(content)
-        items.add(SplicedItemData(
-            key = key,
-            visible = visible,
-            type = SplicedItemType.ROW,
-            rowItems = rowScope.items
-        ))
+        items.add(
+            SplicedItemData(
+                key = key,
+                visible = visible,
+                type = SplicedItemType.ROW,
+                rowItems = rowScope.items
+            )
+        )
     }
 }
 

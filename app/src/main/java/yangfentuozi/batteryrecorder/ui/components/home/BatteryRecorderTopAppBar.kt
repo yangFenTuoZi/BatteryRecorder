@@ -61,17 +61,17 @@ fun BatteryRecorderTopAppBar(
             IconButton(onClick = { showMenu = !showMenu }) {
                 Icon(Icons.Default.MoreVert, null)
             }
-             DropdownMenu(
-                 expanded = showMenu,
-                 onDismissRequest = { showMenu = false },
-                 shape = AppShape.large,
-                 offset = DpOffset(x = 0.dp, y = (-48).dp),
-                 modifier = Modifier.widthIn(min = 160.dp)
-             ) {
-                 if (!showBackButton && showStopServer) {
-                     DropdownMenuItem(
-                         text = { Text("停止服务") },
-                         onClick = {
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false },
+                shape = AppShape.large,
+                offset = DpOffset(x = 0.dp, y = (-48).dp),
+                modifier = Modifier.widthIn(min = 160.dp)
+            ) {
+                if (!showBackButton && showStopServer) {
+                    DropdownMenuItem(
+                        text = { Text("停止服务") },
+                        onClick = {
                             showMenu = false
                             onStopServerClick()
                         }

@@ -155,7 +155,11 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    suspend fun onLiveStatusChanged(context: Context, liveStatus: BatteryStatus?, intervalMs: Long) {
+    suspend fun onLiveStatusChanged(
+        context: Context,
+        liveStatus: BatteryStatus?,
+        intervalMs: Long
+    ) {
         if (liveStatus == null) return
 
         val dischargeDisplayPositive = getDischargeDisplayPositive(context)
@@ -207,9 +211,19 @@ class MainViewModel : ViewModel() {
 
                 if (generation == statisticsGeneration) {
                     _chargeSummary.value =
-                        chargeSummary?.let { mapHistorySummaryForDisplay(it, dischargeDisplayPositive) }
+                        chargeSummary?.let {
+                            mapHistorySummaryForDisplay(
+                                it,
+                                dischargeDisplayPositive
+                            )
+                        }
                     _dischargeSummary.value =
-                        dischargeSummary?.let { mapHistorySummaryForDisplay(it, dischargeDisplayPositive) }
+                        dischargeSummary?.let {
+                            mapHistorySummaryForDisplay(
+                                it,
+                                dischargeDisplayPositive
+                            )
+                        }
                     _currentRecord.value = currentRecord
                 }
 

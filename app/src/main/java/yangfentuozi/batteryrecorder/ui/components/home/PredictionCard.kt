@@ -45,9 +45,10 @@ fun PredictionCard(
             .padding(16.dp)
     ) {
         // 特判置信度 100 为服务未启动情况
-        val title = if (prediction != null && !prediction.insufficientData && prediction.confidenceScore != 100)
-            "续航预测 - 置信评分 ${prediction.confidenceScore}"
-        else "续航预测"
+        val title =
+            if (prediction != null && !prediction.insufficientData && prediction.confidenceScore != 100)
+                "续航预测 - 置信评分 ${prediction.confidenceScore}"
+            else "续航预测"
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium
@@ -109,7 +110,11 @@ fun SceneStatsCard(
         } else {
             // 先按统一公式转瓦特，再在展示层决定是否将放电视为正值。
             val offPowerText = if (sceneStats.screenOffTotalMs > 0) {
-                var w = computePowerW(sceneStats.screenOffAvgPowerRaw, dualCellEnabled, calibrationValue)
+                var w = computePowerW(
+                    sceneStats.screenOffAvgPowerRaw,
+                    dualCellEnabled,
+                    calibrationValue
+                )
                 if (dischargeDisplayPositive) w = kotlin.math.abs(w)
                 String.format(LocalLocale.current.platformLocale, "%.2f W", w)
             } else "数据不足"
@@ -122,7 +127,11 @@ fun SceneStatsCard(
 
             // Locale 走 Compose 当前上下文，避免与系统配置更新不同步。
             val dailyPowerText = if (sceneStats.screenOnDailyTotalMs > 0) {
-                var w = computePowerW(sceneStats.screenOnDailyAvgPowerRaw, dualCellEnabled, calibrationValue)
+                var w = computePowerW(
+                    sceneStats.screenOnDailyAvgPowerRaw,
+                    dualCellEnabled,
+                    calibrationValue
+                )
                 if (dischargeDisplayPositive) w = kotlin.math.abs(w)
                 String.format(LocalLocale.current.platformLocale, "%.2f W", w)
             } else "数据不足"

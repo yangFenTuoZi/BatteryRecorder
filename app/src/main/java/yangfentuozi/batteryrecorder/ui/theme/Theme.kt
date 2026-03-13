@@ -14,7 +14,8 @@ fun BatteryRecorderTheme(
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
-    val dynamicColorScheme = if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    val dynamicColorScheme =
+        if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
 
     val colorScheme = dynamicColorScheme.copy(
         surface = dynamicColorScheme.surfaceContainer,

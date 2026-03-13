@@ -46,7 +46,10 @@ fun StartServerCard(
         Button(
             shape = AppShape.SplicedGroup.single,
             onClick = {
-                Log.i("BootAutoStart", "[启动请求] 来源=${RootServerStarter.Source.HOME_BUTTON}，用户点击启动按钮")
+                Log.i(
+                    "BootAutoStart",
+                    "[启动请求] 来源=${RootServerStarter.Source.HOME_BUTTON}，用户点击启动按钮"
+                )
                 Thread {
                     RootServerStarter.start(
                         context = context,

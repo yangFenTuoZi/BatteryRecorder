@@ -156,7 +156,8 @@ private fun PredictionGameFilterDialog(
     var showSystemApps by remember { mutableStateOf(false) }
     var apps by remember { mutableStateOf<List<AppEntry>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
-    val selectedPackages = remember { mutableStateListOf<String>().apply { addAll(currentSelection) } }
+    val selectedPackages =
+        remember { mutableStateListOf<String>().apply { addAll(currentSelection) } }
     // 记录本次检测到的游戏包名，供 confirm 时回传
     var detectedGamePkgs by remember { mutableStateOf<Set<String>>(emptySet()) }
 
@@ -340,7 +341,12 @@ private fun PredictionGameFilterDialog(
                         Text("取消")
                     }
                     Spacer(Modifier.width(8.dp))
-                    TextButton(onClick = { onConfirm(selectedPackages.toSet(), detectedGamePkgs) }) {
+                    TextButton(onClick = {
+                        onConfirm(
+                            selectedPackages.toSet(),
+                            detectedGamePkgs
+                        )
+                    }) {
                         Text("确定 (${selectedPackages.size})")
                     }
                 }

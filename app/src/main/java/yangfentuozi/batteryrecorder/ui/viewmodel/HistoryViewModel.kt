@@ -51,6 +51,7 @@ class HistoryViewModel : ViewModel() {
     // recordPoints 保存从记录文件读取并完成“放电正负显示映射”后的原始点。
     // 它仍然保留 ChartPoint，是因为 computePowerW 前还需要读取原始功率字段。
     private var recordPoints: List<ChartPoint> = emptyList()
+
     // 这三个字段是图表派生状态的输入，不需要被外部订阅，因此使用普通字段即可。
     private var dualCellEnabled = ConfigConstants.DEF_DUAL_CELL_ENABLED
     private var calibrationValue = ConfigConstants.DEF_CALIBRATION_VALUE
@@ -89,6 +90,7 @@ class HistoryViewModel : ViewModel() {
 
     private companion object {
         const val PAGE_SIZE = 10
+
         // 目标不是“固定桶时长”，而是让不同记录长度大致映射到相近数量的趋势点。
         const val TARGET_TREND_BUCKET_COUNT = 240L
     }
@@ -173,14 +175,15 @@ class HistoryViewModel : ViewModel() {
                 _hasMoreRecords.value = false
                 return
             }
-            val nextPageRecords = sourceRecords?.subList(startIndex, endExclusive) ?: withContext(Dispatchers.IO) {
-                val filesToLoad = listFiles.subList(startIndex, endExclusive).toList()
-                val latestFile = latestListFile
-                val dischargeDisplayPositive = listDischargeDisplayPositive
-                filesToLoad.mapNotNull { file ->
-                    buildHistoryRecord(context, file, latestFile, dischargeDisplayPositive)
+            val nextPageRecords =
+                sourceRecords?.subList(startIndex, endExclusive) ?: withContext(Dispatchers.IO) {
+                    val filesToLoad = listFiles.subList(startIndex, endExclusive).toList()
+                    val latestFile = latestListFile
+                    val dischargeDisplayPositive = listDischargeDisplayPositive
+                    filesToLoad.mapNotNull { file ->
+                        buildHistoryRecord(context, file, latestFile, dischargeDisplayPositive)
+                    }
                 }
-            }
             // I/O 返回后再次校验 token，避免旧任务覆盖新列表状态。
             if (token != listLoadToken) return
             if (nextPageRecords.isNotEmpty()) {
@@ -531,7 +534,8 @@ class HistoryViewModel : ViewModel() {
 
     private fun computeTrendBucketDurationMs(totalDurationMs: Long): Long {
         // 先按目标桶数估算，再归一化到“人类可读”的时长阶梯，避免趋势点间距出现难理解的怪值。
-        val rawBucketDurationMs = (totalDurationMs / TARGET_TREND_BUCKET_COUNT).coerceAtLeast(1_000L)
+        val rawBucketDurationMs =
+            (totalDurationMs / TARGET_TREND_BUCKET_COUNT).coerceAtLeast(1_000L)
         return normalizeTrendBucketDurationMs(rawBucketDurationMs)
     }
 

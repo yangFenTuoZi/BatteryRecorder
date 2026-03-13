@@ -42,7 +42,11 @@ fun StatsCard(
 
         if (summary != null) {
             Spacer(Modifier.height(12.dp))
-            StatRow("记录数", "${summary.recordCount} 次", modifier = Modifier.padding(vertical = 4.dp))
+            StatRow(
+                "记录数",
+                "${summary.recordCount} 次",
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
             StatRow(
                 "平均功率",
                 formatPower(

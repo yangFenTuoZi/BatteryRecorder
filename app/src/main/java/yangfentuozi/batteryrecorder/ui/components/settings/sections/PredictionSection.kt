@@ -54,7 +54,10 @@ fun PredictionSection(
 
         item {
             val maxX = state.predCurrentSessionWeightMaxX100 / 100.0
-            val summary = "最大 %.2fx / 半衰期 %d 分钟".format(maxX, state.predCurrentSessionWeightHalfLifeMin)
+            val summary = "最大 %.2fx / 半衰期 %d 分钟".format(
+                maxX,
+                state.predCurrentSessionWeightHalfLifeMin
+            )
             SettingsItem(
                 title = "加权强度",
                 summary = summary

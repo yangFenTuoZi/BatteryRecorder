@@ -75,15 +75,18 @@ class SettingsViewModel : ViewModel() {
     // 当次记录加权预测
     private val _predCurrentSessionWeightEnabled =
         MutableStateFlow(ConfigConstants.DEF_PRED_CURRENT_SESSION_WEIGHT_ENABLED)
-    val predCurrentSessionWeightEnabled: StateFlow<Boolean> = _predCurrentSessionWeightEnabled.asStateFlow()
+    val predCurrentSessionWeightEnabled: StateFlow<Boolean> =
+        _predCurrentSessionWeightEnabled.asStateFlow()
 
     private val _predCurrentSessionWeightMaxX100 =
         MutableStateFlow(ConfigConstants.DEF_PRED_CURRENT_SESSION_WEIGHT_MAX_X100)
-    val predCurrentSessionWeightMaxX100: StateFlow<Int> = _predCurrentSessionWeightMaxX100.asStateFlow()
+    val predCurrentSessionWeightMaxX100: StateFlow<Int> =
+        _predCurrentSessionWeightMaxX100.asStateFlow()
 
     private val _predCurrentSessionWeightHalfLifeMin =
         MutableStateFlow(ConfigConstants.DEF_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN)
-    val predCurrentSessionWeightHalfLifeMin: StateFlow<Long> = _predCurrentSessionWeightHalfLifeMin.asStateFlow()
+    val predCurrentSessionWeightHalfLifeMin: StateFlow<Long> =
+        _predCurrentSessionWeightHalfLifeMin.asStateFlow()
 
     private val _settingsUiState = MutableStateFlow(SettingsUiState())
     val settingsUiState: StateFlow<SettingsUiState> = _settingsUiState.asStateFlow()
@@ -267,7 +270,10 @@ class SettingsViewModel : ViewModel() {
 
     fun setCalibrationValue(value: Int) {
         val finalValue =
-            value.coerceIn(ConfigConstants.MIN_CALIBRATION_VALUE, ConfigConstants.MAX_CALIBRATION_VALUE)
+            value.coerceIn(
+                ConfigConstants.MIN_CALIBRATION_VALUE,
+                ConfigConstants.MAX_CALIBRATION_VALUE
+            )
         viewModelScope.launch {
             prefs.edit { putInt(ConfigConstants.KEY_CALIBRATION_VALUE, finalValue) }
             _calibrationValue.value = finalValue
@@ -280,7 +286,10 @@ class SettingsViewModel : ViewModel() {
      */
     fun setRecordIntervalMs(value: Long) {
         val finalValue =
-            value.coerceIn(ConfigConstants.MIN_RECORD_INTERVAL_MS, ConfigConstants.MAX_RECORD_INTERVAL_MS)
+            value.coerceIn(
+                ConfigConstants.MIN_RECORD_INTERVAL_MS,
+                ConfigConstants.MAX_RECORD_INTERVAL_MS
+            )
         viewModelScope.launch {
             prefs.edit { putLong(ConfigConstants.KEY_RECORD_INTERVAL_MS, finalValue) }
             _recordIntervalMs.value = finalValue
@@ -295,7 +304,10 @@ class SettingsViewModel : ViewModel() {
      */
     fun setWriteLatencyMs(value: Long) {
         val finalValue =
-            value.coerceIn(ConfigConstants.MIN_WRITE_LATENCY_MS, ConfigConstants.MAX_WRITE_LATENCY_MS)
+            value.coerceIn(
+                ConfigConstants.MIN_WRITE_LATENCY_MS,
+                ConfigConstants.MAX_WRITE_LATENCY_MS
+            )
         viewModelScope.launch {
             prefs.edit { putLong(ConfigConstants.KEY_WRITE_LATENCY_MS, finalValue) }
             _writeLatencyMs.value = finalValue
@@ -309,7 +321,8 @@ class SettingsViewModel : ViewModel() {
      * 更新批次大小
      */
     fun setBatchSize(value: Int) {
-        val finalValue = value.coerceIn(ConfigConstants.MIN_BATCH_SIZE, ConfigConstants.MAX_BATCH_SIZE)
+        val finalValue =
+            value.coerceIn(ConfigConstants.MIN_BATCH_SIZE, ConfigConstants.MAX_BATCH_SIZE)
         viewModelScope.launch {
             prefs.edit { putInt(ConfigConstants.KEY_BATCH_SIZE, finalValue) }
             _batchSize.value = finalValue
@@ -331,7 +344,10 @@ class SettingsViewModel : ViewModel() {
 
     fun setSegmentDurationMin(value: Long) {
         val finalValue =
-            value.coerceIn(ConfigConstants.MIN_SEGMENT_DURATION_MIN, ConfigConstants.MAX_SEGMENT_DURATION_MIN)
+            value.coerceIn(
+                ConfigConstants.MIN_SEGMENT_DURATION_MIN,
+                ConfigConstants.MAX_SEGMENT_DURATION_MIN
+            )
         viewModelScope.launch {
             prefs.edit { putLong(ConfigConstants.KEY_SEGMENT_DURATION_MIN, finalValue) }
             _segmentDurationMin.value = finalValue
@@ -379,7 +395,12 @@ class SettingsViewModel : ViewModel() {
 
     fun setPredCurrentSessionWeightEnabled(enabled: Boolean) {
         viewModelScope.launch {
-            prefs.edit { putBoolean(ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_ENABLED, enabled) }
+            prefs.edit {
+                putBoolean(
+                    ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_ENABLED,
+                    enabled
+                )
+            }
             _predCurrentSessionWeightEnabled.value = enabled
             refreshCombinedState()
         }
@@ -391,7 +412,12 @@ class SettingsViewModel : ViewModel() {
             ConfigConstants.MAX_PRED_CURRENT_SESSION_WEIGHT_MAX_X100
         )
         viewModelScope.launch {
-            prefs.edit { putInt(ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_MAX_X100, finalValue) }
+            prefs.edit {
+                putInt(
+                    ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_MAX_X100,
+                    finalValue
+                )
+            }
             _predCurrentSessionWeightMaxX100.value = finalValue
             refreshCombinedState()
         }
@@ -403,7 +429,12 @@ class SettingsViewModel : ViewModel() {
             ConfigConstants.MAX_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN
         )
         viewModelScope.launch {
-            prefs.edit { putLong(ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN, finalValue) }
+            prefs.edit {
+                putLong(
+                    ConfigConstants.KEY_PRED_CURRENT_SESSION_WEIGHT_HALF_LIFE_MIN,
+                    finalValue
+                )
+            }
             _predCurrentSessionWeightHalfLifeMin.value = finalValue
             refreshCombinedState()
         }

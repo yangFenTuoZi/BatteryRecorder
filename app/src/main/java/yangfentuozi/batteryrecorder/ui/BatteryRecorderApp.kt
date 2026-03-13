@@ -24,6 +24,7 @@ import yangfentuozi.batteryrecorder.utils.AppUpdate
 import yangfentuozi.batteryrecorder.utils.UpdateUtils
 
 private object BatteryRecorderAppLogger
+
 private const val STARTUP_PROMPT_PREFS = "startup_prompt"
 private const val KEY_DOCS_INTRO_SHOWN = "docs_intro_shown"
 

@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.data.model.RecordDetailChartPoint
@@ -132,7 +133,10 @@ private class ChartCoordinates(
     /**
      * 根据 X 坐标查找最近的数据点
      */
-    fun findPointAtX(offsetX: Float, points: List<RecordDetailChartPoint>): RecordDetailChartPoint? {
+    fun findPointAtX(
+        offsetX: Float,
+        points: List<RecordDetailChartPoint>
+    ): RecordDetailChartPoint? {
         if (chartWidth <= 0f) return null
         val x = (offsetX - paddingLeft).coerceIn(0f, chartWidth)
         val targetTime = minTime + (x / chartWidth * timeRange).toLong()
@@ -236,7 +240,8 @@ fun PowerCapacityChart(
     val powerAxisConfig = remember(powerAxisPoints, fixedPowerAxisMode) {
         val maxObservedAbsW = when (fixedPowerAxisMode) {
             FixedPowerAxisMode.PositiveOnly -> powerAxisPoints.maxOfOrNull { it.rawPowerW } ?: 0.0
-            FixedPowerAxisMode.NegativeOnly -> kotlin.math.abs(powerAxisPoints.minOfOrNull { it.rawPowerW } ?: 0.0)
+            FixedPowerAxisMode.NegativeOnly -> kotlin.math.abs(powerAxisPoints.minOfOrNull { it.rawPowerW }
+                ?: 0.0)
         }
         computeFixedPowerAxisConfig(maxObservedAbsW, fixedPowerAxisMode)
     }
@@ -257,13 +262,18 @@ fun PowerCapacityChart(
     }
 
     // 预计算峰值标签文本，用于动态调整右侧 padding
-    val peakLabelText = remember(activePowerPoints, isNegativeMode, curveVisibility.powerCurveMode) {
-        if (!hasVisiblePowerCurve) return@remember null
-        val peakPlotPowerW = activePowerPoints.maxOfOrNull {
-            selectPowerValueForChart(it, curveVisibility.powerCurveMode, isNegativeMode)
-        } ?: return@remember null
-        String.format(Locale.getDefault(), "%.2f W", if (isNegativeMode) -peakPlotPowerW else peakPlotPowerW)
-    }
+    val peakLabelText =
+        remember(activePowerPoints, isNegativeMode, curveVisibility.powerCurveMode) {
+            if (!hasVisiblePowerCurve) return@remember null
+            val peakPlotPowerW = activePowerPoints.maxOfOrNull {
+                selectPowerValueForChart(it, curveVisibility.powerCurveMode, isNegativeMode)
+            } ?: return@remember null
+            String.format(
+                Locale.getDefault(),
+                "%.2f W",
+                if (isNegativeMode) -peakPlotPowerW else peakPlotPowerW
+            )
+        }
 
     val density = LocalDensity.current
 
@@ -311,7 +321,13 @@ fun PowerCapacityChart(
                     .fillMaxWidth()
                     .height(chartHeight)
                     // 双指拖动只在全屏模式有意义，用来平移视口，而不是修改数据本身。
-                    .pointerInput(renderFilteredPoints, paddingRightDp, viewportStart, viewportEnd, onViewportShift) {
+                    .pointerInput(
+                        renderFilteredPoints,
+                        paddingRightDp,
+                        viewportStart,
+                        viewportEnd,
+                        onViewportShift
+                    ) {
                         if (onViewportShift == null) return@pointerInput
                         val paddingLeft = 32.dp.toPx()
                         val chartWidth = size.width - paddingLeft - paddingRightDp.toPx()
@@ -326,11 +342,13 @@ fun PowerCapacityChart(
                                     lastCentroidX = null
                                     continue
                                 }
-                                val centroidX = activeChanges.map { it.position.x }.average().toFloat()
+                                val centroidX =
+                                    activeChanges.map { it.position.x }.average().toFloat()
                                 val previousCentroidX = lastCentroidX
                                 if (previousCentroidX != null) {
                                     val deltaX = centroidX - previousCentroidX
-                                    val deltaMs = ((-deltaX / chartWidth) * viewportDurationMs).toLong()
+                                    val deltaMs =
+                                        ((-deltaX / chartWidth) * viewportDurationMs).toLong()
                                     if (deltaMs != 0L) {
                                         onViewportShift(deltaMs)
                                     }
@@ -345,10 +363,20 @@ fun PowerCapacityChart(
                         val paddingLeft = 32.dp.toPx()
                         val chartWidth = size.width - paddingLeft - paddingRightDp.toPx()
                         val coords = ChartCoordinates(
-                            paddingLeft, 0f, chartWidth, 0f, viewportStart, viewportEnd, 0.0, 0.0, 0.0, 0.0
+                            paddingLeft,
+                            0f,
+                            chartWidth,
+                            0f,
+                            viewportStart,
+                            viewportEnd,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
                         )
                         detectTapGestures { offset ->
-                            selectedPointState.value = coords.findPointAtX(offset.x, selectablePoints)
+                            selectedPointState.value =
+                                coords.findPointAtX(offset.x, selectablePoints)
                         }
                     }
                     // 拖动选择与点击选择共用同一套“最近点”逻辑，保持交互反馈一致。
@@ -356,11 +384,21 @@ fun PowerCapacityChart(
                         val paddingLeft = 32.dp.toPx()
                         val chartWidth = size.width - paddingLeft - paddingRightDp.toPx()
                         val coords = ChartCoordinates(
-                            paddingLeft, 0f, chartWidth, 0f, viewportStart, viewportEnd, 0.0, 0.0, 0.0, 0.0
+                            paddingLeft,
+                            0f,
+                            chartWidth,
+                            0f,
+                            viewportStart,
+                            viewportEnd,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
                         )
                         detectDragGestures { change, _ ->
                             change.consume()
-                            selectedPointState.value = coords.findPointAtX(change.position.x, selectablePoints)
+                            selectedPointState.value =
+                                coords.findPointAtX(change.position.x, selectablePoints)
                         }
                     }
             ) {
@@ -415,9 +453,17 @@ fun PowerCapacityChart(
                 // 固定功率轴：垂直网格 + 主次刻度水平线 + 固定刻度标签
                 drawVerticalGridLines(coords, gridColor, verticalGridSegments)
                 if (hasVisiblePowerCurve) {
-                    drawFixedPowerGridLines(coords, gridColor, powerAxisConfig.majorStepW, powerAxisConfig.minorStepW)
+                    drawFixedPowerGridLines(
+                        coords,
+                        gridColor,
+                        powerAxisConfig.majorStepW,
+                        powerAxisConfig.minorStepW
+                    )
                     drawFixedPowerAxisLabels(
-                        coords, axisLabelColor, powerAxisConfig.majorStepW, powerAxisConfig.minorStepW,
+                        coords,
+                        axisLabelColor,
+                        powerAxisConfig.majorStepW,
+                        powerAxisConfig.minorStepW,
                         if (isNegativeMode) -1 else 1
                     )
                 }
@@ -487,7 +533,10 @@ fun PowerCapacityChart(
                             drawCircle(
                                 capacityColor,
                                 radius = 2.8.dp.toPx(),
-                                center = Offset(pointX, coords.capacityToY(point.capacity.toDouble()))
+                                center = Offset(
+                                    pointX,
+                                    coords.capacityToY(point.capacity.toDouble())
+                                )
                             )
                         }
                     }
@@ -540,7 +589,13 @@ fun PowerCapacityChart(
                         right = paddingLeft + chartWidth,
                         bottom = size.height
                     ) {
-                        drawScreenStateLine(renderRawPoints, coords, screenOnColor, screenOffColor, 4.dp)
+                        drawScreenStateLine(
+                            renderRawPoints,
+                            coords,
+                            screenOnColor,
+                            screenOffColor,
+                            4.dp
+                        )
                     }
                 }
 
@@ -553,31 +608,40 @@ fun PowerCapacityChart(
                     selectedPointState.value
                         ?.takeIf { it.timestamp in viewportStart..viewportEnd }
                         ?.let { selectedPoint ->
-                        val selectedX = coords.timeToX(selectedPoint.timestamp)
+                            val selectedX = coords.timeToX(selectedPoint.timestamp)
 
-                        drawLine(
-                            color = gridColor.copy(alpha = 0.6f),
-                            start = Offset(selectedX, paddingTop),
-                            end = Offset(selectedX, paddingTop + chartHeight),
-                            strokeWidth = 1.dp.toPx()
-                        )
-                        if (hasVisiblePowerCurve) {
-                            val powerY = coords.powerToY(powerValueSelector(selectedPoint))
-                            drawCircle(powerColor, radius = 2.8.dp.toPx(), center = Offset(selectedX, powerY))
-                        }
-                        if (curveVisibility.showCapacity) {
-                            val capacityY = coords.capacityToY(selectedPoint.capacity.toDouble())
-                            drawCircle(
-                                capacityColor,
-                                radius = 2.8.dp.toPx(),
-                                center = Offset(selectedX, capacityY)
+                            drawLine(
+                                color = gridColor.copy(alpha = 0.6f),
+                                start = Offset(selectedX, paddingTop),
+                                end = Offset(selectedX, paddingTop + chartHeight),
+                                strokeWidth = 1.dp.toPx()
                             )
+                            if (hasVisiblePowerCurve) {
+                                val powerY = coords.powerToY(powerValueSelector(selectedPoint))
+                                drawCircle(
+                                    powerColor,
+                                    radius = 2.8.dp.toPx(),
+                                    center = Offset(selectedX, powerY)
+                                )
+                            }
+                            if (curveVisibility.showCapacity) {
+                                val capacityY =
+                                    coords.capacityToY(selectedPoint.capacity.toDouble())
+                                drawCircle(
+                                    capacityColor,
+                                    radius = 2.8.dp.toPx(),
+                                    center = Offset(selectedX, capacityY)
+                                )
+                            }
+                            if (curveVisibility.showTemp) {
+                                val tempY = coords.tempToY(selectedPoint.temp.toDouble())
+                                drawCircle(
+                                    tempColor,
+                                    radius = 2.8.dp.toPx(),
+                                    center = Offset(selectedX, tempY)
+                                )
+                            }
                         }
-                        if (curveVisibility.showTemp) {
-                            val tempY = coords.tempToY(selectedPoint.temp.toDouble())
-                            drawCircle(tempColor, radius = 2.8.dp.toPx(), center = Offset(selectedX, tempY))
-                        }
-                    }
                 }
             }
         }
@@ -631,17 +695,25 @@ private fun SelectedPointInfo(
         val timeText = formatRelativeTime(offset)
         val displayPowerW = selectPowerValueForDisplay(selected, powerCurveMode)
         val powerText = if (powerCurveMode == PowerCurveMode.Fitted) {
-            String.format(Locale.getDefault(), "%.2f W（拟合）", displayPowerW)
+            String.format(LocalLocale.current.platformLocale, "%.2f W（拟合）", displayPowerW)
         } else {
-            String.format(Locale.getDefault(), "%.2f W", displayPowerW)
+            String.format(LocalLocale.current.platformLocale, "%.2f W", displayPowerW)
         }
         val capacityText = "${selected.capacity}%"
         val tempText =
-            if (selected.temp == 0) "" else " · ${String.format(Locale.getDefault(), "%.1f ℃", selected.temp / 10.0)}"
+            if (selected.temp == 0) "" else " · ${
+                String.format(
+                    LocalLocale.current.platformLocale,
+                    "%.1f ℃",
+                    selected.temp / 10.0
+                )
+            }"
         "$timeText · $powerText · $capacityText$tempText"
     }
     Row(
-        modifier = Modifier.fillMaxWidth().padding(start = startPadding),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = startPadding),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -841,7 +913,12 @@ private fun DrawScope.drawVerticalGridLines(
 
     for (i in 0..cols) {
         val x = coords.paddingLeft + colStep * i
-        drawLine(lineColor, Offset(x, coords.paddingTop), Offset(x, coords.paddingTop + coords.chartHeight), stroke)
+        drawLine(
+            lineColor,
+            Offset(x, coords.paddingTop),
+            Offset(x, coords.paddingTop + coords.chartHeight),
+            stroke
+        )
     }
 }
 
@@ -897,7 +974,11 @@ private fun DrawScope.drawFixedPowerAxisLabels(
     while (value <= maxW) {
         if (value % major == 0) {
             val y = coords.powerToY(value.toDouble())
-            val powerText = String.format(Locale.getDefault(), "%.0f W", (value * labelSignMultiplier).toDouble())
+            val powerText = String.format(
+                Locale.getDefault(),
+                "%.0f W",
+                (value * labelSignMultiplier).toDouble()
+            )
             val powerWidth = textPaint.measureText(powerText)
             drawContext.canvas.nativeCanvas.drawText(
                 powerText,
