@@ -47,11 +47,13 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.data.model.RecordDetailChartPoint
 import yangfentuozi.batteryrecorder.data.model.normalizeRecordDetailChartPoints
@@ -118,12 +120,49 @@ private class ChartCoordinates(
     val maxPower: Double,
     val minTemp: Double,
     val maxTemp: Double,
+    private val contentWidth: Float,
+    private val contentOffsetPx: Float,
 ) {
     val timeRange = max(1L, maxTime - minTime).toDouble()
     private val powerRange = max(1e-6, maxPower - minPower)
 
-    fun timeToX(timestamp: Long): Float =
-        paddingLeft + ((timestamp - minTime) / timeRange).toFloat() * chartWidth
+    /**
+     * 将时间戳映射到静态内容层坐标。
+     *
+     * @param timestamp 需要映射的数据点时间戳
+     * @return 内容层内的绝对 X 坐标，范围为 0..contentWidth
+     */
+    fun timeToContentX(timestamp: Long): Float =
+        ((timestamp - minTime) / timeRange).toFloat() * contentWidth
+
+    /**
+     * 将内容层坐标映射到当前视口坐标。
+     *
+     * @param contentX 静态内容层内的绝对 X 坐标
+     * @return 当前 Canvas 视口中的 X 坐标
+     */
+    fun contentXToViewportX(contentX: Float): Float =
+        paddingLeft + contentX - contentOffsetPx
+
+    /**
+     * 将时间戳映射到当前视口坐标。
+     *
+     * @param timestamp 需要映射的数据点时间戳
+     * @return 当前 Canvas 视口中的 X 坐标
+     */
+    fun timeToX(timestamp: Long): Float = contentXToViewportX(timeToContentX(timestamp))
+
+    /**
+     * 将视口坐标反推为时间戳。
+     *
+     * @param viewportX 当前 Canvas 视口中的 X 坐标
+     * @return 反推得到的时间戳
+     */
+    fun viewportXToTime(viewportX: Float): Long {
+        if (contentWidth <= 0f) return minTime
+        val contentX = (viewportX - paddingLeft + contentOffsetPx).coerceIn(0f, contentWidth)
+        return minTime + (contentX / contentWidth * timeRange).toLong()
+    }
 
     fun powerToY(value: Double): Float {
         val normalized = ((value - minPower) / powerRange).toFloat()
@@ -149,11 +188,18 @@ private class ChartCoordinates(
         points: List<RecordDetailChartPoint>
     ): RecordDetailChartPoint? {
         if (chartWidth <= 0f) return null
-        val x = (offsetX - paddingLeft).coerceIn(0f, chartWidth)
-        val targetTime = minTime + (x / chartWidth * timeRange).toLong()
+        val targetTime = viewportXToTime(offsetX)
         return points.minByOrNull { abs(it.timestamp - targetTime) }
     }
 }
+
+private data class FullscreenStaticChartLayout(
+    val baseCoords: ChartCoordinates,
+    val powerPath: Path?,
+    val capacityPath: Path?,
+    val tempPath: Path?,
+    val appIconPlacements: List<AppIconPlacement>,
+)
 
 /** 功率-电量图表（当前仅服务记录详情页单一场景）。 */
 @Composable
@@ -208,6 +254,7 @@ fun PowerCapacityChart(
     val viewportStart = (visibleStartTime ?: fullMinTime).coerceIn(fullMinTime, fullMaxTime)
     val viewportEnd = (visibleEndTime ?: fullMaxTime).coerceIn(viewportStart, fullMaxTime)
     val viewportDurationMs = (viewportEnd - viewportStart).coerceAtLeast(1L)
+    val isStaticFullscreen = isFullscreen
     // slicePointsForViewport 会额外保留边界外最近点，避免缩放到局部后曲线在视口边缘被硬切断。
     val visibleFilteredPoints = remember(filteredPoints, viewportStart, viewportEnd) {
         slicePointsForViewport(filteredPoints, viewportStart, viewportEnd)
@@ -219,17 +266,17 @@ fun PowerCapacityChart(
         slicePointsForViewport(rawPoints, viewportStart, viewportEnd)
     }
     val renderFilteredPoints = if (visibleFilteredPoints.size >= 2) {
-        visibleFilteredPoints
+        if (isStaticFullscreen) filteredPoints else visibleFilteredPoints
     } else {
         filteredPoints
     }
     val renderTrendPoints = if (visibleTrendPoints.isNotEmpty()) {
-        visibleTrendPoints
+        if (isStaticFullscreen) filteredTrendPoints else visibleTrendPoints
     } else {
         filteredTrendPoints
     }
     val renderRawPoints = if (visibleRawPoints.size >= 2) {
-        visibleRawPoints
+        if (isStaticFullscreen) rawPoints else visibleRawPoints
     } else {
         rawPoints
     }
@@ -258,12 +305,19 @@ fun PowerCapacityChart(
         }
         computeFixedPowerAxisConfig(maxObservedAbsW, fixedPowerAxisMode)
     }
-    val capacityMarkers = remember(renderFilteredPoints, curveVisibility.showCapacity) {
-        if (curveVisibility.showCapacity) computeCapacityMarkers(renderFilteredPoints) else emptyList()
-    }
     val selectedPointState = remember { mutableStateOf<RecordDetailChartPoint?>(null) }
     val isNegativeMode = fixedPowerAxisMode == FixedPowerAxisMode.NegativeOnly
     val hasVisiblePowerCurve = curveVisibility.powerCurveMode != PowerCurveMode.Hidden
+    val minPower = powerAxisConfig.minValue
+    val maxPower = powerAxisConfig.maxValue
+    val (minTemp, maxTemp) = remember(renderFilteredPoints) {
+        computeTempAxisRange(renderFilteredPoints)
+    }
+    val capacityMarkerPoints = if (isStaticFullscreen) filteredPoints else renderFilteredPoints
+    val capacityMarkers = remember(capacityMarkerPoints, curveVisibility.showCapacity) {
+        if (curveVisibility.showCapacity) computeCapacityMarkers(capacityMarkerPoints) else emptyList()
+    }
+    val tempMarkerPoints = if (isStaticFullscreen) filteredPoints else renderFilteredPoints
 
     LaunchedEffect(selectablePoints, viewportStart, viewportEnd) {
         val selected = selectedPointState.value ?: return@LaunchedEffect
@@ -286,11 +340,14 @@ fun PowerCapacityChart(
                 "%.2f W",
                 if (isNegativeMode) -peakPlotPowerW else peakPlotPowerW
             )
-        }
+    }
 
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
     val appIconSizePx = with(density) { AppIconMemoryCache.chartIconSizeDp.roundToPx() }
+    val paddingLeftPx = with(density) { 32.dp.toPx() }
+    val paddingTopPx = with(density) { 6.dp.toPx() }
+    val paddingBottomPx = with(density) { 24.dp.toPx() }
     val appIconClipPath = remember(appIconSizePx, density, layoutDirection) {
         outlineToPath(
             AppShape.icon.createOutline(
@@ -303,20 +360,18 @@ fun PowerCapacityChart(
     val packageFirstTimestamps = remember(filteredPoints) {
         buildPackageFirstTimestamps(filteredPoints)
     }
-    val visibleAppPoints = remember(filteredPoints, viewportStart, viewportEnd) {
-        filteredPoints.filter { it.timestamp in viewportStart..viewportEnd }
+    val visibleAppPoints = remember(filteredPoints, viewportStart, viewportEnd, isStaticFullscreen) {
+        if (isStaticFullscreen) filteredPoints else filteredPoints.filter { it.timestamp in viewportStart..viewportEnd }
     }
     val visibleAppPackages = remember(visibleAppPoints) {
         visibleAppPoints.asSequence()
             .mapNotNull { normalizePackageName(it.packageName) }
             .toSet()
     }
-    val appIcons = rememberAppIconBitmaps(visibleAppPackages, appIconSizePx)
 
     // 预计算功率轴标签最左侧位置，用于 SelectedPointInfo 对齐
     val powerAxisStartDp = remember(filteredPoints, powerAxisConfig) {
         with(density) {
-            val paddingLeftPx = 32.dp.toPx()
             val gapPx = 8.dp.toPx()
             val textPaint = createTextPaint(0, 24f)
             val minP = powerAxisConfig.minValue
@@ -335,6 +390,139 @@ fun PowerCapacityChart(
             reservedPx.toDp().coerceAtLeast(32.dp)
         }
     }
+    val paddingRightPx = with(density) { paddingRightDp.toPx() }
+    val canvasSizeState = remember { mutableStateOf(IntSize.Zero) }
+    val canvasSize = canvasSizeState.value
+    val chartWidthPx =
+        (canvasSize.width.toFloat() - paddingLeftPx - paddingRightPx).coerceAtLeast(0f)
+    val chartHeightPx =
+        (canvasSize.height.toFloat() - paddingTopPx - paddingBottomPx).coerceAtLeast(0f)
+    val totalDurationMs = (fullMaxTime - fullMinTime).coerceAtLeast(1L)
+    val fullscreenContentWidthPx = remember(
+        isStaticFullscreen,
+        chartWidthPx,
+        totalDurationMs,
+        viewportDurationMs
+    ) {
+        if (!isStaticFullscreen || chartWidthPx <= 0f) {
+            chartWidthPx
+        } else {
+            max(
+                chartWidthPx,
+                (chartWidthPx * (totalDurationMs.toDouble() / viewportDurationMs.toDouble())).toFloat()
+            )
+        }
+    }
+    val fullscreenMaxOffsetPx = (fullscreenContentWidthPx - chartWidthPx).coerceAtLeast(0f)
+    val fullscreenContentOffsetPx = remember(
+        isStaticFullscreen,
+        fullscreenContentWidthPx,
+        fullscreenMaxOffsetPx,
+        viewportStart,
+        fullMinTime,
+        totalDurationMs
+    ) {
+        if (!isStaticFullscreen || fullscreenMaxOffsetPx <= 0f) {
+            0f
+        } else {
+            (((viewportStart - fullMinTime) / totalDurationMs.toDouble()) * fullscreenContentWidthPx)
+                .toFloat()
+                .coerceIn(0f, fullscreenMaxOffsetPx)
+        }
+    }
+    val fullscreenStaticLayout = remember(
+        isStaticFullscreen,
+        chartWidthPx,
+        chartHeightPx,
+        fullscreenContentWidthPx,
+        paddingLeftPx,
+        paddingTopPx,
+        filteredPoints,
+        filteredTrendPoints,
+        curveVisibility,
+        minPower,
+        maxPower,
+        minTemp,
+        maxTemp,
+        packageFirstTimestamps,
+        appIconSizePx,
+        isNegativeMode,
+        hasVisiblePowerCurve
+    ) {
+        if (!isStaticFullscreen || chartWidthPx <= 0f || chartHeightPx <= 0f) {
+            null
+        } else {
+            val baseCoords = ChartCoordinates(
+                paddingLeft = paddingLeftPx,
+                paddingTop = paddingTopPx,
+                chartWidth = chartWidthPx,
+                chartHeight = chartHeightPx,
+                minTime = fullMinTime,
+                maxTime = fullMaxTime,
+                minPower = minPower,
+                maxPower = maxPower,
+                minTemp = minTemp,
+                maxTemp = maxTemp,
+                contentWidth = fullscreenContentWidthPx,
+                contentOffsetPx = 0f
+            )
+            val staticPowerPoints = if (curveVisibility.powerCurveMode == PowerCurveMode.Fitted) {
+                filteredTrendPoints
+            } else {
+                filteredPoints
+            }
+            val powerValueSelector: (RecordDetailChartPoint) -> Double = { point ->
+                selectPowerValueForChart(point, curveVisibility.powerCurveMode, isNegativeMode)
+                    .coerceIn(minPower, maxPower)
+            }
+            FullscreenStaticChartLayout(
+                baseCoords = baseCoords,
+                powerPath = if (hasVisiblePowerCurve) {
+                    buildPowerPath(
+                        points = staticPowerPoints,
+                        coords = baseCoords,
+                        valueSelector = powerValueSelector,
+                        smooth = curveVisibility.powerCurveMode == PowerCurveMode.Fitted
+                    )
+                } else {
+                    null
+                },
+                capacityPath = if (curveVisibility.showCapacity) {
+                    buildCapacityPath(filteredPoints, baseCoords) { it.capacity.toDouble() }
+                } else {
+                    null
+                },
+                tempPath = if (curveVisibility.showTemp) {
+                    buildTempPath(filteredPoints, baseCoords) { it.temp.toDouble() }
+                } else {
+                    null
+                },
+                appIconPlacements = computeAppIconPlacements(
+                    points = filteredPoints,
+                    viewportStart = fullMinTime,
+                    viewportEnd = fullMaxTime,
+                    chartLeft = paddingLeftPx,
+                    chartTop = paddingTopPx,
+                    chartWidth = fullscreenContentWidthPx,
+                    chartHeight = chartHeightPx,
+                    iconSizePx = appIconSizePx.toFloat(),
+                    packageFirstTimestamps = packageFirstTimestamps
+                )
+            )
+        }
+    }
+    val appIconPackages = remember(fullscreenStaticLayout, visibleAppPackages, isStaticFullscreen) {
+        if (isStaticFullscreen) {
+            fullscreenStaticLayout?.appIconPlacements
+                ?.asSequence()
+                ?.map { it.packageName }
+                ?.toSet()
+                ?: emptySet()
+        } else {
+            visibleAppPackages
+        }
+    }
+    val appIcons = rememberAppIconBitmaps(appIconPackages, appIconSizePx)
 
     Column(modifier = modifier) {
         SelectedPointInfo(
@@ -356,6 +544,7 @@ fun PowerCapacityChart(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(chartHeight)
+                    .onSizeChanged { canvasSizeState.value = it }
                     // 双指拖动只在全屏模式有意义，用来平移视口，而不是修改数据本身。
                     .pointerInput(
                         renderFilteredPoints,
@@ -395,7 +584,15 @@ fun PowerCapacityChart(
                         }
                     }
                     // 单击选择最近点，显示当前时刻的功率/电量/温度摘要。
-                    .pointerInput(selectablePoints, paddingRightDp, viewportStart, viewportEnd) {
+                    .pointerInput(
+                        selectablePoints,
+                        paddingRightDp,
+                        viewportStart,
+                        viewportEnd,
+                        isStaticFullscreen,
+                        fullscreenContentWidthPx,
+                        fullscreenContentOffsetPx
+                    ) {
                         val paddingLeft = 32.dp.toPx()
                         val chartWidth = size.width - paddingLeft - paddingRightDp.toPx()
                         val coords = ChartCoordinates(
@@ -403,12 +600,14 @@ fun PowerCapacityChart(
                             0f,
                             chartWidth,
                             0f,
-                            viewportStart,
-                            viewportEnd,
+                            if (isStaticFullscreen) fullMinTime else viewportStart,
+                            if (isStaticFullscreen) fullMaxTime else viewportEnd,
                             0.0,
                             0.0,
                             0.0,
-                            0.0
+                            0.0,
+                            contentWidth = if (isStaticFullscreen) fullscreenContentWidthPx else chartWidth,
+                            contentOffsetPx = if (isStaticFullscreen) fullscreenContentOffsetPx else 0f
                         )
                         detectTapGestures { offset ->
                             selectedPointState.value =
@@ -416,7 +615,15 @@ fun PowerCapacityChart(
                         }
                     }
                     // 拖动选择与点击选择共用同一套“最近点”逻辑，保持交互反馈一致。
-                    .pointerInput(selectablePoints, paddingRightDp, viewportStart, viewportEnd) {
+                    .pointerInput(
+                        selectablePoints,
+                        paddingRightDp,
+                        viewportStart,
+                        viewportEnd,
+                        isStaticFullscreen,
+                        fullscreenContentWidthPx,
+                        fullscreenContentOffsetPx
+                    ) {
                         val paddingLeft = 32.dp.toPx()
                         val chartWidth = size.width - paddingLeft - paddingRightDp.toPx()
                         val coords = ChartCoordinates(
@@ -424,12 +631,14 @@ fun PowerCapacityChart(
                             0f,
                             chartWidth,
                             0f,
-                            viewportStart,
-                            viewportEnd,
+                            if (isStaticFullscreen) fullMinTime else viewportStart,
+                            if (isStaticFullscreen) fullMaxTime else viewportEnd,
                             0.0,
                             0.0,
                             0.0,
-                            0.0
+                            0.0,
+                            contentWidth = if (isStaticFullscreen) fullscreenContentWidthPx else chartWidth,
+                            contentOffsetPx = if (isStaticFullscreen) fullscreenContentOffsetPx else 0f
                         )
                         detectDragGestures { change, _ ->
                             change.consume()
@@ -446,28 +655,37 @@ fun PowerCapacityChart(
                 val chartHeight = size.height - paddingTop - paddingBottom
                 if (chartWidth <= 0f || chartHeight <= 0f) return@Canvas
 
-                val minPower = powerAxisConfig.minValue
-                val maxPower = powerAxisConfig.maxValue
-                val (minTemp, maxTemp) = computeTempAxisRange(renderFilteredPoints)
                 val verticalGridSegments = if (useFivePercentTimeGrid) 20 else 4
                 val timeLabelSegments = if (useFivePercentTimeGrid) 20 else 4
                 val timeLabelStep = if (useFivePercentTimeGrid) 4 else 1
 
                 val coords = ChartCoordinates(
                     paddingLeft, paddingTop, chartWidth, chartHeight,
-                    viewportStart, viewportEnd, minPower, maxPower, minTemp, maxTemp
+                    if (isStaticFullscreen) fullMinTime else viewportStart,
+                    if (isStaticFullscreen) fullMaxTime else viewportEnd,
+                    minPower,
+                    maxPower,
+                    minTemp,
+                    maxTemp,
+                    contentWidth = if (isStaticFullscreen) fullscreenContentWidthPx else chartWidth,
+                    contentOffsetPx = if (isStaticFullscreen) fullscreenContentOffsetPx else 0f
                 )
-                val appIconPlacements = computeAppIconPlacements(
-                    points = visibleAppPoints,
-                    viewportStart = viewportStart,
-                    viewportEnd = viewportEnd,
-                    chartLeft = paddingLeft,
-                    chartTop = paddingTop,
-                    chartWidth = chartWidth,
-                    chartHeight = chartHeight,
-                    iconSizePx = appIconSizePx.toFloat(),
-                    packageFirstTimestamps = packageFirstTimestamps
-                )
+                val staticCoords = fullscreenStaticLayout?.baseCoords ?: coords
+                val appIconPlacements = if (isStaticFullscreen) {
+                    fullscreenStaticLayout?.appIconPlacements ?: emptyList()
+                } else {
+                    computeAppIconPlacements(
+                        points = visibleAppPoints,
+                        viewportStart = viewportStart,
+                        viewportEnd = viewportEnd,
+                        chartLeft = paddingLeft,
+                        chartTop = paddingTop,
+                        chartWidth = chartWidth,
+                        chartHeight = chartHeight,
+                        iconSizePx = appIconSizePx.toFloat(),
+                        packageFirstTimestamps = packageFirstTimestamps
+                    )
+                }
 
                 // 绘图值与展示值是分离的：
                 // - 绘图值在负轴模式下会翻正，只用于映射坐标
@@ -476,7 +694,9 @@ fun PowerCapacityChart(
                     selectPowerValueForChart(point, curveVisibility.powerCurveMode, isNegativeMode)
                         .coerceIn(minPower, maxPower)
                 }
-                val powerPath = if (hasVisiblePowerCurve) {
+                val powerPath = if (isStaticFullscreen) {
+                    fullscreenStaticLayout?.powerPath
+                } else if (hasVisiblePowerCurve) {
                     buildPowerPath(
                         points = activePowerPoints,
                         coords = coords,
@@ -486,19 +706,23 @@ fun PowerCapacityChart(
                 } else {
                     null
                 }
-                val capacityPath = if (curveVisibility.showCapacity) {
+                val capacityPath = if (isStaticFullscreen) {
+                    fullscreenStaticLayout?.capacityPath
+                } else if (curveVisibility.showCapacity) {
                     buildCapacityPath(renderFilteredPoints, coords) { it.capacity.toDouble() }
                 } else {
                     null
                 }
-                val tempPath = if (curveVisibility.showTemp) {
+                val tempPath = if (isStaticFullscreen) {
+                    fullscreenStaticLayout?.tempPath
+                } else if (curveVisibility.showTemp) {
                     buildTempPath(renderFilteredPoints, coords) { it.temp.toDouble() }
                 } else {
                     null
                 }
 
                 // 固定功率轴：垂直网格 + 主次刻度水平线 + 固定刻度标签
-                drawVerticalGridLines(coords, gridColor, verticalGridSegments)
+                drawVerticalGridLines(coords, gridColor, verticalGridSegments, viewportStart, viewportEnd)
                 if (hasVisiblePowerCurve) {
                     drawFixedPowerGridLines(
                         coords,
@@ -516,7 +740,7 @@ fun PowerCapacityChart(
                 }
                 drawTimeAxisLabels(
                     coords, axisLabelColor, { value -> formatDateTime(value) },
-                    timeLabelSegments, timeLabelStep
+                    timeLabelSegments, timeLabelStep, viewportStart, viewportEnd
                 )
 
                 clipRect(
@@ -525,66 +749,72 @@ fun PowerCapacityChart(
                     right = paddingLeft + chartWidth,
                     bottom = paddingTop + chartHeight
                 ) {
-                    tempPath?.let { path ->
-                        drawPath(
-                            path = path,
-                            color = tempColor,
-                            style = Stroke(
-                                width = strokeWidth.toPx(),
-                                cap = StrokeCap.Round,
-                                join = StrokeJoin.Round
-                            )
-                        )
-                    }
-                    powerPath?.let { path ->
-                        drawPath(
-                            path = path,
-                            color = powerColor,
-                            style = Stroke(
-                                width = strokeWidth.toPx(),
-                                cap = StrokeCap.Round,
-                                join = StrokeJoin.Round
-                            )
-                        )
-                    }
-                    capacityPath?.let { path ->
-                        drawPath(
-                            path = path,
-                            color = capacityColor,
-                            style = Stroke(
-                                width = strokeWidth.toPx(),
-                                cap = StrokeCap.Round,
-                                join = StrokeJoin.Round
-                            )
-                        )
-                    }
-                    if (activePowerPoints.size == 1) {
-                        // 单点数据无法形成 path，这里补绘圆点，避免“有数据但图上什么都没有”。
-                        val point = activePowerPoints.first()
-                        val pointX = coords.timeToX(point.timestamp)
-                        if (curveVisibility.showTemp) {
-                            drawCircle(
-                                tempColor,
-                                radius = 2.8.dp.toPx(),
-                                center = Offset(pointX, coords.tempToY(point.temp.toDouble()))
-                            )
-                        }
-                        if (hasVisiblePowerCurve) {
-                            drawCircle(
-                                powerColor,
-                                radius = 2.8.dp.toPx(),
-                                center = Offset(pointX, coords.powerToY(powerValueSelector(point)))
-                            )
-                        }
-                        if (curveVisibility.showCapacity) {
-                            drawCircle(
-                                capacityColor,
-                                radius = 2.8.dp.toPx(),
-                                center = Offset(
-                                    pointX,
-                                    coords.capacityToY(point.capacity.toDouble())
+                    val contentOffset = if (isStaticFullscreen) -fullscreenContentOffsetPx else 0f
+                    translate(left = contentOffset) {
+                        tempPath?.let { path ->
+                            drawPath(
+                                path = path,
+                                color = tempColor,
+                                style = Stroke(
+                                    width = strokeWidth.toPx(),
+                                    cap = StrokeCap.Round,
+                                    join = StrokeJoin.Round
                                 )
                             )
+                        }
+                        powerPath?.let { path ->
+                            drawPath(
+                                path = path,
+                                color = powerColor,
+                                style = Stroke(
+                                    width = strokeWidth.toPx(),
+                                    cap = StrokeCap.Round,
+                                    join = StrokeJoin.Round
+                                )
+                            )
+                        }
+                        capacityPath?.let { path ->
+                            drawPath(
+                                path = path,
+                                color = capacityColor,
+                                style = Stroke(
+                                    width = strokeWidth.toPx(),
+                                    cap = StrokeCap.Round,
+                                    join = StrokeJoin.Round
+                                )
+                            )
+                        }
+                        if (activePowerPoints.size == 1) {
+                            // 单点数据无法形成 path，这里补绘圆点，避免“有数据但图上什么都没有”。
+                            val point = activePowerPoints.first()
+                            val pointX = staticCoords.timeToX(point.timestamp)
+                            if (curveVisibility.showTemp) {
+                                drawCircle(
+                                    tempColor,
+                                    radius = 2.8.dp.toPx(),
+                                    center = Offset(pointX, staticCoords.tempToY(point.temp.toDouble()))
+                                )
+                            }
+                            if (hasVisiblePowerCurve) {
+                                drawCircle(
+                                    powerColor,
+                                    radius = 2.8.dp.toPx(),
+                                    center = Offset(
+                                        pointX,
+                                        staticCoords.powerToY(powerValueSelector(point))
+                                    )
+                                )
+                            }
+                            if (curveVisibility.showCapacity) {
+                                drawCircle(
+                                    capacityColor,
+                                    radius = 2.8.dp.toPx(),
+                                    center = Offset(
+                                        pointX,
+                                        staticCoords.capacityToY(point.capacity.toDouble())
+                                    )
+                                )
+                            }
                         }
                     }
                 }
@@ -621,11 +851,33 @@ fun PowerCapacityChart(
                 }
 
                 if (capacityMarkers.isNotEmpty()) {
-                    drawCapacityMarkers(capacityMarkers, coords, capacityColor)
+                    val markerCoords = if (isStaticFullscreen) staticCoords else coords
+                    val markerOffset = if (isStaticFullscreen) -fullscreenContentOffsetPx else 0f
+                    clipRect(
+                        left = paddingLeft,
+                        top = paddingTop,
+                        right = paddingLeft + chartWidth,
+                        bottom = paddingTop + chartHeight
+                    ) {
+                        translate(left = markerOffset) {
+                            drawCapacityMarkers(capacityMarkers, markerCoords, capacityColor)
+                        }
+                    }
                 }
 
                 if (curveVisibility.showTemp) {
-                    drawTempExtremeMarkers(renderFilteredPoints, coords, tempColor)
+                    val tempCoords = if (isStaticFullscreen) staticCoords else coords
+                    val tempOffset = if (isStaticFullscreen) -fullscreenContentOffsetPx else 0f
+                    clipRect(
+                        left = paddingLeft,
+                        top = paddingTop,
+                        right = paddingLeft + chartWidth,
+                        bottom = paddingTop + chartHeight
+                    ) {
+                        translate(left = tempOffset) {
+                            drawTempExtremeMarkers(tempMarkerPoints, tempCoords, tempColor)
+                        }
+                    }
                 }
 
                 if (renderRawPoints.isNotEmpty()) {
@@ -636,13 +888,15 @@ fun PowerCapacityChart(
                         right = paddingLeft + chartWidth,
                         bottom = size.height
                     ) {
-                        drawScreenStateLine(
-                            renderRawPoints,
-                            coords,
-                            screenOnColor,
-                            screenOffColor,
-                            4.dp
-                        )
+                        translate(left = if (isStaticFullscreen) -fullscreenContentOffsetPx else 0f) {
+                            drawScreenStateLine(
+                                renderRawPoints,
+                                if (isStaticFullscreen) staticCoords else coords,
+                                screenOnColor,
+                                screenOffColor,
+                                4.dp
+                            )
+                        }
                     }
                 }
 
@@ -698,15 +952,17 @@ fun PowerCapacityChart(
                         right = paddingLeft + chartWidth,
                         bottom = paddingTop + chartHeight
                     ) {
-                        appIconPlacements.forEach { placement ->
-                            val icon = appIcons[placement.packageName] ?: return@forEach
-                            translate(left = placement.topLeft.x, top = placement.topLeft.y) {
-                                clipPath(appIconClipPath) {
-                                    drawImage(
-                                        image = icon,
-                                        topLeft = Offset.Zero,
-                                        alpha = APP_ICON_ALPHA
-                                    )
+                        translate(left = if (isStaticFullscreen) -fullscreenContentOffsetPx else 0f) {
+                            appIconPlacements.forEach { placement ->
+                                val icon = appIcons[placement.packageName] ?: return@forEach
+                                translate(left = placement.topLeft.x, top = placement.topLeft.y) {
+                                    clipPath(appIconClipPath) {
+                                        drawImage(
+                                            image = icon,
+                                            topLeft = Offset.Zero,
+                                            alpha = APP_ICON_ALPHA
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1114,15 +1370,18 @@ private fun buildSmoothPath(
 private fun DrawScope.drawVerticalGridLines(
     coords: ChartCoordinates,
     gridColor: Color,
-    verticalSegments: Int
+    verticalSegments: Int,
+    visibleStartTime: Long,
+    visibleEndTime: Long,
 ) {
     val cols = verticalSegments.coerceAtLeast(1)
-    val colStep = coords.chartWidth / cols
+    val visibleRange = max(1L, visibleEndTime - visibleStartTime).toDouble()
     val lineColor = gridColor.copy(alpha = 0.3f)
     val stroke = 1.dp.toPx()
 
     for (i in 0..cols) {
-        val x = coords.paddingLeft + colStep * i
+        val timestamp = visibleStartTime + (visibleRange * i / cols).toLong()
+        val x = coords.timeToX(timestamp)
         drawLine(
             lineColor,
             Offset(x, coords.paddingTop),
@@ -1210,16 +1469,18 @@ private fun DrawScope.drawTimeAxisLabels(
     timeLabelFormatter: (Long) -> String,
     totalSegments: Int,
     labelStep: Int,
+    visibleStartTime: Long,
+    visibleEndTime: Long,
 ) {
     val textPaint = createTextPaint(labelColor.toArgb(), 24f)
     val cols = totalSegments.coerceAtLeast(1)
     val step = labelStep.coerceAtLeast(1)
-    val colStep = coords.chartWidth / cols
+    val visibleRange = max(1L, visibleEndTime - visibleStartTime).toDouble()
 
     for (i in 0..cols) {
         if (i % step != 0 && i != cols) continue
-        val x = coords.paddingLeft + colStep * i
-        val timeValue = coords.minTime + (coords.timeRange * i / cols).toLong()
+        val timeValue = visibleStartTime + (visibleRange * i / cols).toLong()
+        val x = coords.timeToX(timeValue)
         val text = timeLabelFormatter(timeValue)
         val textWidth = textPaint.measureText(text)
         drawContext.canvas.nativeCanvas.drawText(
