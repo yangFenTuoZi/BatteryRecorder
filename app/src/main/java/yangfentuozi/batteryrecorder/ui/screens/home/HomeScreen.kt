@@ -73,7 +73,9 @@ fun HomeScreen(
     val liveStatus by liveRecordViewModel.lastStatus.collectAsState()
 
     val settingsState by settingsViewModel.settingsUiState.collectAsState()
+    val settingsInitialized by settingsViewModel.initialized.collectAsState()
     val statisticsRequest by settingsViewModel.statisticsRequest.collectAsState()
+    val latestSettingsInitialized by rememberUpdatedState(settingsInitialized)
     val latestStatisticsRequest by rememberUpdatedState(statisticsRequest)
     var prevServiceConnected by remember { mutableStateOf(serviceConnected) }
     val dualCellEnabled = settingsState.dualCellEnabled
@@ -106,7 +108,7 @@ fun HomeScreen(
     LaunchedEffect(serviceConnected) {
         val shouldDoDelayedRefresh = serviceConnected && !prevServiceConnected
         prevServiceConnected = serviceConnected
-        if (!shouldDoDelayedRefresh) return@LaunchedEffect
+        if (!shouldDoDelayedRefresh || !settingsInitialized) return@LaunchedEffect
 
         Service.service?.registerRecordListener(listener)
         run {
@@ -122,15 +124,25 @@ fun HomeScreen(
         viewModel.onLiveStatusChanged(context, liveStatus, intervalMs)
     }
 
+    LaunchedEffect(settingsInitialized, statisticsRequest) {
+        if (!settingsInitialized) return@LaunchedEffect
+        viewModel.forceRefreshStatistics(
+            context = context,
+            request = statisticsRequest
+        )
+    }
+
     // 监听生命周期事件
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_START -> {
-                    viewModel.refreshStatistics(
-                        context = context,
-                        request = latestStatisticsRequest
-                    )
+                    if (latestSettingsInitialized) {
+                        viewModel.refreshStatistics(
+                            context = context,
+                            request = latestStatisticsRequest
+                        )
+                    }
                     Service.service?.registerRecordListener(listener)
                 }
 

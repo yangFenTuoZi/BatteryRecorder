@@ -94,6 +94,9 @@ class SettingsViewModel : ViewModel() {
     private val _statisticsRequest = MutableStateFlow(StatisticsRequest())
     val statisticsRequest: StateFlow<StatisticsRequest> = _statisticsRequest.asStateFlow()
 
+    private val _initialized = MutableStateFlow(false)
+    val initialized: StateFlow<Boolean> = _initialized.asStateFlow()
+
     private lateinit var serverConfig: Config
 
     /**
@@ -236,6 +239,7 @@ class SettingsViewModel : ViewModel() {
             )
 
         refreshCombinedState()
+        _initialized.value = true
     }
 
     /**
