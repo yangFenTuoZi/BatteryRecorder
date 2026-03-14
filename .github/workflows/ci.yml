@@ -23,20 +23,20 @@ jobs:
         id: channel
         env:
           EVENT_NAME: ${{ github.event_name }}
-          HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           gitCommitCount=`git rev-list --count HEAD`
+          commitHeader=`git log -1 --pretty=%s`
           releaseTagPattern='^v[0-9]+(\.[0-9]+)*-release$'
           prereleaseTagPattern='^v[0-9]+(\.[0-9]+)*-prerelease[0-9]+$'
           previousReleaseTag=`git tag --sort=-creatordate | grep -E "$releaseTagPattern" | head -n 1 || true`
 
-          if [ "$EVENT_NAME" = "push" ] && [ "$HEAD_COMMIT_MESSAGE" = "[release]" ]; then
+          if [ "$EVENT_NAME" = "push" ] && [[ "$commitHeader" == "[release]"* ]]; then
             versionSuffix="-release"
             echo "is_release=true" >> "$GITHUB_OUTPUT"
             echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
             echo "should_publish=true" >> "$GITHUB_OUTPUT"
             echo "version_suffix=$versionSuffix" >> "$GITHUB_OUTPUT"
-          elif [ "$EVENT_NAME" = "push" ] && [ "$HEAD_COMMIT_MESSAGE" = "[prerelease]" ]; then
+          elif [ "$EVENT_NAME" = "push" ] && [[ "$commitHeader" == "[prerelease]"* ]]; then
             prereleaseCount=0
             for tag in `git tag --sort=-creatordate`; do
               if echo "$tag" | grep -Eq "$prereleaseTagPattern"; then
@@ -185,13 +185,21 @@ jobs:
                 continue
               fi
 
+              if [[ "$subject" == "[skip ci]"* ]] || [[ "$subject" == *"doc:"* ]] || [[ "$subject" == "Merge remote-tracking branch 'origin/main'"* ]]; then
+                continue
+              fi
+
               case "$subject" in
                 *"[release]"*|*"[prerelease]"*)
                   continue
                   ;;
               esac
 
-              if [[ "$subject" =~ $conventionalCommitPattern ]]; then
+              if [[ "$subject" == "Merge pull request "* ]]; then
+                subject="**merge:** ${subject#Merge }"
+              elif [[ "$subject" == "Revert "* ]]; then
+                subject="**revert:** ${subject#Revert }"
+              elif [[ "$subject" =~ $conventionalCommitPattern ]]; then
                 subject="**${BASH_REMATCH[1]}** ${BASH_REMATCH[3]}"
               fi
 
