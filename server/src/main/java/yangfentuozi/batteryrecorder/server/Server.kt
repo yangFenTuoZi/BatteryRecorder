@@ -35,98 +35,14 @@ import java.util.Scanner
 import kotlin.system.exitProcess
 
 class Server internal constructor() : IService.Stub() {
-    private lateinit var monitor: Monitor
-    private lateinit var writer: PowerRecordWriter
+    private var monitor: Monitor
+    private var writer: PowerRecordWriter
 
-    private lateinit var appDataDir: File
-    private lateinit var appConfigFile: File
-    private lateinit var appPowerDataDir: File
-    private lateinit var shellDataDir: File
-    private lateinit var shellPowerDataDir: File
-
-    private fun startService() {
-        fun getAppInfo(packageName: String): ApplicationInfo {
-            try {
-                return PackageManagerCompat.getApplicationInfo(packageName, 0L, 0)
-            } catch (e: RemoteException) {
-                throw RuntimeException(
-                    "Failed to get application info for package: $packageName",
-                    e
-                )
-            } catch (e: PackageManager.NameNotFoundException) {
-                throw RuntimeException("$packageName is not installed", e)
-            }
-        }
-
-        var appInfo = getAppInfo(Constants.APP_PACKAGE_NAME)
-        appUid = appInfo.uid
-        appDataDir = File(appInfo.dataDir)
-        appConfigFile = File("${appInfo.dataDir}/shared_prefs/${ConfigConstants.PREFS_NAME}.xml")
-        appPowerDataDir = File("${appInfo.dataDir}/${Constants.APP_POWER_DATA_PATH}")
-
-        val sampler = if (SysfsSampler.init(appInfo)) SysfsSampler else DumpsysSampler()
-
-        appInfo = getAppInfo(Constants.SHELL_PACKAGE_NAME)
-        shellDataDir = File(appInfo.dataDir)
-        shellPowerDataDir = File("${appInfo.dataDir}/${Constants.SHELL_POWER_DATA_PATH}")
-
-        // 指定日志文件夹
-        LoggerX.logDirPath = appInfo.dataDir + Constants.SHELL_LOG_DIR_PATH
-
-        if (Os.getuid() == 0) {
-            shellPowerDataDir.let { shellPowerDataDir ->
-                appPowerDataDir.let { appPowerDataDir ->
-                    if (shellPowerDataDir.exists() && shellPowerDataDir.isDirectory) {
-                        shellPowerDataDir.copyRecursively(
-                            target = appPowerDataDir,
-                            overwrite = true
-                        )
-                        shellPowerDataDir.deleteRecursively()
-                        changeOwnerRecursively(appPowerDataDir)
-                    }
-                }
-            }
-        }
-
-        try {
-            writer = if (Os.getuid() == 0)
-                PowerRecordWriter(appPowerDataDir) { changeOwnerRecursively(it) }
-            else
-                PowerRecordWriter(shellPowerDataDir) {}
-        } catch (e: IOException) {
-            throw RuntimeException(e)
-        }
-
-        monitor = Monitor(
-            writer = writer,
-            sendBinder = this::sendBinder,
-            sampler
-        )
-
-        if (Os.getuid() == 0) {
-            ConfigUtil.getConfigByReading(appConfigFile)
-        } else {
-            ConfigUtil.getConfigByContentProvider()
-        }?.let {
-            updateConfig(it)
-        }
-
-        monitor.start()
-
-        Thread({
-            try {
-                val scanner = Scanner(System.`in`)
-                var line: String
-                while ((scanner.nextLine().also { line = it }) != null) {
-                    if (line.trim { it <= ' ' } == "exit") {
-                        stopService()
-                    }
-                }
-                scanner.close()
-            } catch (_: Throwable) {
-            }
-        }, "InputHandler").start()
-    }
+    private var appDataDir: File
+    private var appConfigFile: File
+    private var appPowerDataDir: File
+    private var shellDataDir: File
+    private var shellPowerDataDir: File
 
     override fun stopService() {
         Handlers.main.postDelayed({ exitProcess(0) }, 100)
@@ -238,18 +154,14 @@ class Server internal constructor() : IService.Stub() {
     }
 
     private fun stopServiceImmediately() {
-        if (::monitor.isInitialized) {
-            monitor.stop()
-        }
+        monitor.stop()
 
-        if (::writer.isInitialized) {
-            try {
-                writer.flushBuffer()
-            } catch (e: IOException) {
-                Log.e(this::class.java.simpleName, Log.getStackTraceString(e))
-            }
-            writer.close()
+        try {
+            writer.flushBuffer()
+        } catch (e: IOException) {
+            Log.e(this::class.java.simpleName, Log.getStackTraceString(e))
         }
+        writer.close()
 
     }
 
@@ -282,7 +194,87 @@ class Server internal constructor() : IService.Stub() {
         ServiceManagerCompat.waitService("display")
         ServiceManagerCompat.waitService("power")
 
-        startService()
+        fun getAppInfo(packageName: String): ApplicationInfo {
+            try {
+                return PackageManagerCompat.getApplicationInfo(packageName, 0L, 0)
+            } catch (e: RemoteException) {
+                throw RuntimeException(
+                    "Failed to get application info for package: $packageName",
+                    e
+                )
+            } catch (e: PackageManager.NameNotFoundException) {
+                throw RuntimeException("$packageName is not installed", e)
+            }
+        }
+
+        var appInfo = getAppInfo(Constants.APP_PACKAGE_NAME)
+        appUid = appInfo.uid
+        appDataDir = File(appInfo.dataDir)
+        appConfigFile = File("${appInfo.dataDir}/shared_prefs/${ConfigConstants.PREFS_NAME}.xml")
+        appPowerDataDir = File("${appInfo.dataDir}/${Constants.APP_POWER_DATA_PATH}")
+
+        val sampler = if (SysfsSampler.init(appInfo)) SysfsSampler else DumpsysSampler()
+
+        appInfo = getAppInfo(Constants.SHELL_PACKAGE_NAME)
+        shellDataDir = File(appInfo.dataDir)
+        shellPowerDataDir = File("${appInfo.dataDir}/${Constants.SHELL_POWER_DATA_PATH}")
+
+        // 指定日志文件夹
+        LoggerX.logDirPath = appInfo.dataDir + Constants.SHELL_LOG_DIR_PATH
+
+        if (Os.getuid() == 0) {
+            shellPowerDataDir.let { shellPowerDataDir ->
+                appPowerDataDir.let { appPowerDataDir ->
+                    if (shellPowerDataDir.exists() && shellPowerDataDir.isDirectory) {
+                        shellPowerDataDir.copyRecursively(
+                            target = appPowerDataDir,
+                            overwrite = true
+                        )
+                        shellPowerDataDir.deleteRecursively()
+                        changeOwnerRecursively(appPowerDataDir)
+                    }
+                }
+            }
+        }
+
+        try {
+            writer = if (Os.getuid() == 0)
+                PowerRecordWriter(appPowerDataDir) { changeOwnerRecursively(it) }
+            else
+                PowerRecordWriter(shellPowerDataDir) {}
+        } catch (e: IOException) {
+            throw RuntimeException(e)
+        }
+
+        monitor = Monitor(
+            writer = writer,
+            sendBinder = this::sendBinder,
+            sampler
+        )
+
+        if (Os.getuid() == 0) {
+            ConfigUtil.getConfigByReading(appConfigFile)
+        } else {
+            ConfigUtil.getConfigByContentProvider()
+        }?.let {
+            updateConfig(it)
+        }
+
+        monitor.start()
+
+        Thread({
+            try {
+                val scanner = Scanner(System.`in`)
+                var line: String
+                while ((scanner.nextLine().also { line = it }) != null) {
+                    if (line.trim { it <= ' ' } == "exit") {
+                        stopService()
+                    }
+                }
+                scanner.close()
+            } catch (_: Throwable) {
+            }
+        }, "InputHandler").start()
         Looper.loop()
     }
 
