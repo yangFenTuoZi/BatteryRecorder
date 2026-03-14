@@ -207,20 +207,16 @@ class Server internal constructor() : IService.Stub() {
             }
         }
 
-        var appInfo = getAppInfo(Constants.APP_PACKAGE_NAME)
-        appUid = appInfo.uid
+        val appInfo = getAppInfo(Constants.APP_PACKAGE_NAME)
         appDataDir = File(appInfo.dataDir)
         appConfigFile = File("${appInfo.dataDir}/shared_prefs/${ConfigConstants.PREFS_NAME}.xml")
         appPowerDataDir = File("${appInfo.dataDir}/${Constants.APP_POWER_DATA_PATH}")
 
         val sampler = if (SysfsSampler.init(appInfo)) SysfsSampler else DumpsysSampler()
 
-        appInfo = getAppInfo(Constants.SHELL_PACKAGE_NAME)
-        shellDataDir = File(appInfo.dataDir)
-        shellPowerDataDir = File("${appInfo.dataDir}/${Constants.SHELL_POWER_DATA_PATH}")
-
-        // 指定日志文件夹
-        LoggerX.logDirPath = appInfo.dataDir + Constants.SHELL_LOG_DIR_PATH
+        shellDataDir = File(Constants.SHELL_DATA_DIR_PATH)
+        shellPowerDataDir =
+            File("${Constants.SHELL_DATA_DIR_PATH}/${Constants.SHELL_POWER_DATA_PATH}")
 
         if (Os.getuid() == 0) {
             shellPowerDataDir.let { shellPowerDataDir ->
@@ -231,15 +227,22 @@ class Server internal constructor() : IService.Stub() {
                             overwrite = true
                         )
                         shellPowerDataDir.deleteRecursively()
-                        changeOwnerRecursively(appPowerDataDir)
+                        changeOwnerRecursively(appPowerDataDir, appInfo.uid)
                     }
                 }
             }
+
+            LoggerX.fixFileOwner = {
+                changeOwnerRecursively(it, 2000)
+            }
         }
+
+        // 指定日志文件夹
+        LoggerX.logDirPath = "${Constants.SHELL_DATA_DIR_PATH}/${Constants.SHELL_LOG_DIR_PATH}"
 
         try {
             writer = if (Os.getuid() == 0)
-                PowerRecordWriter(appPowerDataDir) { changeOwnerRecursively(it) }
+                PowerRecordWriter(appPowerDataDir) { changeOwnerRecursively(it, appInfo.uid) }
             else
                 PowerRecordWriter(shellPowerDataDir) {}
         } catch (e: IOException) {
@@ -279,11 +282,10 @@ class Server internal constructor() : IService.Stub() {
     }
 
     companion object {
-        var appUid: Int = 0
 
-        fun changeOwner(file: File) {
+        fun changeOwner(file: File, uid: Int) {
             try {
-                Os.chown(file.absolutePath, appUid, appUid)
+                Os.chown(file.absolutePath, uid, uid)
             } catch (e: ErrnoException) {
                 LoggerX.w<Server>(
                     "changeOwner: 设置文件(夹): ${file.absolutePath} 所有者和组失败",
@@ -292,13 +294,13 @@ class Server internal constructor() : IService.Stub() {
             }
         }
 
-        fun changeOwnerRecursively(file: File) {
-            changeOwner(file)
+        fun changeOwnerRecursively(file: File, uid: Int) {
+            changeOwner(file, uid)
             if (file.isDirectory()) {
                 val files = file.listFiles()
                 if (files != null) {
                     for (child in files) {
-                        changeOwnerRecursively(child)
+                        changeOwnerRecursively(child, uid)
                     }
                 }
             }
