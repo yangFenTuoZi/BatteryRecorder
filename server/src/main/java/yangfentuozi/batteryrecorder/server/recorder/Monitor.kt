@@ -8,7 +8,6 @@ import android.app.TaskStackListener
 import android.hardware.display.IDisplayManager
 import android.hardware.display.IDisplayManagerCallback
 import android.os.Handler
-import android.os.HandlerThread
 import android.os.IPowerManager
 import android.os.RemoteCallbackList
 import android.os.RemoteException
@@ -19,6 +18,7 @@ import yangfentuozi.batteryrecorder.server.writer.PowerRecordWriter
 import yangfentuozi.batteryrecorder.shared.Constants
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.shared.data.LineRecord
+import yangfentuozi.batteryrecorder.shared.util.Handlers
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import java.io.IOException
 
@@ -70,8 +70,8 @@ class Monitor(
     @Volatile
     private var stopped = false
     private val lock = Object()
-    private val callbackThread = HandlerThread("CallbackThread")
-    private lateinit var callbackHandler: Handler
+    private val callbackHandler: Handler
+        get() = Handlers.getHandler("CallbackThread")
     private var thread = Thread({
         synchronized(lock) {
             while (!stopped) {
@@ -138,8 +138,6 @@ class Monitor(
         }
         isInteractive = iPowerManager.isInteractive
 
-        callbackThread.start()
-        callbackHandler = Handler(callbackThread.looper)
         thread.start()
         writer.onChangedCurrRecordsFile = {
             callbackHandler.post {
@@ -162,7 +160,6 @@ class Monitor(
         stopped = true
         notifyLock()
         thread.interrupt()
-        callbackThread.interrupt()
         try {
             iActivityTaskManager.unregisterTaskStackListener(taskStackListener)
         } catch (e: RemoteException) {
