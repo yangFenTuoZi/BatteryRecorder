@@ -154,7 +154,6 @@ class DailyLineRotateFileWriter(
     private val fileNameRegex = Regex("""^(\d{4}-\d{2}-\d{2})(?:_(\d+))?\.log$""")
     private val dateFileFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
     private val lineTimeFormatter = DateTimeFormatter.ofPattern("dd HH:mm:ss.SSS")
-    private val lock = Any()
     private var activeDate = ""
     private var activeIndex = 0
     private var activeLines = 0
@@ -166,7 +165,7 @@ class DailyLineRotateFileWriter(
     }
 
     fun write(tag: String, level: LoggerX.LogLevel, message: String) {
-        synchronized(lock) {
+        Handlers.getHandler("LoggingThread").post {
             try {
                 val today = LocalDate.now()
                 val todayKey = today.format(dateFileFormatter)

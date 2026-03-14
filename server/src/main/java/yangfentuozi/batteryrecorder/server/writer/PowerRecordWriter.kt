@@ -1,11 +1,11 @@
 package yangfentuozi.batteryrecorder.server.writer
 
 import android.os.Handler
-import android.os.Looper
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Charging
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Discharging
 import yangfentuozi.batteryrecorder.shared.data.LineRecord
+import yangfentuozi.batteryrecorder.shared.util.Handlers
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import java.io.File
 import java.io.FileOutputStream
@@ -13,7 +13,6 @@ import java.io.IOException
 import java.io.OutputStream
 
 class PowerRecordWriter(
-    private val looper: Looper,
     powerDir: File,
     private val fixFileOwner: ((File) -> Unit)
 ) {
@@ -119,7 +118,7 @@ class PowerRecordWriter(
         protected val buffer = StringBuilder(4096)
         protected var batchCount = 0
 
-        protected val handler: Handler = Handler(looper)
+        protected val handler: Handler = Handlers.getHandler("RecorderWritingThread")
         protected val writingRunnable = Runnable {
             flushBuffer()
             // 防止异步写完被忽略掉

@@ -3,8 +3,6 @@ package yangfentuozi.batteryrecorder.server
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.os.Handler
-import android.os.HandlerThread
 import android.os.Looper
 import android.os.ParcelFileDescriptor
 import android.os.RemoteException
@@ -25,6 +23,7 @@ import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Charging
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Discharging
 import yangfentuozi.batteryrecorder.shared.data.RecordsFile
 import yangfentuozi.batteryrecorder.shared.sync.PfdFileSender
+import yangfentuozi.batteryrecorder.shared.util.Handlers
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import yangfentuozi.hiddenapi.compat.ActivityManagerCompat
 import yangfentuozi.hiddenapi.compat.PackageManagerCompat
@@ -36,10 +35,8 @@ import java.util.Scanner
 import kotlin.system.exitProcess
 
 class Server internal constructor() : IService.Stub() {
-    private val mMainHandler: Handler
     private lateinit var monitor: Monitor
     private lateinit var writer: PowerRecordWriter
-    private val writerThread = HandlerThread("WriterThread")
 
     private lateinit var appDataDir: File
     private lateinit var appConfigFile: File
@@ -92,17 +89,10 @@ class Server internal constructor() : IService.Stub() {
         }
 
         try {
-            writerThread.start()
             writer = if (Os.getuid() == 0)
-                PowerRecordWriter(
-                    writerThread.looper,
-                    appPowerDataDir
-                ) { changeOwnerRecursively(it) }
+                PowerRecordWriter(appPowerDataDir) { changeOwnerRecursively(it) }
             else
-                PowerRecordWriter(
-                    writerThread.looper,
-                    shellPowerDataDir
-                ) {}
+                PowerRecordWriter(shellPowerDataDir) {}
         } catch (e: IOException) {
             throw RuntimeException(e)
         }
@@ -139,7 +129,7 @@ class Server internal constructor() : IService.Stub() {
     }
 
     override fun stopService() {
-        mMainHandler.postDelayed({ exitProcess(0) }, 100)
+        Handlers.main.postDelayed({ exitProcess(0) }, 100)
     }
 
     override fun getVersion(): Int {
@@ -165,14 +155,16 @@ class Server internal constructor() : IService.Stub() {
     }
 
     override fun updateConfig(config: Config) {
-        LoggerX.logLevel = config.logLevel
-        monitor.recordIntervalMs = config.recordIntervalMs
-        unlockOPlusSampleTimeLimit(config.recordIntervalMs.coerceAtLeast(200))
-        monitor.screenOffRecord = config.screenOffRecordEnabled
-        writer.flushIntervalMs = config.writeLatencyMs
-        writer.batchSize = config.batchSize
-        writer.maxSegmentDurationMs = config.segmentDurationMin * 60 * 1000L
-        monitor.notifyLock()
+        Handlers.common.post {
+            LoggerX.logLevel = config.logLevel
+            monitor.recordIntervalMs = config.recordIntervalMs
+            unlockOPlusSampleTimeLimit(config.recordIntervalMs.coerceAtLeast(200))
+            monitor.screenOffRecord = config.screenOffRecordEnabled
+            writer.flushIntervalMs = config.writeLatencyMs
+            writer.batchSize = config.batchSize
+            writer.maxSegmentDurationMs = config.segmentDurationMin * 60 * 1000L
+            monitor.notifyLock()
+        }
     }
 
     private fun unlockOPlusSampleTimeLimit(intervalMs: Long) {
@@ -280,7 +272,7 @@ class Server internal constructor() : IService.Stub() {
             Looper.prepareMainLooper()
         }
 
-        mMainHandler = Handler(Looper.getMainLooper())
+        Handlers.initMainThread()
         Runtime.getRuntime().addShutdownHook(Thread { this.stopServiceImmediately() })
         ServiceManagerCompat.waitService("activity_task")
         ServiceManagerCompat.waitService("display")
