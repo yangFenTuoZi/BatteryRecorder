@@ -121,6 +121,7 @@ class Monitor(
                 }
             }
         }
+        Thread.currentThread().interrupt()
     }, "MonitorThread")
 
     fun start() {
@@ -159,7 +160,6 @@ class Monitor(
         writer.onChangedCurrRecordsFile = null
         stopped = true
         notifyLock()
-        thread.interrupt()
         try {
             iActivityTaskManager.unregisterTaskStackListener(taskStackListener)
         } catch (e: RemoteException) {
