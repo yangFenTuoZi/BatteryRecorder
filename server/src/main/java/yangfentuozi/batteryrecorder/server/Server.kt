@@ -171,14 +171,18 @@ class Server internal constructor() : IService.Stub() {
         try {
             val forceActive = "/proc/oplus-votable/GAUGE_UPDATE/force_active"
             val forceVal = "/proc/oplus-votable/GAUGE_UPDATE/force_val"
-            if (Os.access(forceActive, OsConstants.R_OK)) {
+            if (Os.access(forceActive, OsConstants.F_OK)) {
+                LoggerX.i<Server>("unlockOPlusSampleTimeLimit: 欧加功率采样频率解限文件存在")
+                Os.chmod(forceActive, "666".toInt(8))
+                Os.chmod(forceVal, "666".toInt(8))
                 val forceActiveFile = File(forceActive)
                 val forceValFile = File(forceVal)
-                if (forceValFile.readText().trim().toLong() > intervalMs) {
-                    Os.chmod(forceActive, "666".toInt(8))
-                    Os.chmod(forceVal, "666".toInt(8))
-                    forceActiveFile.writeText("1\n")
-                    forceValFile.writeText("$intervalMs\n")
+                forceValFile.readText().trim().toLong().let {
+                    if (it > intervalMs || it == 0L) {
+                        LoggerX.i<Server>("unlockOPlusSampleTimeLimit: 解锁欧加功率采样频率: ${intervalMs}Ms")
+                        forceActiveFile.writeText("1\n")
+                        forceValFile.writeText("$intervalMs\n")
+                    }
                 }
             }
         } catch (e: Exception) {
