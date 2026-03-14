@@ -1,29 +1,20 @@
-package yangfentuozi.batteryrecorder.server;
+package yangfentuozi.batteryrecorder.server
 
-import android.ddm.DdmHandleAppName;
-
-import androidx.annotation.Keep;
-
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-
-import yangfentuozi.batteryrecorder.shared.util.LoggerX;
+import android.ddm.DdmHandleAppName
+import androidx.annotation.Keep
+import yangfentuozi.batteryrecorder.shared.util.LoggerX
+import java.io.File
+import java.io.IOException
 
 @Keep
-public class Main {
-    private static final String TAG = "ServerMain";
-    private static final File OOM_SCORE_ADJ_FILE = new File("/proc/self/oom_score_adj");
-    private static final String OOM_SCORE_ADJ_VALUE = "-1000\n";
+object Main {
 
     @Keep
-    public static void main(String[] args) {
-        DdmHandleAppName.setAppName("battery_recorder", 0);
+    @JvmStatic
+    fun main(args: Array<String>) {
+        DdmHandleAppName.setAppName("battery_recorder", 0)
         // 设置OOM保活
-        setSelfOomScoreAdj();
+        setSelfOomScoreAdj()
         /* ColorOS 调度使得某些 Soc 的 1 核在息屏后被禁用，会导致某些机型息屏后无法正常记录，故不自行 taskset，全权交由系统调度
         try {
             Runtime.getRuntime().exec(new String[]{"taskset", "-ap", "1", String.valueOf(Os.getpid())});
@@ -32,30 +23,24 @@ public class Main {
             throw new RuntimeException(e);
         }
         */
-        new Server();
+        Server()
     }
 
-    private static void setSelfOomScoreAdj() {
+    private fun setSelfOomScoreAdj() {
+        val oomScoreAdjFile = File("/proc/self/oom_score_adj")
+        val oomScoreAdjValue = -1000
         try {
-            try (FileOutputStream outputStream = new FileOutputStream(OOM_SCORE_ADJ_FILE)) {
-                outputStream.write(OOM_SCORE_ADJ_VALUE.getBytes(StandardCharsets.UTF_8));
-                outputStream.flush();
+            oomScoreAdjFile.writeText("$oomScoreAdjValue\n")
+            val actualValue: String = oomScoreAdjFile.readText().trim()
+            if (oomScoreAdjValue.toString() != actualValue) {
+                LoggerX.e<Main>("[启动] 设置 oom_score_adj 失败，期望 $oomScoreAdjValue，实际 $actualValue")
+                return
             }
-            String actualValue;
-            try (BufferedReader reader = new BufferedReader(new FileReader(OOM_SCORE_ADJ_FILE))) {
-                actualValue = reader.readLine();
-            }
-            if (actualValue == null) {
-                actualValue = "";
-            }
-            actualValue = actualValue.trim();
-            if (!"-1000".equals(actualValue)) {
-                LoggerX.e(TAG, "[启动] 设置 oom_score_adj 失败，期望=-1000，实际=" + actualValue);
-                return;
-            }
-            LoggerX.i(TAG, "[启动] 设置 oom_score_adj 成功，实际=-1000");
-        } catch (IOException | RuntimeException e) {
-            LoggerX.e(TAG, "[启动] 设置 oom_score_adj 失败", e);
+            LoggerX.i<Main>("[启动] 设置 oom_score_adj 成功，实际 $oomScoreAdjValue")
+        } catch (e: IOException) {
+            LoggerX.e<Main>("[启动] 设置 oom_score_adj 失败", e)
+        } catch (e: RuntimeException) {
+            LoggerX.e<Main>("[启动] 设置 oom_score_adj 失败", e)
         }
     }
 }
